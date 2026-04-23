@@ -6,3 +6,4 @@ output/
 .env
 .DS_Store
 __pycache__/
+data/alfworld/json_2.1.1/
