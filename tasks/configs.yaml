@@ -113,6 +113,41 @@ mtmind2web_test_subdomain:
   max_steps: 4
   few_shots_num: 1
 
+scienceworld_train:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_dev:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_test:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_a_train:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_b_train:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_a_test:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_b_test:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
 # MAS configs
 autogen:
   autogen:  True

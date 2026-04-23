@@ -39,6 +39,18 @@ def _build_prompt(
     action_history_preview = action_history[-5:] if action_history else []
     actions_text = "\n".join(f"- {a}" for a in valid_actions)
     history_text = "\n".join(f"- {a}" for a in action_history_preview) if action_history_preview else "- <none>"
+    is_ambiguous_resolution = bool(valid_actions) and all(a.isdigit() for a in valid_actions)
+    if is_ambiguous_resolution:
+        action_instruction = (
+            "The environment is asking you to resolve an ambiguous request.\n"
+            "Choose exactly one option index from the valid actions list below.\n"
+            "Return ONE number only (e.g., 0). No explanation."
+        )
+    else:
+        action_instruction = (
+            "Choose exactly one action from the valid actions list below.\n"
+            "Return ONE executable action line only. No explanation."
+        )
     return (
         f"You are solving a ScienceWorld task.\n"
         f"Task name: {task_name}\n"
@@ -47,8 +59,7 @@ def _build_prompt(
         f"Current score: {score}\n\n"
         f"Recent action history (latest up to 5):\n{history_text}\n\n"
         f"Observation:\n{observation}\n\n"
-        f"Choose exactly one action from the valid actions list below.\n"
-        f"Return ONE executable action line only. No explanation.\n\n"
+        f"{action_instruction}\n\n"
         f"Valid actions:\n{actions_text}\n"
     )
 
@@ -108,6 +119,7 @@ def run_episode(args: argparse.Namespace) -> SmokeResult:
 
             for step_idx in range(1, args.max_steps + 1):
                 valid_actions = env.get_valid_action_object_combinations()
+                is_ambiguous_resolution = bool(valid_actions) and all(a.isdigit() for a in valid_actions)
                 prompt = _build_prompt(
                     task_name=task_name,
                     task_description=task_description,
@@ -145,6 +157,7 @@ def run_episode(args: argparse.Namespace) -> SmokeResult:
                             "event": "step",
                             "step": step_idx,
                             "prompt": prompt,
+                            "is_ambiguous_resolution": is_ambiguous_resolution,
                             "llm_response": llm_response,
                             "proposed_action": proposed_action,
                             "chosen_action": chosen_action,

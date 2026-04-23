@@ -1,5 +1,6 @@
 import importlib
 import json
+import os
 
 from .base_env import BaseEnv, BaseRecorder
 # from .alfworld_env import AlfworldEnv, AlfworldRecorder, get_env_name_from_gamefile, prefixes
@@ -7,6 +8,7 @@ from .fever_env import FeverEnv, FeverRecorder
 from .huskyqa_env import HuskyQAEnv, HuskyQARecorder
 from .medmcqa_env import MedMCQAEnv, MedMCQARecorder
 from .mtmind2web_env import MTMind2WebEnv, MTMind2WebRecorder
+from .scienceworld_env import ScienceWorldEnv, ScienceWorldRecorder
 try:
     from .pddl_env.pddl_env import PDDLEnv, PDDLRecorder, get_all_environment_configs
 except ImportError:
@@ -52,12 +54,25 @@ TASKS_PATH = {
     'mtmind2web_test_task': 'data/MT-Mind2Web/mtmind2web_test_task_eval.jsonl',
     'mtmind2web_test_website': 'data/MT-Mind2Web/mtmind2web_test_website_eval.jsonl',
     'mtmind2web_test_subdomain': 'data/MT-Mind2Web/mtmind2web_test_subdomain_eval.jsonl',
+    'scienceworld_train': 'data/scienceworld/scienceworld_train.jsonl',
+    'scienceworld_dev': 'data/scienceworld/scienceworld_dev.jsonl',
+    'scienceworld_test': 'data/scienceworld/scienceworld_test.jsonl',
+    'scienceworld_domain_a_train': 'data/scienceworld/scienceworld_domain_a_train.jsonl',
+    'scienceworld_domain_b_train': 'data/scienceworld/scienceworld_domain_b_train.jsonl',
+    'scienceworld_domain_a_test': 'data/scienceworld/scienceworld_domain_a_test.jsonl',
+    'scienceworld_domain_b_test': 'data/scienceworld/scienceworld_domain_b_test.jsonl',
 }
 
 
 def _load_jsonl_rows(path: str) -> list[dict]:
     with open(path, "r", encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def _load_jsonl_rows_if_exists(path: str) -> list[dict]:
+    if not os.path.exists(path):
+        return []
+    return _load_jsonl_rows(path)
 
 ## Tasks
 if AlfworldEnv is not None:
@@ -327,6 +342,9 @@ mtmind2web_train_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_train'])
 mtmind2web_test_task_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_test_task'])
 mtmind2web_test_website_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_test_website'])
 mtmind2web_test_subdomain_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_test_subdomain'])
+scienceworld_train_tasks = _load_jsonl_rows(TASKS_PATH['scienceworld_train'])
+scienceworld_dev_tasks = _load_jsonl_rows(TASKS_PATH['scienceworld_dev'])
+scienceworld_test_tasks = _load_jsonl_rows(TASKS_PATH['scienceworld_test'])
 
 TASK_NAMES = ["barman", "blockworld", "gripper", "tyreworld"]
 if get_all_environment_configs is not None:
@@ -358,6 +376,9 @@ TASK_DATA = {
     'mtmind2web_test_task': mtmind2web_test_task_tasks,
     'mtmind2web_test_website': mtmind2web_test_website_tasks,
     'mtmind2web_test_subdomain': mtmind2web_test_subdomain_tasks,
+    'scienceworld_train': scienceworld_train_tasks,
+    'scienceworld_dev': scienceworld_dev_tasks,
+    'scienceworld_test': scienceworld_test_tasks,
 }
 
 ENVS = {
@@ -382,6 +403,9 @@ ENVS = {
     'mtmind2web_test_task': MTMind2WebEnv,
     'mtmind2web_test_website': MTMind2WebEnv,
     'mtmind2web_test_subdomain': MTMind2WebEnv,
+    'scienceworld_train': ScienceWorldEnv,
+    'scienceworld_dev': ScienceWorldEnv,
+    'scienceworld_test': ScienceWorldEnv,
 }
 if AlfworldEnv is not None:
     ENVS['alfworld'] = AlfworldEnv
@@ -408,6 +432,9 @@ RECORDERS = {
     'mtmind2web_test_task': MTMind2WebRecorder,
     'mtmind2web_test_website': MTMind2WebRecorder,
     'mtmind2web_test_subdomain': MTMind2WebRecorder,
+    'scienceworld_train': ScienceWorldRecorder,
+    'scienceworld_dev': ScienceWorldRecorder,
+    'scienceworld_test': ScienceWorldRecorder,
 }
 if AlfworldRecorder is not None:
     RECORDERS['alfworld'] = AlfworldRecorder

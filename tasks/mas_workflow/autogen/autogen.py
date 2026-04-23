@@ -380,9 +380,12 @@ class AutoGen(MetaMAS):
         final_reward, final_done, final_feedback = self.env.feedback()
         feedback_block_s = time.perf_counter() - t0
         self.notify_observers(final_feedback)
+        memory_label = bool(final_done)
+        if hasattr(self.env, "memory_success_label"):
+            memory_label = bool(getattr(self.env, "memory_success_label"))
         t0 = time.perf_counter()
-        self.meta_memory.save_task_context(label=final_done, feedback=final_feedback)  
-        self.meta_memory.backward(final_done)
+        self.meta_memory.save_task_context(label=memory_label, feedback=final_feedback)  
+        self.meta_memory.backward(memory_label)
         save_backward_s = time.perf_counter() - t0
 
         if prof:

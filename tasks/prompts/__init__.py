@@ -4,6 +4,7 @@ from .huskyqa_prompt import huskyqa_solver_system_prompt, huskyqa_few_shots
 from .medmcqa_prompt import medmcqa_solver_system_prompt, medmcqa_few_shots
 from .mtmind2web_prompt import mtmind2web_solver_system_prompt, mtmind2web_few_shots
 from .pddl_prompt import pddl_prompts
+from .scienceworld_prompt import scienceworld_solver_system_prompt, scienceworld_few_shots
 
 def get_dataset_system_prompt(task: str, task_config: dict) -> str:
     prompt_map: dict = {
@@ -27,6 +28,13 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
         'mtmind2web_test_task': mtmind2web_solver_system_prompt,
         'mtmind2web_test_website': mtmind2web_solver_system_prompt,
         'mtmind2web_test_subdomain': mtmind2web_solver_system_prompt,
+        'scienceworld_train': scienceworld_solver_system_prompt,
+        'scienceworld_dev': scienceworld_solver_system_prompt,
+        'scienceworld_test': scienceworld_solver_system_prompt,
+        'scienceworld_domain_a_train': scienceworld_solver_system_prompt,
+        'scienceworld_domain_b_train': scienceworld_solver_system_prompt,
+        'scienceworld_domain_a_test': scienceworld_solver_system_prompt,
+        'scienceworld_domain_b_test': scienceworld_solver_system_prompt,
     }
 
     if prompt_map.get(task) is None:
@@ -107,6 +115,27 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
 
     elif dataset == 'mtmind2web_test_subdomain':
         return mtmind2web_few_shots[:few_shots_num]
+
+    elif dataset == 'scienceworld_train':
+        return scienceworld_few_shots[:few_shots_num]
+
+    elif dataset == 'scienceworld_dev':
+        return scienceworld_few_shots[:few_shots_num]
+
+    elif dataset == 'scienceworld_test':
+        return scienceworld_few_shots[:few_shots_num]
+
+    elif dataset == 'scienceworld_domain_a_train':
+        return scienceworld_few_shots[:few_shots_num]
+
+    elif dataset == 'scienceworld_domain_b_train':
+        return scienceworld_few_shots[:few_shots_num]
+
+    elif dataset == 'scienceworld_domain_a_test':
+        return scienceworld_few_shots[:few_shots_num]
+
+    elif dataset == 'scienceworld_domain_b_test':
+        return scienceworld_few_shots[:few_shots_num]
     
     else:
         raise ValueError(f'Unsupported dataset type: {dataset}')

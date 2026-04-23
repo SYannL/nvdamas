@@ -1260,7 +1260,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Collaborative domain adaptation evaluation for memory-based MAS.")
-    parser.add_argument("--dataset_family", type=str, choices=["medmcqa", "alfworld", "mtmind2web"], default="medmcqa")
+    parser.add_argument("--dataset_family", type=str, choices=["medmcqa", "alfworld", "mtmind2web", "scienceworld"], default="medmcqa")
     parser.add_argument("--task_a", type=str, default="medmcqa_physio_150_build")
     parser.add_argument("--task_b", type=str, default="medmcqa_pharma_150_build")
     parser.add_argument("--task_a_test", type=str, default="medmcqa_physio_20_test")
@@ -1340,6 +1340,30 @@ def main() -> None:
         default="data/MT-Mind2Web/mtmind2web_shopping_websites_test_eval.jsonl",
         help="MT-Mind2Web B-domain test jsonl (used when --dataset_family mtmind2web).",
     )
+    parser.add_argument(
+        "--sw_task_a_train_jsonl",
+        type=str,
+        default="data/scienceworld/scienceworld_domain_a_train.jsonl",
+        help="ScienceWorld A-domain train jsonl (used when --dataset_family scienceworld).",
+    )
+    parser.add_argument(
+        "--sw_task_b_train_jsonl",
+        type=str,
+        default="data/scienceworld/scienceworld_domain_b_train.jsonl",
+        help="ScienceWorld B-domain train jsonl (used when --dataset_family scienceworld).",
+    )
+    parser.add_argument(
+        "--sw_task_a_test_jsonl",
+        type=str,
+        default="data/scienceworld/scienceworld_domain_a_test.jsonl",
+        help="ScienceWorld A-domain test jsonl (used when --dataset_family scienceworld).",
+    )
+    parser.add_argument(
+        "--sw_task_b_test_jsonl",
+        type=str,
+        default="data/scienceworld/scienceworld_domain_b_test.jsonl",
+        help="ScienceWorld B-domain test jsonl (used when --dataset_family scienceworld).",
+    )
     args = parser.parse_args()
 
     mem_profile_extras: dict[str, Any] = {}
@@ -1403,6 +1427,24 @@ def main() -> None:
         task_b_eval_name = "mtmind2web_test_task"
         task_a_eval_tasks = load_jsonl_rows(args.mt_task_a_test_jsonl)
         task_b_eval_tasks = load_jsonl_rows(args.mt_task_b_test_jsonl)
+
+        if args.max_train is not None:
+            task_a_train_tasks = task_a_train_tasks[: args.max_train]
+            task_b_train_tasks = task_b_train_tasks[: args.max_train]
+        if args.max_eval is not None:
+            task_a_eval_tasks = task_a_eval_tasks[: args.max_eval]
+            task_b_eval_tasks = task_b_eval_tasks[: args.max_eval]
+    elif args.dataset_family == "scienceworld":
+        task_a_name = "scienceworld_train"
+        task_b_name = "scienceworld_train"
+        task_a_label = "scienceworld_a"
+        task_b_label = "scienceworld_b"
+        task_a_train_tasks = load_jsonl_rows(args.sw_task_a_train_jsonl)
+        task_b_train_tasks = load_jsonl_rows(args.sw_task_b_train_jsonl)
+        task_a_eval_name = "scienceworld_test"
+        task_b_eval_name = "scienceworld_test"
+        task_a_eval_tasks = load_jsonl_rows(args.sw_task_a_test_jsonl)
+        task_b_eval_tasks = load_jsonl_rows(args.sw_task_b_test_jsonl)
 
         if args.max_train is not None:
             task_a_train_tasks = task_a_train_tasks[: args.max_train]

@@ -253,6 +253,13 @@ if __name__ == '__main__':
             'mtmind2web_test_task',
             'mtmind2web_test_website',
             'mtmind2web_test_subdomain',
+            'scienceworld_train',
+            'scienceworld_dev',
+            'scienceworld_test',
+            'scienceworld_domain_a_train',
+            'scienceworld_domain_b_train',
+            'scienceworld_domain_a_test',
+            'scienceworld_domain_b_test',
         ],
     )
     parser.add_argument('--mas_type', type=str, choices=['autogen', 'macnet', 'dylan', 'strategy'])
