@@ -33,7 +33,7 @@ class VoyagerMASMemory(MASMemoryBase):
             task_trajectory=mas_message.task_description+mas_message.task_trajectory
         )
         messages: list[Message] = [Message('system', VOYAGER.task_summary_system_instruction), Message('user', prompt)]
-        response: str = self.llm_model(messages, temperature=0.1)
+        response: str = self.llm_model(messages, temperature=0)
         mas_message.task_main = response
 
         meta_data: dict = MASMessage.to_dict(mas_message)

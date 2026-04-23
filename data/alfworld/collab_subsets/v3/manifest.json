@@ -1,0 +1,52 @@
+{
+  "subset_version": "v3",
+  "selection_policy": "all_games_per_scene_domain_per_split",
+  "description": "One JSON per (scene_domain, official_split). Each file contains all game.tw-pddl under json_2.1.1 for that scene domain.",
+  "splits": [
+    "train",
+    "valid_unseen"
+  ],
+  "validate_gamefiles": false,
+  "files": {
+    "kitchen__train.json": {
+      "scene_domain": "kitchen",
+      "split_name": "train",
+      "num_tasks": 1964
+    },
+    "living__train.json": {
+      "scene_domain": "living",
+      "split_name": "train",
+      "num_tasks": 856
+    },
+    "bedroom__train.json": {
+      "scene_domain": "bedroom",
+      "split_name": "train",
+      "num_tasks": 874
+    },
+    "bathroom__train.json": {
+      "scene_domain": "bathroom",
+      "split_name": "train",
+      "num_tasks": 958
+    },
+    "kitchen__valid_unseen.json": {
+      "scene_domain": "kitchen",
+      "split_name": "valid_unseen",
+      "num_tasks": 90
+    },
+    "living__valid_unseen.json": {
+      "scene_domain": "living",
+      "split_name": "valid_unseen",
+      "num_tasks": 42
+    },
+    "bedroom__valid_unseen.json": {
+      "scene_domain": "bedroom",
+      "split_name": "valid_unseen",
+      "num_tasks": 36
+    },
+    "bathroom__valid_unseen.json": {
+      "scene_domain": "bathroom",
+      "split_name": "valid_unseen",
+      "num_tasks": 27
+    }
+  }
+}

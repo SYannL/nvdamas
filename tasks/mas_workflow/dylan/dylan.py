@@ -66,6 +66,7 @@ class DyLAN(MetaMAS):
         self._insights_topk: int = config.get('insights_topk', 3)
         self._threshold: float = config.get('threshold', 0)
         self._use_projector: bool = config.get('use_projector', False)
+        self._quiet: bool = bool(config.get('quiet', False))
 
         self._roles: list[str] = config.get('roles', ['solver'])
         self._roles = [role for role in self._roles if role in VALID_ROLES] 
@@ -185,7 +186,10 @@ class DyLAN(MetaMAS):
             threshold=self._threshold
         )
         successful_shots: list[str] = [format_task_context(
-            traj.task_description, traj.task_trajectory, traj.get_extra_field('key_steps')
+            traj.task_description,
+            traj.task_trajectory,
+            traj.get_extra_field('key_steps'),
+            source=traj.get_extra_field('source_id')
         ) for traj in successful_trajectories]
         raw_rules: list[str] = [insight for insight in insights]
         roles_rules: dict[str, list[str]] = self._project_insights(raw_rules)
@@ -222,7 +226,8 @@ class DyLAN(MetaMAS):
                             action = env.process_action(action)
                             break
                         except Exception as e:
-                            print(f'Error during execution of node {curr_neuron.id}: {e}')
+                            if not self._quiet:
+                                print(f'Error during execution of node {curr_neuron.id}: {e}')
                         tries += 1
 
                     agent_message: AgentMessage = AgentMessage(

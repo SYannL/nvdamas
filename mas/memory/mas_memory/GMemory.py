@@ -9,7 +9,10 @@ import random
 from collections import defaultdict
 import networkx as nx
 import numpy as np
-from finch import FINCH
+try:
+    from finch import FINCH
+except Exception:
+    FINCH = None
 import pickle
 import networkx as nx
 import logging
@@ -60,6 +63,8 @@ class GMemory(MASMemoryBase):
         )
 
         self.insights_cache: list[str] = []
+        self.last_saved_message: MASMessage | None = None
+        self._global_retriever: "GMemory" | None = None
 
         print(self._get_hyperparams_dict())
     
@@ -86,11 +91,15 @@ class GMemory(MASMemoryBase):
         Raises:
             ValueError: mas_message must have label!
         """
+        if self.global_config.get("freeze_memory", False):
+            return
         # sparsification
         mas_message = self._extract_mas_message(mas_message=mas_message)  
         
         # add into memory
-        self.task_layer.add_task_node(mas_message.task_main)
+        sources = mas_message.get_extra_field("source_id")
+        sources = [sources] if isinstance(sources, str) else sources
+        self.task_layer.add_task_node(mas_message.task_main, sources=sources)
 
         meta_data: dict = MASMessage.to_dict(mas_message)
         memory_doc = Document(
@@ -109,6 +118,52 @@ class GMemory(MASMemoryBase):
             self.insights_layer.merge_insights() 
 
         self._index_done()
+        self.last_saved_message = mas_message
+
+    def add_memory_with_source(self, mas_message: MASMessage, source_id: str, raw: bool = True) -> None:
+        """Add a MAS message to memory with source annotation.
+
+        If raw is True, the message will be stored directly without re-extraction.
+        """
+        if self.global_config.get("freeze_memory", False):
+            return
+        if source_id:
+            mas_message.add_extra_field("source_id", source_id)
+            mas_message.add_extra_field("source_scope", "global")
+
+        if raw:
+            sources = [source_id] if source_id else None
+            self.task_layer.add_task_node(mas_message.task_main, sources=sources)
+            meta_data: dict = MASMessage.to_dict(mas_message)
+            memory_doc = Document(
+                page_content=mas_message.task_main,
+                metadata=meta_data
+            )
+            if mas_message.label == True or mas_message.label == False:
+                self.main_memory.add_documents([memory_doc])
+            else:
+                raise ValueError('The mas_message must have label!')
+            if self.memory_size >= self._start_insights_threshold and self.memory_size % self._rounds_per_insights == 0:
+                self.insights_layer.finetune_insights(self._insights_point_num)
+            if self.memory_size % 20 == 0:
+                self.insights_layer.merge_insights()
+            self._index_done()
+            self._annotate_insights_sources()
+            self.last_saved_message = mas_message
+            return
+
+        self.add_memory(mas_message)
+
+    def set_global_retriever(self, global_retriever: "GMemory") -> None:
+        self._global_retriever = global_retriever
+
+    def _annotate_insights_sources(self) -> None:
+        task_sources: dict[str, list[str]] = {}
+        for node in self.task_layer.graph.nodes:
+            sources = self.task_layer.graph.nodes[node].get('sources', [])
+            if sources:
+                task_sources[node] = list(sources)
+        self.insights_layer.annotate_sources(task_sources)
 
     def _retrieve_memory_raw(
         self, 
@@ -122,7 +177,10 @@ class GMemory(MASMemoryBase):
         def sort_and_filter_by_similarity(docs: list[Document], threshold: float = 0.3) -> list[tuple[Document, float]]:
             result = []
             for doc in docs:
-                embedding = self.embedding_func.embed_query(doc.page_content)
+                if hasattr(self.embedding_func, "embed_text"):
+                    embedding = self.embedding_func.embed_text(doc.page_content)
+                else:
+                    embedding = self.embedding_func.embed_query(doc.page_content)
                 sim = cosine_similarity(origin_embedding, embedding)
                 if sim >= threshold:
                     result.append((doc, sim))
@@ -208,6 +266,16 @@ class GMemory(MASMemoryBase):
             tuple[list, list, list]: A tuple containing successful cases, failed cases, and insights.
         """
         
+        if self._global_retriever is not None and self._global_retriever is not self:
+            return self._global_retriever.retrieve_memory(
+                query_task=query_task,
+                successful_topk=successful_topk,
+                failed_topk=failed_topk,
+                insight_topk=insight_topk,
+                threshold=threshold,
+                **args
+            )
+
         # retrieve raw tasks
         successful_task_trajectories: list[MASMessage]
         failed_task_trajectories: list[MASMessage]
@@ -253,7 +321,9 @@ class GMemory(MASMemoryBase):
         
         trajectory = ''
         for state in state_chain:
-            trajectory += f'> {state.graph['action']}\n{state.graph['observation']}\n'
+            action = state.graph.get('action', '')
+            observation = state.graph.get('observation', '')
+            trajectory += f'> {action}\n{observation}\n'
         
         if mas_message_copy.label == True:
             mas_message_copy.task_trajectory = trajectory
@@ -271,7 +341,7 @@ class GMemory(MASMemoryBase):
             trajectory=mas_message_copy.get_extra_field('clean_traj')
         )
         messages: list[Message] = [Message('system', system_prompt), Message('user', prompt)]
-        response: str = self.llm_model(messages, temperature=0.1)
+        response: str = self.llm_model(messages, temperature=0)
         mas_message_copy.add_extra_field('key_steps', response)
 
 
@@ -372,16 +442,24 @@ class TaskLayer:
             self.graph = nx.Graph()
             print("New empty graph created")
 
-    def add_task_node(self, task_main: str) -> None:
+    def add_task_node(self, task_main: str, sources: list[str] | None = None) -> None:
         """Add a task node to the task graph.
 
         Args:
             task_main (str): task name
         """
         if task_main in self.graph:
+            if sources:
+                existing_sources = set(self.graph.nodes[task_main].get('sources', []))
+                existing_sources.update(sources)
+                self.graph.nodes[task_main]['sources'] = sorted(existing_sources)
+                self._index_done()
             return  
 
-        self.graph.add_node(task_main)
+        node_attrs = {}
+        if sources:
+            node_attrs['sources'] = sorted(set(sources))
+        self.graph.add_node(task_main, **node_attrs)
 
         results: list[tuple[Document, float]] = self.task_storage.similarity_search_with_score(
             query=task_main,
@@ -398,7 +476,10 @@ class TaskLayer:
             if neighbor not in self.graph:
                 self.graph.add_node(neighbor)
 
-            self.graph.add_edge(task_main, neighbor, weight=similarity) 
+            edge_attrs = {'weight': similarity}
+            if sources:
+                edge_attrs['sources'] = sorted(set(sources))
+            self.graph.add_edge(task_main, neighbor, **edge_attrs) 
         
         self._index_done()
  
@@ -436,19 +517,26 @@ class TaskLayer:
         valid_nodes = []
 
         for node in nodes:
-            embedding = self.task_storage._embedding_function.embed_query(node)  
+            embedder = self.task_storage._embedding_function
+            if hasattr(embedder, "embed_text"):
+                embedding = embedder.embed_text(node)
+            else:
+                embedding = embedder.embed_query(node)
             if embedding is not None:
                 embeddings.append(embedding)
                 valid_nodes.append(node)
 
         X = np.vstack(embeddings)
-        fin = FINCH(metric='cosine')
-
-        try: 
-            labels = fin.fit_predict(X)
-        except Exception as e:   
-            print(f"FINCH clustering failed: {e}")
+        if FINCH is None:
+            print("FINCH not available; defaulting cluster_id to 0")
             labels = np.zeros(len(valid_nodes), dtype=int)
+        else:
+            fin = FINCH(metric='cosine')
+            try:
+                labels = fin.fit_predict(X)
+            except Exception as e:
+                print(f"FINCH clustering failed: {e}")
+                labels = np.zeros(len(valid_nodes), dtype=int)
 
         for node, label in zip(valid_nodes, labels):
             self.graph.nodes[node]['cluster_id'] = int(label)
@@ -528,8 +616,10 @@ class InsightsManager:
 
             self.logger.info('------- Merge Insights -------')
             self.logger.info(f'Task type: {task_type}')
-            self.logger.info(f"Origin rules: \n{'\n'.join(related_rules)}")
-            self.logger.info(f"Merged rules: \n{'\n'.join(merged_rules)}")
+            origin_rules_str = '\n'.join(related_rules)
+            merged_rules_str = '\n'.join(merged_rules)
+            self.logger.info(f"Origin rules: \n{origin_rules_str}")
+            self.logger.info(f"Merged rules: \n{merged_rules_str}")
             
         self.insights_memory.clear()
 
@@ -585,6 +675,17 @@ class InsightsManager:
     def clear_insights(self):
         self.insights_memory = [self.insights_memory[i] for i in range(len(self.insights_memory)) 
                         if self.insights_memory[i]['score'] > 0] 
+
+    def annotate_sources(self, task_sources: dict[str, list[str]]) -> None:
+        """Annotate insights with source ids based on correlated tasks."""
+        for insight in self.insights_memory:
+            sources: set[str] = set()
+            for task in insight.get('positive_correlation_tasks', []):
+                sources.update(task_sources.get(task, []))
+            for task in insight.get('negative_correlation_tasks', []):
+                sources.update(task_sources.get(task, []))
+            insight['sources'] = sorted(sources)
+        self._index_done()
 
     def _retrieve_memory(
         self,

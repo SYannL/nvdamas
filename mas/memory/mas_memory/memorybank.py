@@ -40,10 +40,12 @@ class MemoryForgetter:
     
     @staticmethod
     def format_task_trajectory(agent_steps: list[AgentMessage]) -> str:
-        task_trajectory: str = '\n>'
+        if not agent_steps:
+            return ""
+        task_trajectory: str = "\n>"
         for agent_step in agent_steps:
-            task_trajectory += f' {agent_step.message}\n{agent_step.get_extra_field('observation')}\n>'
-        
+            observation = agent_step.get_extra_field("observation")
+            task_trajectory += f" {agent_step.message}\n{observation}\n>"
         return task_trajectory
 
 
@@ -79,17 +81,19 @@ class MemoryBankMASMemory(MASMemoryBase):
         return super().save_task_context(label, feedback=feedback)
 
     def add_memory(self, mas_message: MASMessage) -> None:
-        
+        raw_task_main: str = mas_message.task_main
+        mas_message.add_extra_field("raw_task_main", raw_task_main)
+
         prompt: str = MEMORYBANK.task_summary_user_instruction.format(
             task_trajectory=mas_message.task_description+mas_message.task_trajectory
         )
         messages: list[Message] = [Message('system', MEMORYBANK.task_summary_system_instruction), Message('user', prompt)]
-        response: str = self.llm_model(messages, temperature=0.1)
+        response: str = self.llm_model(messages, temperature=0)
         mas_message.task_main = response
 
         meta_data: dict = MASMessage.to_dict(mas_message)
         memory_doc = Document(
-            page_content=mas_message.task_main,  
+            page_content=raw_task_main,
             metadata=meta_data
         )
         if mas_message.label == True or mas_message.label == False:

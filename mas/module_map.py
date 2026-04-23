@@ -1,23 +1,37 @@
 from typing import Type
 
 from .reasoning import ReasoningBase, ReasoningIO
-from .memory import *
+from .memory import (
+    MASMemoryBase,
+    VoyagerMASMemory,
+    MemoryBankMASMemory,
+    MemoryBankGraphMASMemory,
+    ChatDevMASMemory,
+    GenerativeMASMemory,
+    MetaGPTMASMemory,
+    GMemory,
+    GMemoryGraphMASMemory,
+    SelectiveMemMASMemory,
+)
+
 
 def module_map(
-    reasoning: str, mas_memory: str = None
+    reasoning: str, mas_memory: str | None = None
 ) -> tuple[Type[ReasoningBase], Type[MASMemoryBase]]:
-    
     reasoning_map = {
         'io': ReasoningIO,
     }
-    mas_memory_map = {
+    mas_memory_map: dict[str, Type[MASMemoryBase]] = {
         'empty': MASMemoryBase,
         'voyager': VoyagerMASMemory,
         'memorybank': MemoryBankMASMemory,
+        'memgraph': MemoryBankGraphMASMemory,
         'chatdev': ChatDevMASMemory,
         'generative': GenerativeMASMemory,
         'metagpt': MetaGPTMASMemory,
-        'g-memory': GMemory
+        'g-memory': GMemory,
+        'gmemgraph': GMemoryGraphMASMemory,
+        'selectivemem': SelectiveMemMASMemory,
     }
 
     if reasoning not in reasoning_map:
@@ -28,7 +42,5 @@ def module_map(
 
     return (
         reasoning_map[reasoning],
-        mas_memory_map.get(mas_memory, None)
+        mas_memory_map.get(mas_memory, MASMemoryBase),
     )
-    
-    

@@ -1,6 +1,11 @@
+import json
+import os
+import sys
+import time
 from dataclasses import dataclass
 
 from mas.agents import Agent
+from mas.timing_profile import append as _timing_append, enabled as _timing_enabled
 from mas.memory.common import MASMessage, AgentMessage
 from mas.mas import MetaMAS
 from mas.reasoning import ReasoningBase, ReasoningConfig
@@ -8,7 +13,38 @@ from mas.memory import MASMemoryBase, GMemory
 from mas.agents import Env
 
 from .autogen_prompt import AUTOGEN_PROMPT 
-from ..format import format_task_prompt_with_insights, format_task_context
+from ..format import (
+    format_memory_augmentation_parts,
+    format_task_context,
+    format_task_prompt_with_insights,
+)
+
+
+def _append_memory_augment_jsonl(
+    log_dir: str,
+    task_index: int,
+    *,
+    task_main: str,
+    step: int,
+    max_trials: int,
+    mas_memory: str,
+    prompt_role: str,
+    parts: dict[str, str],
+) -> None:
+    path = os.path.join(log_dir, f"task_{task_index:04d}.jsonl")
+    rec = {
+        "task_index": task_index,
+        "task_index_1based": task_index + 1,
+        "task_main": task_main,
+        "step": step,
+        "max_trials": max_trials,
+        "mas_memory": mas_memory,
+        "prompt_role": prompt_role,
+        "past_successes": parts.get("past_successes", ""),
+        "insights": parts.get("insights", ""),
+    }
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
 @dataclass
@@ -24,6 +60,7 @@ class AutoGen(MetaMAS):
 
     def build_system(self, reasoning: ReasoningBase, mas_memory: MASMemoryBase, env: Env, config: dict):  
 
+        self._quiet: bool = bool(config.get('quiet', False))
         self._successful_topk: int = config.get('successful_topk', 1)
         self._failed_topk: int = config.get('failed_topk', 1)
         self._insights_topk: int = config.get('insights_topk', 3)
@@ -71,6 +108,10 @@ class AutoGen(MetaMAS):
     def notify_observers(self, message: str):
         for observer in self.observers:
             observer.log(message)
+
+    def _timing_autogen_log_dir(self) -> str:
+        gc = getattr(self.meta_memory, "global_config", None) or {}
+        return str(gc.get("viz_output_dir") or gc.get("working_dir") or ".")
     
     def schedule(self, task_config: dict) -> tuple[float, bool]:
         """
@@ -92,7 +133,13 @@ class AutoGen(MetaMAS):
         task_main: str = task_config.get('task_main')
         task_description: str = task_config.get('task_description')
         few_shots: list[str] =  task_config.get("few_shots", [])
-        
+        _intermediate_env: str | None = (task_config.get("env_name") or "").strip() or None
+        prof = _timing_enabled(
+            task_config=task_config,
+            global_config=getattr(self.meta_memory, "global_config", None),
+        )
+        tlog = self._timing_autogen_log_dir() if prof else ""
+
         # Initialize environment and agents
         env: Env = self.env
         solver: Agent = self.get_agent(self.solver_name)
@@ -105,6 +152,7 @@ class AutoGen(MetaMAS):
         successful_trajectories: list[MASMessage]
         insights: list[dict]
         
+        t0 = time.perf_counter()
         successful_trajectories, _, insights = self.meta_memory.retrieve_memory(
             query_task=task_main,
             successful_topk=self._successful_topk,
@@ -112,68 +160,187 @@ class AutoGen(MetaMAS):
             insight_topk=self._insights_topk,
             threshold=self._threshold
         )
+        retrieve_s = time.perf_counter() - t0
         successful_shots: list[str] = [format_task_context(
-            traj.task_description, traj.task_trajectory, traj.get_extra_field('key_steps')
+            traj.task_description,
+            traj.task_trajectory,
+            traj.get_extra_field('key_steps'),
+            source=traj.get_extra_field('source_id')
         ) for traj in successful_trajectories]
         raw_rules: list[str] = [insight for insight in insights]
+        t0 = time.perf_counter()
         roles_rules: dict[str, list[str]] = self._project_insights(raw_rules)
+        project_insights_s = time.perf_counter() - t0
         
-        # Generate initial user prompt with insights
-        user_prompt: str = format_task_prompt_with_insights(
-            few_shots=few_shots, 
+        # Log the full prompt content once per task (includes trajectories, key steps, insights)
+        t0 = time.perf_counter()
+        prompt_for_log: str = format_task_prompt_with_insights(
+            few_shots=few_shots,
             memory_few_shots=successful_shots,
-            insights=raw_rules,
-            task_description=self.meta_memory.summarize()
+            insights=roles_rules.get(solver.profile, raw_rules),
+            task_description=self.meta_memory.summarize(),
+            intermediate_findings_env=_intermediate_env,
         )
-        self.notify_observers(user_prompt)
+        self.notify_observers("=== Prompt With Memory/Insights ===")
+        self.notify_observers(prompt_for_log)
+        first_prompt_format_notify_s = time.perf_counter() - t0
+
+        if prof:
+            gc = getattr(self.meta_memory, "global_config", None) or {}
+            _timing_append(
+                tlog,
+                "timing_autogen_task.jsonl",
+                {
+                    "kind": "autogen_preflight",
+                    "retrieve_memory_s": retrieve_s,
+                    "project_insights_s": project_insights_s,
+                    "first_prompt_format_notify_s": first_prompt_format_notify_s,
+                    "task_main_preview": (task_main or "")[:160],
+                    "episode_index_1based": gc.get("episode_index_1based"),
+                },
+            )
+
+        # Optional: run first Search automatically and inject result into trajectory (force_search style)
+        if task_config.get("auto_first_search"):
+            t_afs = time.perf_counter()
+            first_search_display = "Search[（已自动执行当前题目检索）]"
+            observation, _r, _d = env.step("Search[.]")
+            self.meta_memory.move_memory_state(first_search_display, observation)
+            self.notify_observers(f"Act 1: {first_search_display}\nObs 1: {observation[:500]}{'...' if len(observation) > 500 else ''}")
+            if prof:
+                _timing_append(
+                    tlog,
+                    "timing_autogen_task.jsonl",
+                    {
+                        "kind": "autogen_auto_first_search",
+                        "env_step_move_s": time.perf_counter() - t_afs,
+                        "episode_index_1based": (getattr(self.meta_memory, "global_config", None) or {}).get(
+                            "episode_index_1based"
+                        ),
+                    },
+                )
 
         # Main loop for task execution
-        action_history: list = [] 
-        
-        for i in range(env.max_trials):    
-            
+        action_history: list = []
+        step_rows: list[dict] = []
+        for i in range(env.max_trials):
+            if not self._quiet:
+                print(f"  [MAS] step {i + 1}/{env.max_trials} ...", flush=True)
+                sys.stdout.flush()
+
+            row: dict = {"step": i + 1}
+            t0 = time.perf_counter()
             user_prompt: str = format_task_prompt_with_insights(
                 few_shots=few_shots, 
                 memory_few_shots=successful_shots,
                 insights=roles_rules.get(solver.profile, raw_rules),
-                task_description=self.meta_memory.summarize()
+                task_description=self.meta_memory.summarize(),
+                intermediate_findings_env=_intermediate_env,
             )
+            if prof:
+                row["format_prompt_s"] = time.perf_counter() - t0
+            _ma_dir = task_config.get("memory_augment_log_dir")
+            if _ma_dir:
+                _ma_parts = format_memory_augmentation_parts(
+                    successful_shots,
+                    roles_rules.get(solver.profile, raw_rules),
+                )
+                _append_memory_augment_jsonl(
+                    _ma_dir,
+                    int(task_config.get("task_index", 0)),
+                    task_main=task_main,
+                    step=i + 1,
+                    max_trials=int(env.max_trials),
+                    mas_memory=str(
+                        task_config.get("mas_memory_type")
+                        or getattr(self.meta_memory, "namespace", "")
+                    ),
+                    prompt_role="solver",
+                    parts=_ma_parts,
+                )
             tries = 0
+            self.notify_observers(f"[detail][step {i + 1}] solver.input:\n{user_prompt}")
             
+            t0 = time.perf_counter()
             while tries < 3:
                 try:  
-                    action: str = solver.response(user_prompt, self.reasoning_config)
+                    action_raw: str = solver.response(user_prompt, self.reasoning_config)
+                    self.notify_observers(f"[detail][step {i + 1}] solver.output.raw.try_{tries + 1}: {action_raw}")
+                    action: str = action_raw
                     if action == '':
                         continue
                     action = env.process_action(action)
+                    self.notify_observers(f"[detail][step {i + 1}] solver.output.processed.try_{tries + 1}: {action}")
                     break
                 except Exception as e:
-                    print(f'Error during execution of solver agent: {e}')
+                    self.notify_observers(f"[detail][step {i + 1}] solver.error.try_{tries + 1}: {type(e).__name__}: {e}")
+                    if not self._quiet:
+                        print(f'Error during execution of solver agent: {e}')
                 tries += 1
+            if prof:
+                row["solver_try_loop_s"] = time.perf_counter() - t0
 
             name: str = solver.name
             system_instruction = solver.system_instruction
             
             if self._solver_stuck(action, action_history):
+                self.notify_observers(
+                    f"[detail][step {i + 1}] ground_truth.triggered: True (repeated action: {action})"
+                )
                 user_prompt: str = format_task_prompt_with_insights(
                     few_shots=few_shots, 
                     memory_few_shots=successful_shots,
                     insights=roles_rules.get(ground_truth.profile, raw_rules),
-                    task_description=self.meta_memory.summarize()
+                    task_description=self.meta_memory.summarize(),
+                    intermediate_findings_env=_intermediate_env,
                 )
+                _ma_dir_gt = task_config.get("memory_augment_log_dir")
+                if _ma_dir_gt:
+                    _ma_parts_gt = format_memory_augmentation_parts(
+                        successful_shots,
+                        roles_rules.get(ground_truth.profile, raw_rules),
+                    )
+                    _append_memory_augment_jsonl(
+                        _ma_dir_gt,
+                        int(task_config.get("task_index", 0)),
+                        task_main=task_main,
+                        step=i + 1,
+                        max_trials=int(env.max_trials),
+                        mas_memory=str(
+                            task_config.get("mas_memory_type")
+                            or getattr(self.meta_memory, "namespace", "")
+                        ),
+                        prompt_role="ground_truth",
+                        parts=_ma_parts_gt,
+                    )
                 tries = 0
+                self.notify_observers(f"[detail][step {i + 1}] ground_truth.input:\n{user_prompt}")
+                t0_gt = time.perf_counter()
                 while tries < 3:
                     try: 
-                        action: str = ground_truth.response(user_prompt, self.reasoning_config)
+                        action_raw: str = ground_truth.response(user_prompt, self.reasoning_config)
+                        self.notify_observers(f"[detail][step {i + 1}] ground_truth.output.raw.try_{tries + 1}: {action_raw}")
+                        action: str = action_raw
                         if action == '':
                             continue
                         action = env.process_action(action)
+                        self.notify_observers(f"[detail][step {i + 1}] ground_truth.output.processed.try_{tries + 1}: {action}")
                         break
                     except Exception as e:
-                        print(f'Error during execution of ground truth agent: {e}')
+                        self.notify_observers(
+                            f"[detail][step {i + 1}] ground_truth.error.try_{tries + 1}: {type(e).__name__}: {e}"
+                        )
+                        if not self._quiet:
+                            print(f'Error during execution of ground truth agent: {e}')
                     tries += 1
+                if prof:
+                    row["ground_truth_try_loop_s"] = time.perf_counter() - t0_gt
                 name: str = ground_truth.name
                 system_instruction = ground_truth.system_instruction
+            else:
+                self.notify_observers(f"[detail][step {i + 1}] ground_truth.triggered: False")
+                if prof:
+                    row["ground_truth_try_loop_s"] = 0.0
             
             agent_message: AgentMessage = AgentMessage(
                 agent_name=name,
@@ -183,22 +350,56 @@ class AutoGen(MetaMAS):
             )
             self.meta_memory.add_agent_node(agent_message, upstream_agent_ids=[])
 
+            t0 = time.perf_counter()
             observation, reward, done = env.step(action)
+            if prof:
+                row["env_step_s"] = time.perf_counter() - t0
             action_history.append(action)
-            
+            action_preview = (action[:60] + "..") if len(action) > 60 else action
+            if not self._quiet:
+                print(f"  [MAS] step {i + 1} done: {action_preview}", flush=True)
+                sys.stdout.flush()
+
             step_message: str = f'Act {i + 1}: {action}\nObs {i + 1}: {observation}'
             self.notify_observers(step_message)
+            self.notify_observers(
+                f"[detail][step {i + 1}] env.done={done}, env.won={getattr(env, 'won', None)}, step_reward={reward}"
+            )
 
-            self.meta_memory.move_memory_state(action, observation, reward=reward)   
+            t0 = time.perf_counter()
+            self.meta_memory.move_memory_state(action, observation, reward=reward)
+            if prof:
+                row["move_memory_state_s"] = time.perf_counter() - t0
+                step_rows.append(row)
 
             if done:  
                 break
 
         # Final feedback and memory update
+        t0 = time.perf_counter()
         final_reward, final_done, final_feedback = self.env.feedback()
+        feedback_block_s = time.perf_counter() - t0
         self.notify_observers(final_feedback)
+        t0 = time.perf_counter()
         self.meta_memory.save_task_context(label=final_done, feedback=final_feedback)  
-        self.meta_memory.backward(final_done)    
+        self.meta_memory.backward(final_done)
+        save_backward_s = time.perf_counter() - t0
+
+        if prof:
+            gc = getattr(self.meta_memory, "global_config", None) or {}
+            _timing_append(
+                tlog,
+                "timing_autogen_task.jsonl",
+                {
+                    "kind": "autogen_task_footer",
+                    "n_steps_logged": len(step_rows),
+                    "feedback_block_s": feedback_block_s,
+                    "save_task_context_backward_s": save_backward_s,
+                    "final_done": bool(final_done),
+                    "episode_index_1based": gc.get("episode_index_1based"),
+                    "step_timings": step_rows,
+                },
+            )
 
         return final_reward, final_done   
     

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-import os
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 
@@ -49,12 +49,23 @@ class BaseRecorder:
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
 
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter('%(message)s'))
-        self.logger.addHandler(console_handler)
+        self._console_handler = logging.StreamHandler()
+        self._console_handler.setFormatter(logging.Formatter('%(message)s'))
+        self.logger.addHandler(self._console_handler)
 
         self.current_task_id: int = None
         self.current_task_config: dict = field(default_factory=dict)
+
+    def set_quiet_console(self, quiet: bool) -> None:
+        """
+        When ``quiet`` is True, detach the console StreamHandler so ``log()`` only writes to the file.
+        Progress lines printed via ``print()`` in ``tasks/run.py`` are unaffected.
+        """
+        if not quiet:
+            return
+        ch = getattr(self, "_console_handler", None)
+        if ch is not None and ch in self.logger.handlers:
+            self.logger.removeHandler(ch)
 
     def task_begin(self, task_id: int, task_config: dict) -> None:
         
@@ -78,7 +89,19 @@ class BaseRecorder:
 
         end_time = time.time()  
         total_time = end_time - self.start_time
-        time_message: str = f"Total execution time: {total_time:.2f} seconds"
+        
+        # 格式化时间显示
+        hours = int(total_time // 3600)
+        minutes = int((total_time % 3600) // 60)
+        seconds = total_time % 60
+        
+        if hours > 0:
+            time_message = f"Total execution time: {hours}小时{minutes}分钟{seconds:.1f}秒 ({total_time:.2f}秒)"
+        elif minutes > 0:
+            time_message = f"Total execution time: {minutes}分钟{seconds:.1f}秒 ({total_time:.2f}秒)"
+        else:
+            time_message = f"Total execution time: {seconds:.1f}秒 ({total_time:.2f}秒)"
+        
         self.log(message)
         self.log(time_message)
     

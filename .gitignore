@@ -1,0 +1,8 @@
+report/
+reports/
+log/
+logs/
+output/
+.env
+.DS_Store
+__pycache__/

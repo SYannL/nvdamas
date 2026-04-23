@@ -1,8 +1,29 @@
-from dataclasses import dataclass
-from typing import Union, Any
-import alfworld
-import alfworld.agents.environment
+import os
 import re
+from dataclasses import dataclass
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+from typing import Union, Any
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+# Keep ALFWorld runtime assets inside the repo so imports do not depend on ~/.cache.
+os.environ.setdefault("ALFWORLD_DATA", str(REPO_ROOT / "data" / "alfworld" / "_runtime_cache"))
+
+import alfworld
+
+
+def _load_alfred_tw_env() -> type:
+    alfworld_root = Path(alfworld.__file__).resolve().parent
+    module_path = alfworld_root / "agents" / "environment" / "alfred_tw_env.py"
+    spec = spec_from_file_location("nvdamas_alfred_tw_env", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load AlfredTWEnv from {module_path}")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.AlfredTWEnv
+
+
+AlfredTWEnv = _load_alfred_tw_env()
 
 from .base_env import BaseEnv, BaseRecorder
 
@@ -30,7 +51,13 @@ class AlfworldEnv(BaseEnv):
         max_trials: int = 50
     ): 
         self.env_config = env_config
-        self.main_env = getattr(alfworld.agents.environment, self.env_config['env']['type'])(self.env_config, train_eval=self.env_config['split'])
+        env_type = self.env_config['env']['type']
+        if env_type != 'AlfredTWEnv':
+            raise ValueError(
+                f'Unsupported ALFWorld env type: {env_type}. '
+                'This project currently supports text-only AlfredTWEnv.'
+            )
+        self.main_env = AlfredTWEnv(self.env_config, train_eval=self.env_config['split'])
         
         self.max_trials: int = max_trials
         self.reset()
@@ -39,43 +66,53 @@ class AlfworldEnv(BaseEnv):
         self.gamefile = configs['env_kwargs']['gamefile']
         self.env_name: str = configs['env_name']
         self.main_env.game_files = [self.gamefile]
-        
-        task = configs['task']
-        
+
         self.reset()
+        task = configs.get('task')
+        if not task or 'Your task is to:' not in task:
+            goal_instruction = configs.get('goal_instruction')
+            if not goal_instruction:
+                raise ValueError('Missing `task` or `goal_instruction` for ALFWorld task config.')
+            task = f'{self.initial_observation}\n\n{goal_instruction}'.strip()
         return self._parse_task_main(task), self._parse_task_description(task)
 
     def reset(self):
 
         self.done = False
+        self.won = False
         self.env = self.main_env.init_env(batch_size=1)
-        self.env.reset()
+        observation, _ = self.env.reset()
+        self.initial_observation = self._normalize_observation(observation[0]) if observation else ''
 
     def step(self, action: str) -> tuple[str, float, bool]:
 
         action = self.process_action(action)
         observation, reward, done, info = self.env.step([action])
-        def process_ob(ob):
-            if ob.startswith('You arrive at loc '):
-                ob = ob[ob.find('. ')+2:]    
-            return ob
-        
-        observation = process_ob(observation[0])
+        observation = self._normalize_observation(observation[0])
 
         self.done = done[0]
+        # TextWorld/ALFWorld exposes a win signal via `info['won']`.
+        # `done` can be True when the max-step budget is exhausted, which is not success.
+        try:
+            self.won = bool(info['won'][0])
+        except Exception:
+            self.won = False
 
         if 'think:' in action:
             observation = 'OK.' 
             processed_reward = -1
+            self.won = False
         elif observation == 'Nothing happens.':
             processed_reward = -1
+            self.won = False
         else:
-            processed_reward = 0 if info['won'][0] == False else 1
+            processed_reward = 1 if self.won else 0
         
         return observation, processed_reward, self.done
     
     def feedback(self) -> tuple[float, bool, str]:
-        success = self.done
+        # Only count true wins as success.
+        success = getattr(self, "won", False)
         reward = 1.0 if success else 0.0
         message = "You successfully finished this task!" if success else "You failed the task."
         
@@ -84,9 +121,19 @@ class AlfworldEnv(BaseEnv):
     @staticmethod
     def process_action(action: str) -> str:
         action = action.strip().replace('<', '').split('\n')[0]
+        # The solver may output numbered/bulleted steps like "1. take X from Y"
+        # or "- think: ...". Strip those prefixes so TextWorld can parse the command.
+        action = re.sub(r'^\s*\d+\.\s*', '', action)
+        action = re.sub(r'^\s*[-*]\s*', '', action)
         action = action.replace('>', '').replace('OK.', '').replace('OK', '').strip()
 
         return action
+
+    @staticmethod
+    def _normalize_observation(observation: str) -> str:
+        if observation.startswith('You arrive at loc '):
+            observation = observation[observation.find('. ') + 2:]
+        return observation
     
     def _parse_task_main(self, task: str):
         return self.env_name + '-' + re.search(r'Your task is to:\s*(.+)', task, re.DOTALL).group(1).strip()
@@ -123,7 +170,7 @@ class AlfworldRecorder(BaseRecorder):
                 self.counts[i] += 1
                 break
         
-        message = f'done: {done}, ave done: {sum(self.results) / sum(self.counts)}'
+        message = f'success: {done}, ave success: {sum(self.results) / sum(self.counts)}'
         self.log(message)
         self.log("rs: " + str(self.results))
         self.log("cnts: " + str(self.counts))

@@ -23,7 +23,6 @@ NUM_COMPS = LLM_CONFIG.get("num_comps", 1)
 URL = os.environ["OPENAI_API_BASE"]
 KEY = os.environ["OPENAI_API_KEY"]
 print('# api url: ', URL)
-print('# api key: ', KEY)
 
 
 completion_tokens, prompt_tokens = 0, 0
@@ -102,19 +101,35 @@ class GPTChat(LLM):
                 completion_tokens += response.usage.completion_tokens
                 
                 if answer is None:
+                    # Treat None as a hard error; upstream loops can otherwise hang.
                     print("Error: LLM returned None")
                     continue
+                answer = answer.strip()
+                if not answer:
+                    # Avoid silent empty outputs causing infinite retries in downstream parsers.
+                    raise RuntimeError("Empty LLM response")
                 return answer  
 
             except Exception as e:
-                error_message = str(e)
+                # Convert error to string as safely as possible (avoid nested Unicode errors)
+                try:
+                    error_message = str(e)
+                except Exception:
+                    error_message = ""
+
+                # For rate limit or 429 errors, back off and retry
                 if "rate limit" in error_message.lower() or "429" in error_message:
                     time.sleep(wait_time)
-                else:
-                    print(f"Error during API call: {error_message}")
-                    break 
+                    continue
 
-        return "" 
+                # For all other errors, print a short preview and retry a few times,
+                # then raise to prevent downstream infinite loops.
+                preview = (error_message or repr(e))[:500]
+                print(f"[GPTChat] error: {type(e).__name__}: {preview}")
+                time.sleep(wait_time)
+                continue
+
+        raise RuntimeError("GPTChat failed after retries")
 
 
 def get_price():

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sentence_transformers import SentenceTransformer
 import yaml
 import os
@@ -6,6 +8,7 @@ import random
 import json
 from dataclasses import dataclass
 import math
+from pathlib import Path
 
 
 def load_config(config_path: str):
@@ -67,5 +70,86 @@ class EmbeddingFunc:
 
     def embed_query(self, query: str) -> list:
         return self.func.encode(query).tolist()
+
+    def embed_text(self, text: str) -> list:
+        return self.func.encode(text).tolist()
+
+
+@dataclass
+class OTEmbeddingFunc(EmbeddingFunc):
+    ot_ref_morph_path: str = ""
+    ot_ref_normal_path: str = ""
+    ot_map_path: str = ""
+    ot_force_recompute: bool = False
+    ot_ref_field: str = "claim"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._ot_map = self._load_or_build_ot_map()
+
+    def embed_query(self, query: str) -> list:
+        import numpy as np
+
+        embedding = np.asarray(self.func.encode(query), dtype=np.float32)
+        aligned = embedding @ self._ot_map
+        return aligned.astype(np.float32).tolist()
+
+    def embed_text(self, text: str) -> list:
+        return self.func.encode(text).tolist()
+
+    def _load_or_build_ot_map(self) -> np.ndarray:
+        import numpy as np
+        try:
+            import ot
+        except Exception as exc:
+            raise ModuleNotFoundError(
+                "OT mapping requires POT. Install with `pip install pot`."
+            ) from exc
+        if self.ot_map_path:
+            map_path = Path(self.ot_map_path)
+            if map_path.exists() and not self.ot_force_recompute:
+                data = np.load(map_path, allow_pickle=False)
+                return data["ot_map"]
+        else:
+            map_path = None
+
+        morph_claims = self._load_jsonl_claims(Path(self.ot_ref_morph_path), self.ot_ref_field)
+        normal_claims = self._load_jsonl_claims(Path(self.ot_ref_normal_path), self.ot_ref_field)
+        if not morph_claims or not normal_claims:
+            raise ValueError("OT reference datasets are empty or missing.")
+
+        morph_embeddings = np.asarray(self.embed_documents(morph_claims), dtype=np.float32)
+        normal_embeddings = np.asarray(self.embed_documents(normal_claims), dtype=np.float32)
+
+        n_morph = morph_embeddings.shape[0]
+        n_normal = normal_embeddings.shape[0]
+        a = np.full(n_morph, 1.0 / n_morph, dtype=np.float64)
+        b = np.full(n_normal, 1.0 / n_normal, dtype=np.float64)
+        cost = ot.dist(morph_embeddings, normal_embeddings)
+        gamma = ot.emd(a, b, cost)
+        aligned_morph = n_morph * gamma @ normal_embeddings
+
+        ot_map, _, _, _ = np.linalg.lstsq(morph_embeddings, aligned_morph, rcond=None)
+        if map_path is not None:
+            map_path.parent.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(map_path, ot_map=ot_map, n_morph=n_morph, n_normal=n_normal)
+        return ot_map.astype(np.float32)
+
+    @staticmethod
+    def _load_jsonl_claims(path: Path, field: str = "claim") -> list[str]:
+        claims: list[str] = []
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                obj = json.loads(line)
+                claim = obj.get(field)
+                if claim is None:
+                    continue
+                if isinstance(claim, dict):
+                    claim = json.dumps(claim, ensure_ascii=False, separators=(",", ":"))
+                claims.append(str(claim))
+        return claims
 
 

@@ -4,14 +4,20 @@ from .generative import GenerativeMASMemory
 from .metagpt import MetaGPTMASMemory
 from .voyager import VoyagerMASMemory
 from .memorybank import MemoryBankMASMemory
+from .memorybank_graph import MemoryBankGraphMASMemory
+from .gmemory_graph import GMemoryGraphMASMemory
 from .GMemory import GMemory
+from .selectivemem import SelectiveMemMASMemory
 
 __all__ = [
-    'MASMemoryBase', 
+    'MASMemoryBase',
     'ChatDevMASMemory',
     'GenerativeMASMemory',
     'MetaGPTMASMemory',
     'VoyagerMASMemory',
     'MemoryBankMASMemory',
-    'GMemory'
+    'MemoryBankGraphMASMemory',
+    'GMemoryGraphMASMemory',
+    'GMemory',
+    'SelectiveMemMASMemory',
 ]

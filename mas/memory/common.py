@@ -129,7 +129,16 @@ class StateChain:
     @staticmethod
     def from_str(state_chain_str: str) -> "StateChain":
         state_chain = StateChain()
-        state_chain._chain_of_states = [json_graph.node_link_graph(state_data) for state_data in json.loads(state_chain_str)]
+        if not state_chain_str:
+            return state_chain
+        try:
+            payload = json.loads(state_chain_str)
+            state_chain._chain_of_states = [
+                json_graph.node_link_graph(state_data) for state_data in payload
+            ]
+        except Exception:
+            # Fallback for legacy/invalid formats.
+            state_chain = StateChain()
         return state_chain
 
 

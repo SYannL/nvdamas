@@ -57,4 +57,17 @@ NOTE:
     - 9. think: xxx
 
 - You must check carefully whether your output command is consistent with the allowed commands above!!! Any output that is not among the commands listed above is not permitted!!!
+
+Behavioral constraints to increase success rate:
+- Receptacle openness before placement:
+  - Before you execute `put a in/on b.` (or any successful placement into `b`), you must ensure `b` is open.
+  - If the latest observation indicates `b` is closed (e.g., it says "The <b> is closed." or similar), you MUST do `open b.` before `put a in/on b.`
+- After "Nothing happens.":
+  - If the result of your last action is `Nothing happens.`, you must not repeat the same action.
+  - Next action must be one of:
+    - `look` (if available) or any navigation that changes location, or
+    - `open <receptacle>` if you were attempting to place/take into/from a closed receptacle, or
+    - `go to <a different receptacle>` that is more likely to contain the needed object.
+- For `take a from b.`:
+  - If you get `Nothing happens.`, it usually means either `a` is not in `b` or `b` is not in the right state. Then you should `go to` a different receptacle or `open b` if applicable (do not keep trying the same take).
 """

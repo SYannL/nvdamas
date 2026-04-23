@@ -4,7 +4,7 @@ embedding_model: sentence-transformers/all-MiniLM-L6-v2
 
 # env configs
 alfworld:
-  env_config_path: tasks/env_configs/alfworld_config.yaml 
+  env_config_path: tasks/env_configs/alfworld_config.yaml
   max_steps: 30
   few_shots_num: 1
  
@@ -13,9 +13,104 @@ fever:
   max_steps: 12
   few_shots_num: 3
 
+fever_aca_test:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_oral_test:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
 pddl:
   env_config_path: tasks/env_configs/pddl_config.yaml
   max_steps: 30
+  few_shots_num: 1
+
+huskyqa:
+  env_config_path: tasks/env_configs/huskyqa_config.yaml
+  max_steps: 10
+  few_shots_num: 2
+
+huskyqa_aca_test:
+  env_config_path: tasks/env_configs/huskyqa_config.yaml
+  max_steps: 10
+  few_shots_num: 2
+
+medmcqa_test:
+  env_config_path: tasks/env_configs/medmcqa_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_30:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_30:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_3:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_3:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_150_build:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_150_build:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_20_test:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_20_test:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_anatomy_20:
+  env_config_path: tasks/env_configs/medmcqa_anatomy_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_surgery_20:
+  env_config_path: tasks/env_configs/medmcqa_surgery_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+mtmind2web_train:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
+  few_shots_num: 1
+
+mtmind2web_test_task:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
+  few_shots_num: 1
+
+mtmind2web_test_website:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
+  few_shots_num: 1
+
+mtmind2web_test_subdomain:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
   few_shots_num: 1
 
 # MAS configs

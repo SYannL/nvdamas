@@ -18,14 +18,15 @@ class FeverEnv(BaseEnv):
         
         self.reset()
         
-    def set_env(self, configs: dict) -> None:
+    def set_env(self, configs: dict) -> tuple[str, str]:
         if configs.get('answer') is None:
             raise ValueError('Please provide the answer for the question.')
         if configs.get('task') is None:
             raise ValueError('The configs dict should have the `task` attribute.')
         self.config = configs
         
-        task: str = f'Claim: {self.config.get('task')}'
+        task_value = self.config.get('task')
+        task: str = f'Claim: {task_value}'
         return task, task
     
     def reset(self) -> None:
