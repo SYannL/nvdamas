@@ -120,14 +120,77 @@ class AlfworldEnv(BaseEnv):
     
     @staticmethod
     def process_action(action: str) -> str:
-        action = action.strip().replace('<', '').split('\n')[0]
+        action = AlfworldEnv._extract_action(action)
         # The solver may output numbered/bulleted steps like "1. take X from Y"
         # or "- think: ...". Strip those prefixes so TextWorld can parse the command.
         action = re.sub(r'^\s*\d+\.\s*', '', action)
         action = re.sub(r'^\s*[-*]\s*', '', action)
         action = action.replace('>', '').replace('OK.', '').replace('OK', '').strip()
+        action = action.rstrip(".。").strip()
 
         return action
+
+    @staticmethod
+    def _extract_action(text: str) -> str:
+        """Extract the first valid ALFWorld command from verbose/Qwen-style output."""
+        text = str(text or "").strip()
+        thought = AlfworldEnv._extract_thought(text)
+        # Qwen3 may emit native reasoning tags before the actual answer.
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL).strip()
+        text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE).strip()
+
+        commands = (
+            "take ",
+            "go to ",
+            "open ",
+            "put ",
+            "clean ",
+            "heat ",
+            "cool ",
+            "use ",
+            "think:",
+        )
+        candidates: list[str] = []
+        for raw_line in text.splitlines():
+            line = raw_line.strip().lstrip(">").strip()
+            line = re.sub(r"^\s*\d+\.\s*", "", line)
+            line = re.sub(r"^\s*[-*]\s*", "", line)
+            if not line:
+                continue
+            lowered = line.lower()
+            if lowered.startswith(commands):
+                candidates.append(line)
+
+        # Prefer an executable environment action over an internal thought.
+        for candidate in candidates:
+            if not candidate.lower().startswith("think:"):
+                return candidate
+        if candidates:
+            return candidates[0]
+
+        # MCMA/ALFWorld trajectories support a legal ReAct-style thought action.
+        # If Qwen only produced native thinking text and no executable command,
+        # normalize it to `think:` instead of introducing a `look` action that
+        # some validators/postprocessors do not expect.
+        if thought:
+            return f"think: {thought}"
+        return "think: I need to choose one valid next action."
+
+    @staticmethod
+    def _extract_thought(text: str, limit: int = 220) -> str:
+        text = str(text or "").strip()
+        match = re.search(r"<think>(.*?)(?:</think>|$)", text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            thought = match.group(1)
+        else:
+            thought = text
+        thought = re.sub(r"</?think>", "", thought, flags=re.IGNORECASE)
+        thought = re.sub(r"\s+", " ", thought).strip(" >\t\r\n")
+        if not thought or thought.lower() in {"think", "/think"}:
+            return ""
+        if len(thought) > limit:
+            thought = thought[:limit].rsplit(" ", 1)[0].rstrip(".,;:")
+        return thought
 
     @staticmethod
     def _normalize_observation(observation: str) -> str:
@@ -176,4 +239,3 @@ class AlfworldRecorder(BaseRecorder):
         self.log("cnts: " + str(self.counts))
     
     
-
