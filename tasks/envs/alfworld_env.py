@@ -1,5 +1,6 @@
 import os
 import re
+import json
 from dataclasses import dataclass
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -60,6 +61,12 @@ class AlfworldEnv(BaseEnv):
         self.main_env = AlfredTWEnv(self.env_config, train_eval=self.env_config['split'])
         
         self.max_trials: int = max_trials
+        self.gamefile: str | None = None
+        self.env_name: str | None = None
+        self.goal_instruction: str = ""
+        self.initial_observation: str = ""
+        self.current_history: list[dict[str, Any]] = []
+        self.last_admissible_commands: list[str] = []
         self.reset()
     
     def set_env(self, configs: dict) -> tuple[str, str]:  
@@ -74,6 +81,7 @@ class AlfworldEnv(BaseEnv):
             if not goal_instruction:
                 raise ValueError('Missing `task` or `goal_instruction` for ALFWorld task config.')
             task = f'{self.initial_observation}\n\n{goal_instruction}'.strip()
+        self.goal_instruction = self._extract_goal_instruction(task)
         return self._parse_task_main(task), self._parse_task_description(task)
 
     def reset(self):
@@ -81,12 +89,22 @@ class AlfworldEnv(BaseEnv):
         self.done = False
         self.won = False
         self.env = self.main_env.init_env(batch_size=1)
-        observation, _ = self.env.reset()
+        observation, info = self.env.reset()
         self.initial_observation = self._normalize_observation(observation[0]) if observation else ''
+        self.last_admissible_commands = self._extract_admissible_commands(info)
+        self.current_history = []
+        if self.initial_observation:
+            self.current_history.append(
+                {
+                    "Observation": self.initial_observation,
+                    "Admissible Commands": list(self.last_admissible_commands),
+                }
+            )
 
     def step(self, action: str) -> tuple[str, float, bool]:
 
         action = self.process_action(action)
+        action = self._adapt_action_to_admissible(action)
         observation, reward, done, info = self.env.step([action])
         observation = self._normalize_observation(observation[0])
 
@@ -107,6 +125,20 @@ class AlfworldEnv(BaseEnv):
             self.won = False
         else:
             processed_reward = 1 if self.won else 0
+        try:
+            raw_score = float(reward[0] if isinstance(reward, (list, tuple)) else reward)
+        except Exception:
+            raw_score = float(processed_reward)
+        self.last_admissible_commands = self._extract_admissible_commands(info)
+        self.current_history.append(
+            {
+                "Action": action,
+                "Observation": observation,
+                "Admissible Commands": list(self.last_admissible_commands),
+                "Score": raw_score,
+                "Done": bool(self.done),
+            }
+        )
         
         return observation, processed_reward, self.done
     
@@ -120,20 +152,162 @@ class AlfworldEnv(BaseEnv):
     
     @staticmethod
     def process_action(action: str) -> str:
-        action = action.strip().replace('<', '').split('\n')[0]
+        action = AlfworldEnv._extract_action(action)
         # The solver may output numbered/bulleted steps like "1. take X from Y"
         # or "- think: ...". Strip those prefixes so TextWorld can parse the command.
         action = re.sub(r'^\s*\d+\.\s*', '', action)
         action = re.sub(r'^\s*[-*]\s*', '', action)
         action = action.replace('>', '').replace('OK.', '').replace('OK', '').strip()
+        action = action.rstrip(".。").strip()
 
         return action
+
+    @staticmethod
+    def _extract_action(text: str) -> str:
+        """Extract the first valid ALFWorld command from verbose/Qwen-style output."""
+        text = str(text or "").strip()
+        thought = AlfworldEnv._extract_thought(text)
+        # Qwen3 may emit native reasoning tags before the actual answer.
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL).strip()
+        text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE).strip()
+
+        commands = (
+            "take ",
+            "go to ",
+            "open ",
+            "put ",
+            "move ",
+            "clean ",
+            "heat ",
+            "cool ",
+            "use ",
+            "think:",
+        )
+        candidates: list[str] = []
+        for raw_line in text.splitlines():
+            line = raw_line.strip().lstrip(">").strip()
+            line = re.sub(r"^\s*\d+\.\s*", "", line)
+            line = re.sub(r"^\s*[-*]\s*", "", line)
+            if not line:
+                continue
+            lowered = line.lower()
+            if lowered.startswith(commands):
+                candidates.append(line)
+
+        # Prefer an executable environment action over an internal thought.
+        for candidate in candidates:
+            if not candidate.lower().startswith("think:"):
+                return candidate
+        if candidates:
+            return candidates[0]
+
+        # MCMA/ALFWorld trajectories support a legal ReAct-style thought action.
+        # If Qwen only produced native thinking text and no executable command,
+        # normalize it to `think:` instead of introducing a `look` action that
+        # some validators/postprocessors do not expect.
+        if thought:
+            return f"think: {thought}"
+        return "think: I need to choose one valid next action."
+
+    def _adapt_action_to_admissible(self, action: str) -> str:
+        """Map legacy ALFWorld placement syntax to official_042 move syntax.
+
+        Official 0.4.2 tw-pddl games expose placement commands such as
+        `move bowl 1 to shelf 2`, while this project's prompts often produce
+        `put bowl 1 in/on shelf 2`. Only rewrite when the target command is
+        explicitly admissible in the current state.
+        """
+        action = str(action or "").strip()
+        admissible = {cmd.lower(): cmd for cmd in self.last_admissible_commands}
+        if action.lower() in admissible:
+            return admissible[action.lower()]
+
+        match = re.match(r"^put\s+(.+?)\s+(?:in/on|in|on)\s+(.+)$", action, flags=re.IGNORECASE)
+        if not match:
+            return action
+        obj = re.sub(r"\s+", " ", match.group(1)).strip()
+        dest = re.sub(r"\s+", " ", match.group(2)).strip()
+        candidate = f"move {obj} to {dest}"
+        return admissible.get(candidate.lower(), action)
+
+    @staticmethod
+    def _extract_thought(text: str, limit: int = 220) -> str:
+        text = str(text or "").strip()
+        match = re.search(r"<think>(.*?)(?:</think>|$)", text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            thought = match.group(1)
+        else:
+            thought = text
+        thought = re.sub(r"</?think>", "", thought, flags=re.IGNORECASE)
+        thought = re.sub(r"\s+", " ", thought).strip(" >\t\r\n")
+        if not thought or thought.lower() in {"think", "/think"}:
+            return ""
+        if len(thought) > limit:
+            thought = thought[:limit].rsplit(" ", 1)[0].rstrip(".,;:")
+        return thought
 
     @staticmethod
     def _normalize_observation(observation: str) -> str:
         if observation.startswith('You arrive at loc '):
             observation = observation[observation.find('. ') + 2:]
         return observation
+
+    @staticmethod
+    def _extract_admissible_commands(info: Any) -> list[str]:
+        if not isinstance(info, dict):
+            return []
+        commands = info.get("admissible_commands", [])
+        if isinstance(commands, list) and commands:
+            first = commands[0]
+            if isinstance(first, list):
+                return [str(item) for item in first]
+            return [str(item) for item in commands]
+        return []
+
+    @staticmethod
+    def _extract_goal_instruction(task: str) -> str:
+        match = re.search(r'Your task is to:\s*(.+)', str(task or ""), re.DOTALL)
+        if not match:
+            return str(task or "").strip()
+        return match.group(1).strip()
+
+    def has_exportable_history(self) -> bool:
+        return bool(self.gamefile and self.current_history)
+
+    def export_gm2_history(
+        self,
+        output_dir: str,
+        *,
+        model_id: str = "",
+        status_override: str | None = None,
+    ) -> str | None:
+        if not self.has_exportable_history():
+            return None
+        path = Path(str(self.gamefile).replace("\\", "/"))
+        parts = path.parts
+        game_name = parts[-3] if len(parts) >= 3 else "task"
+        game_index = parts[-2] if len(parts) >= 2 else "run"
+        final_done = bool(self.current_history[-1].get("Done", False)) if self.current_history else False
+        final_score = float(self.current_history[-1].get("Score", 0.0)) if self.current_history else 0.0
+        status = status_override or ("success" if final_done else "fail")
+        payload = {
+            "last_updated": __import__("time").strftime("%Y%m%d_%H%M%S"),
+            "game_file": str(self.gamefile),
+            "game_name": game_name,
+            "game_index": game_index,
+            "game_task": self.goal_instruction,
+            "status": status,
+            "step_count": max(len(self.current_history) - 1, 0),
+            "final_score": final_score,
+            "history": list(self.current_history),
+            "model_id": model_id,
+        }
+        out_dir = Path(output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"history_{game_name}_{game_index}_{status}.json"
+        with out_path.open("w", encoding="utf-8") as writer:
+            json.dump(payload, writer, ensure_ascii=False, indent=2)
+        return str(out_path)
     
     def _parse_task_main(self, task: str):
         return self.env_name + '-' + re.search(r'Your task is to:\s*(.+)', task, re.DOTALL).group(1).strip()
@@ -176,4 +350,3 @@ class AlfworldRecorder(BaseRecorder):
         self.log("cnts: " + str(self.counts))
     
     
-

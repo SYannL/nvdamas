@@ -15,6 +15,7 @@ from mas.agents import Env
 from .autogen_prompt import AUTOGEN_PROMPT 
 from ..format import (
     format_memory_augmentation_parts,
+    format_prompt_payload,
     format_task_context,
     format_task_prompt_with_insights,
 )
@@ -148,37 +149,60 @@ class AutoGen(MetaMAS):
         
         self.meta_memory.init_task_context(task_main, task_description) 
         
-        # Retrieve successful trajectories and insights from memory
-        successful_trajectories: list[MASMessage]
-        insights: list[dict]
-        
         t0 = time.perf_counter()
-        successful_trajectories, _, insights = self.meta_memory.retrieve_memory(
+        payload = self.meta_memory.retrieve_prompt_payload(
             query_task=task_main,
             successful_topk=self._successful_topk,
             failed_topk=self._failed_topk,
             insight_topk=self._insights_topk,
-            threshold=self._threshold
+            threshold=self._threshold,
+            env_ref=env,
+            task_config=task_config,
+            step_index=0,
         )
         retrieve_s = time.perf_counter() - t0
-        successful_shots: list[str] = [format_task_context(
-            traj.task_description,
-            traj.task_trajectory,
-            traj.get_extra_field('key_steps'),
-            source=traj.get_extra_field('source_id')
-        ) for traj in successful_trajectories]
-        raw_rules: list[str] = [insight for insight in insights]
+        payload = payload or {}
+        successful_shots: list[str] = [
+            str(item)
+            for item in payload.get("execution_patterns", [])
+            if str(item).strip()
+        ]
+        raw_rules: list[str] = [
+            str(item)
+            for item in payload.get("insights", [])
+            if str(item).strip()
+        ]
+        planner_notes: list[str] = [
+            str(item)
+            for item in payload.get("planner_notes", [])
+            if str(item).strip()
+        ]
+        action_constraints: list[str] = [
+            str(item)
+            for item in payload.get("action_constraints", [])
+            if str(item).strip()
+        ]
+        repair_hints: list[str] = [
+            str(item)
+            for item in payload.get("repair_hints", [])
+            if str(item).strip()
+        ]
         t0 = time.perf_counter()
         roles_rules: dict[str, list[str]] = self._project_insights(raw_rules)
         project_insights_s = time.perf_counter() - t0
         
         # Log the full prompt content once per task (includes trajectories, key steps, insights)
         t0 = time.perf_counter()
-        prompt_for_log: str = format_task_prompt_with_insights(
-            few_shots=few_shots,
-            memory_few_shots=successful_shots,
-            insights=roles_rules.get(solver.profile, raw_rules),
-            task_description=self.meta_memory.summarize(),
+        prompt_for_log: str = format_prompt_payload(
+            {
+                "reference_cases": few_shots,
+                "execution_patterns": successful_shots,
+                "insights": roles_rules.get(solver.profile, raw_rules),
+                "planner_notes": planner_notes,
+                "action_constraints": action_constraints,
+                "repair_hints": repair_hints,
+            },
+            self.meta_memory.summarize(),
             intermediate_findings_env=_intermediate_env,
         )
         self.notify_observers("=== Prompt With Memory/Insights ===")
@@ -230,11 +254,53 @@ class AutoGen(MetaMAS):
 
             row: dict = {"step": i + 1}
             t0 = time.perf_counter()
-            user_prompt: str = format_task_prompt_with_insights(
-                few_shots=few_shots, 
-                memory_few_shots=successful_shots,
-                insights=roles_rules.get(solver.profile, raw_rules),
-                task_description=self.meta_memory.summarize(),
+            if bool(getattr(self.meta_memory, "refresh_each_step", False)):
+                step_payload = self.meta_memory.retrieve_prompt_payload(
+                    query_task=task_main,
+                    successful_topk=self._successful_topk,
+                    failed_topk=self._failed_topk,
+                    insight_topk=self._insights_topk,
+                    threshold=self._threshold,
+                    env_ref=env,
+                    task_config=task_config,
+                    step_index=i + 1,
+                ) or {}
+                successful_shots = [
+                    str(item)
+                    for item in step_payload.get("execution_patterns", [])
+                    if str(item).strip()
+                ]
+                raw_rules = [
+                    str(item)
+                    for item in step_payload.get("insights", [])
+                    if str(item).strip()
+                ]
+                planner_notes = [
+                    str(item)
+                    for item in step_payload.get("planner_notes", [])
+                    if str(item).strip()
+                ]
+                action_constraints = [
+                    str(item)
+                    for item in step_payload.get("action_constraints", [])
+                    if str(item).strip()
+                ]
+                repair_hints = [
+                    str(item)
+                    for item in step_payload.get("repair_hints", [])
+                    if str(item).strip()
+                ]
+                roles_rules = self._project_insights(raw_rules)
+            user_prompt: str = format_prompt_payload(
+                {
+                    "reference_cases": few_shots,
+                    "execution_patterns": successful_shots,
+                    "insights": roles_rules.get(solver.profile, raw_rules),
+                    "planner_notes": planner_notes,
+                    "action_constraints": action_constraints,
+                    "repair_hints": repair_hints,
+                },
+                self.meta_memory.summarize(),
                 intermediate_findings_env=_intermediate_env,
             )
             if prof:
@@ -287,11 +353,16 @@ class AutoGen(MetaMAS):
                 self.notify_observers(
                     f"[detail][step {i + 1}] ground_truth.triggered: True (repeated action: {action})"
                 )
-                user_prompt: str = format_task_prompt_with_insights(
-                    few_shots=few_shots, 
-                    memory_few_shots=successful_shots,
-                    insights=roles_rules.get(ground_truth.profile, raw_rules),
-                    task_description=self.meta_memory.summarize(),
+                user_prompt: str = format_prompt_payload(
+                    {
+                        "reference_cases": few_shots,
+                        "execution_patterns": successful_shots,
+                        "insights": roles_rules.get(ground_truth.profile, raw_rules),
+                        "planner_notes": planner_notes,
+                        "action_constraints": action_constraints,
+                        "repair_hints": repair_hints,
+                    },
+                    self.meta_memory.summarize(),
                     intermediate_findings_env=_intermediate_env,
                 )
                 _ma_dir_gt = task_config.get("memory_augment_log_dir")
@@ -341,6 +412,27 @@ class AutoGen(MetaMAS):
                 self.notify_observers(f"[detail][step {i + 1}] ground_truth.triggered: False")
                 if prof:
                     row["ground_truth_try_loop_s"] = 0.0
+
+            repair_fn = getattr(self.meta_memory, "repair_action", None)
+            if callable(repair_fn):
+                before_repair = action
+                try:
+                    action = repair_fn(
+                        raw_response=action_raw,
+                        processed_action=action,
+                        env_ref=env,
+                        task_config=task_config,
+                        step_index=i + 1,
+                    )
+                    if action != before_repair:
+                        self.notify_observers(
+                            f"[detail][step {i + 1}] memory.repair_action: {before_repair} -> {action}"
+                        )
+                except Exception as e:
+                    action = before_repair
+                    self.notify_observers(
+                        f"[detail][step {i + 1}] memory.repair_action.error: {type(e).__name__}: {e}"
+                    )
             
             agent_message: AgentMessage = AgentMessage(
                 agent_name=name,
@@ -381,7 +473,12 @@ class AutoGen(MetaMAS):
         feedback_block_s = time.perf_counter() - t0
         self.notify_observers(final_feedback)
         t0 = time.perf_counter()
-        self.meta_memory.save_task_context(label=final_done, feedback=final_feedback)  
+        self.meta_memory.save_task_context(
+            label=final_done,
+            feedback=final_feedback,
+            env_ref=env,
+            task_config=task_config,
+        )
         self.meta_memory.backward(final_done)
         save_backward_s = time.perf_counter() - t0
 

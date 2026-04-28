@@ -134,9 +134,13 @@ def build_task_manager(
     max_steps: int,
     working_dir: str,
     log_dir: str,
+    *,
+    alfworld_game_root: str = "",
 ) -> TaskManager:
     with open(CONFIG.get(task).get("env_config_path")) as reader:
         config = yaml.safe_load(reader)
+    if task == "alfworld" and str(alfworld_game_root or "").strip():
+        config["external_game_root"] = os.path.abspath(str(alfworld_game_root).strip())
 
     env: BaseEnv = get_env(task, config, max_steps)
     recorder: BaseRecorder = get_recorder(task, working_dir=log_dir, namespace="total_task")
@@ -220,6 +224,7 @@ def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, re
     model = args["model"]
     max_trials = args["max_trials"]
     tool_mode = args["tool_mode"]
+    alfworld_game_root = args.get("alfworld_game_root", "")
     mem_config_override = args.get("mem_config_override", {})
     mas_config_override = args.get("mas_config_override", {})
     prof_worker = timing_profile_enabled(global_config=mem_config_override)
@@ -233,7 +238,15 @@ def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, re
     seg: dict[str, Any] = {}
     try:
         t0 = time.perf_counter()
-        manager = build_task_manager(task_name, mas_type, mas_memory, max_trials, working_dir, log_dir)
+        manager = build_task_manager(
+            task_name,
+            mas_type,
+            mas_memory,
+            max_trials,
+            working_dir,
+            log_dir,
+            alfworld_game_root=alfworld_game_root,
+        )
         manager.tasks = [task_config]
         manager.mem_config.update(mem_config_override)
         manager.mas_config.update(mas_config_override)
@@ -420,6 +433,7 @@ def run_tasks(
                 "reasoning": alfworld_subprocess_args["reasoning"],
                 "model": alfworld_subprocess_args["model"],
                 "max_trials": alfworld_subprocess_args["max_trials"],
+                "alfworld_game_root": alfworld_subprocess_args.get("alfworld_game_root", ""),
                 "tool_mode": tool_mode,
                 "mem_config_override": {k: v for k, v in task_manager.mem_config.items() if k not in ("working_dir", "task_name")},
                 "mas_config_override": dict(task_manager.mas_config),
@@ -969,6 +983,28 @@ ALFWORLD_GROUP_SPECS = {
             "pick_clean_then_place_in_recep",
         ),
     },
+    "living": {
+        "scene_domains": {"living"},
+        "task_types": (
+            "pick_and_place_simple",
+            "pick_two_obj_and_place",
+            "look_at_obj_in_light",
+            "pick_heat_then_place_in_recep",
+            "pick_cool_then_place_in_recep",
+            "pick_clean_then_place_in_recep",
+        ),
+    },
+    "bedroom": {
+        "scene_domains": {"bedroom"},
+        "task_types": (
+            "pick_and_place_simple",
+            "pick_two_obj_and_place",
+            "look_at_obj_in_light",
+            "pick_heat_then_place_in_recep",
+            "pick_cool_then_place_in_recep",
+            "pick_clean_then_place_in_recep",
+        ),
+    },
 }
 
 
@@ -1077,6 +1113,7 @@ def prepare_alfworld_collab_tasks(
     build_per_type: int,
     test_per_type: int,
     seed: int,
+    eval_split: str = "valid_unseen",
 ) -> dict[str, Any]:
     if group_a == group_b:
         raise ValueError("ALFWorld collaborative evaluation requires two different groups.")
@@ -1086,8 +1123,8 @@ def prepare_alfworld_collab_tasks(
         "task_b_name": group_b,
         "task_a": build_alfworld_subset(repo_root, "train", group_a, build_per_type, seed),
         "task_b": build_alfworld_subset(repo_root, "train", group_b, build_per_type, seed + 1),
-        "task_a_test": build_alfworld_subset(repo_root, "valid_unseen", group_a, test_per_type, seed + 100),
-        "task_b_test": build_alfworld_subset(repo_root, "valid_unseen", group_b, test_per_type, seed + 101),
+        "task_a_test": build_alfworld_subset(repo_root, eval_split, group_a, test_per_type, seed + 100),
+        "task_b_test": build_alfworld_subset(repo_root, eval_split, group_b, test_per_type, seed + 101),
     }
 
 
@@ -1108,6 +1145,7 @@ def load_alfworld_collab_tasks(
     group_b: str,
     *,
     load_eval_splits: bool = True,
+    eval_split: str = "valid_unseen",
 ) -> dict[str, Any]:
     if group_a == group_b:
         raise ValueError("ALFWorld collaborative evaluation requires two different groups.")
@@ -1119,12 +1157,26 @@ def load_alfworld_collab_tasks(
         "task_b": load_alfworld_subset_file(subset_dir, group_b, "train"),
     }
     if load_eval_splits:
-        out["task_a_test"] = load_alfworld_subset_file(subset_dir, group_a, "valid_unseen")
-        out["task_b_test"] = load_alfworld_subset_file(subset_dir, group_b, "valid_unseen")
+        out["task_a_test"] = load_alfworld_subset_file(subset_dir, group_a, eval_split)
+        out["task_b_test"] = load_alfworld_subset_file(subset_dir, group_b, eval_split)
     else:
         out["task_a_test"] = []
         out["task_b_test"] = []
     return out
+
+
+def parse_alfworld_eval_splits(value: str) -> list[str]:
+    allowed = {"valid_seen", "valid_unseen"}
+    splits = [item.strip() for item in str(value or "").split(",") if item.strip()]
+    if not splits:
+        splits = ["valid_unseen"]
+    invalid = [item for item in splits if item not in allowed]
+    if invalid:
+        raise ValueError(
+            f"Unsupported --alfworld_eval_split value(s): {invalid}. "
+            f"Expected comma-separated values from {sorted(allowed)}."
+        )
+    return list(dict.fromkeys(splits))
 
 
 def global_graph_exists(global_dir: str, mas_memory: str) -> bool:
@@ -1148,6 +1200,102 @@ def global_graph_exists(global_dir: str, mas_memory: str) -> bool:
         return len(nodes) > 0
     except (json.JSONDecodeError, OSError):
         return False
+
+
+def rebuild_graph_memory2_global_from_locals(
+    *,
+    local_dirs: list[str],
+    global_dir: str,
+    promotion_threshold: float,
+    gm2_repo_root: str = "",
+) -> None:
+    """Rebuild shared GM2 global memory from dynamic local graph_memory2 artifacts."""
+    try:
+        from mas.memory.mas_memory.gm2_backend.build_memory_graph import _global_to_dict
+        from mas.memory.mas_memory.gm2_backend.construction_graph import GlobalPromoter
+        from mas.memory.mas_memory.gm2_backend.graph_types import GlobalGraphMemory
+        from mas.memory.mas_memory.gm2_backend.serialization import load_local_memory
+    except Exception as exc:
+        raise RuntimeError(
+            "GraphMemory2 global rebuild needs vendored gm2_backend graph modules."
+        ) from exc
+
+    locals_loaded = []
+    for local_root in local_dirs:
+        pdir = Path(local_root) / "graph_memory2"
+        for path in sorted(pdir.glob("local_*.json")):
+            locals_loaded.append(load_local_memory(str(path)))
+    out_dir = Path(global_dir) / "graph_memory2"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    promoter = GlobalPromoter(score_threshold=float(promotion_threshold))
+    global_memory = promoter.promote(
+        GlobalGraphMemory(),
+        locals_loaded,
+        batch_name="collab_dynamic_train",
+    )
+    with (out_dir / "global_memory.json").open("w", encoding="utf-8") as writer:
+        json.dump(_global_to_dict(global_memory), writer, ensure_ascii=False, indent=2)
+    summary = {
+        "mode": "collab_dynamic_global",
+        "source_local_dirs": local_dirs,
+        "source_local_count": len(locals_loaded),
+        "global": {
+            "candidate_count": len(global_memory.candidates),
+            "rule_count": len(global_memory.rules_by_id),
+            "artifact_count": len(global_memory.artifacts_by_id),
+            "promoted_batches": list(global_memory.promoted_batches),
+        },
+    }
+    with (out_dir / "summary.json").open("w", encoding="utf-8") as writer:
+        json.dump(summary, writer, ensure_ascii=False, indent=2)
+
+
+def reset_graph_memory2_artifacts_once(memory_dirs: list[str], owner_scenes: list[str]) -> None:
+    """Start GM2 from empty known artifacts without deleting run/log directories."""
+    try:
+        from mas.memory.mas_memory.gm2_backend.build_memory_graph import _global_to_dict, _local_to_dict
+        from mas.memory.mas_memory.gm2_backend.graph_types import GlobalGraphMemory, LocalGraphMemory
+    except Exception as exc:
+        raise RuntimeError("GraphMemory2 reset needs vendored gm2_backend graph modules.") from exc
+
+    for memory_dir, scene in zip(memory_dirs, owner_scenes):
+        pdir = Path(memory_dir) / "graph_memory2"
+        pdir.mkdir(parents=True, exist_ok=True)
+        with (pdir / "episodes.jsonl").open("w", encoding="utf-8"):
+            pass
+        with (pdir / "insights.json").open("w", encoding="utf-8") as writer:
+            json.dump([], writer, ensure_ascii=False, indent=2)
+        local_memory = LocalGraphMemory(agent_id=f"agent_{scene}")
+        with (pdir / f"local_{scene}.json").open("w", encoding="utf-8") as writer:
+            json.dump(_local_to_dict(local_memory, include_topology=True), writer, ensure_ascii=False, indent=2)
+        with (pdir / "global_memory.json").open("w", encoding="utf-8") as writer:
+            json.dump(_global_to_dict(GlobalGraphMemory()), writer, ensure_ascii=False, indent=2)
+        with (pdir / "summary.json").open("w", encoding="utf-8") as writer:
+            json.dump(
+                {
+                    "mode": "dynamic_graph",
+                    "reset": "empty_start",
+                    "locals": {
+                        scene: {
+                            "episodes": 0,
+                            "candidates": 0,
+                            "rules": 0,
+                            "artifacts": 0,
+                            "nodes": 0,
+                            "edges": 0,
+                        }
+                    },
+                    "global": {
+                        "candidate_count": 0,
+                        "rule_count": 0,
+                        "artifact_count": 0,
+                        "promoted_batches": [],
+                    },
+                },
+                writer,
+                ensure_ascii=False,
+                indent=2,
+            )
 
 
 def rebuild_selectivemem_global_from_locals(
@@ -1274,6 +1422,21 @@ def main() -> None:
         help="Directory containing fixed ALFWorld collaborative subset JSON files.",
     )
     parser.add_argument(
+        "--alfworld_game_root",
+        type=str,
+        default="",
+        help="ALFWorld only: external json_2.1.1 root for remapping subset gamefile paths.",
+    )
+    parser.add_argument(
+        "--alfworld_eval_split",
+        type=str,
+        default="valid_unseen",
+        help=(
+            "ALFWorld only: evaluation split(s) loaded from --alfworld_subset_dir. "
+            "Use 'valid_seen', 'valid_unseen', or 'valid_seen,valid_unseen'."
+        ),
+    )
+    parser.add_argument(
         "--max_train",
         type=int,
         default=None,
@@ -1293,6 +1456,11 @@ def main() -> None:
     parser.add_argument("--batch_size", type=int, default=10)
     parser.add_argument("--tool_mode", choices=["search", "no_search", "force_search", "smart_search"], default="search")
     parser.add_argument("--run_id", type=str, default=None)
+    parser.add_argument(
+        "--reset_memory",
+        action="store_true",
+        help="Start this run_id from empty memory artifacts and overwrite known memory files; do not use with --eval_only.",
+    )
     parser.add_argument(
         "--scenarios",
         type=str,
@@ -1316,6 +1484,35 @@ def main() -> None:
         action="store_true",
         help="Append fine-grained timing JSONL under log_dir / persist_dir (NV_DAMAS_PROFILE=1 + mem_config.profile_timing).",
     )
+    parser.add_argument("--gm2_dynamic_graph", action="store_true", help="GraphMemory2: dynamically build local/global graph memory.")
+    parser.add_argument("--gm2_repo_root", type=str, default="", help="Deprecated: GraphMemory2 modules are vendored under gm2_backend.")
+    parser.add_argument(
+        "--gm2_retrieval_mode",
+        type=str,
+        default="lightweight",
+        choices=[
+            "lightweight",
+            "query",
+            "phasee_compat",
+            "phasee_policy",
+            "phasee_action",
+            "hybrid_policy",
+            "hybrid_repair",
+            "lightweight_repair",
+            "graph_policy",
+            "graph_policy_feedback",
+        ],
+        help="GraphMemory2 retrieval mode.",
+    )
+    parser.add_argument(
+        "--gm2_settings",
+        type=str,
+        default="local_plus_global",
+        choices=["base", "local_only", "global_only", "local_plus_global"],
+        help="GraphMemory2 eval memory setting. Train local phase uses local_only.",
+    )
+    parser.add_argument("--gm2_enable_overlay", action="store_true", help="GraphMemory2: include per-episode overlay notes.")
+    parser.add_argument("--gm2_promotion_threshold", type=float, default=0.35, help="GraphMemory2 global promotion threshold.")
     parser.add_argument(
         "--mt_task_a_train_jsonl",
         type=str,
@@ -1362,10 +1559,16 @@ def main() -> None:
 
     log_base = os.path.join("./logs", eval_namespace, run_id, args.mas_type, "memory", args.mas_memory, model_type)
 
+    if args.reset_memory and args.eval_only:
+        raise ValueError("--reset_memory cannot be used with --eval_only because eval_only needs existing memory.")
+
     ensure_dir(local_dir)
     ensure_dir(dual_local_dir)
     ensure_dir(global_dir)
     ensure_dir(report_dir)
+
+    alfworld_eval_splits = parse_alfworld_eval_splits(args.alfworld_eval_split) if args.dataset_family == "alfworld" else []
+    alfworld_eval_task_sets: dict[str, tuple[list[dict], list[dict]]] = {}
 
     if args.dataset_family == "alfworld":
         load_eval_splits = not (args.max_eval is not None and int(args.max_eval) <= 0)
@@ -1374,6 +1577,7 @@ def main() -> None:
             group_a=args.alfworld_group_a,
             group_b=args.alfworld_group_b,
             load_eval_splits=load_eval_splits,
+            eval_split=alfworld_eval_splits[0],
         )
         task_a_name = "alfworld"
         task_b_name = "alfworld"
@@ -1392,6 +1596,23 @@ def main() -> None:
         if args.max_eval is not None:
             task_a_eval_tasks = task_a_eval_tasks[: args.max_eval]
             task_b_eval_tasks = task_b_eval_tasks[: args.max_eval]
+        if load_eval_splits:
+            for split_name in alfworld_eval_splits:
+                split_tasks = load_alfworld_collab_tasks(
+                    subset_dir=repo_root / args.alfworld_subset_dir,
+                    group_a=args.alfworld_group_a,
+                    group_b=args.alfworld_group_b,
+                    load_eval_splits=True,
+                    eval_split=split_name,
+                )
+                split_a_tasks = split_tasks["task_a_test"]
+                split_b_tasks = split_tasks["task_b_test"]
+                if args.max_eval is not None:
+                    split_a_tasks = split_a_tasks[: args.max_eval]
+                    split_b_tasks = split_b_tasks[: args.max_eval]
+                alfworld_eval_task_sets[split_name] = (split_a_tasks, split_b_tasks)
+        else:
+            alfworld_eval_task_sets = {alfworld_eval_splits[0]: ([], [])}
     elif args.dataset_family == "mtmind2web":
         task_a_name = "mtmind2web_train"
         task_b_name = "mtmind2web_train"
@@ -1426,9 +1647,22 @@ def main() -> None:
     local_b_dir = os.path.join(local_dir, task_b_label)
     ensure_dir(local_a_dir)
     ensure_dir(local_b_dir)
+    if args.reset_memory and args.mas_memory == "graph_memory2" and args.gm2_dynamic_graph:
+        reset_graph_memory2_artifacts_once(
+            memory_dirs=[local_a_dir, local_b_dir, global_dir],
+            owner_scenes=[task_a_label, task_b_label, "global"],
+        )
 
     def build_manager(task_name: str, working_dir: str, log_dir: str, tasks_override: list[dict] | None = None) -> TaskManager:
-        manager = build_task_manager(task_name, args.mas_type, args.mas_memory, args.max_trials, working_dir, log_dir)
+        manager = build_task_manager(
+            task_name,
+            args.mas_type,
+            args.mas_memory,
+            args.max_trials,
+            working_dir,
+            log_dir,
+            alfworld_game_root=args.alfworld_game_root,
+        )
         if tasks_override is not None:
             manager.tasks = copy.deepcopy(tasks_override)
         return manager
@@ -1442,7 +1676,28 @@ def main() -> None:
     # ALFWorld: persist entity graph every 3 tasks; use raw task for retrieval; insights_topk=1
     alfworld_mem_overrides = {"entity_graph_persist_every": 3} if args.dataset_family == "alfworld" else {}
     alfworld_mas_overrides = {"insights_topk": 1} if args.dataset_family == "alfworld" else {}
-    train_mem_extras = {**alfworld_mem_overrides, **mem_profile_extras}
+    gm2_common_extras: dict[str, Any] = {}
+    if args.mas_memory == "graph_memory2":
+        gm2_common_extras.update(
+            gm2_dynamic_graph=bool(args.gm2_dynamic_graph),
+            gm2_repo_root=str(args.gm2_repo_root or "").strip(),
+            gm2_retrieval_mode=str(args.gm2_retrieval_mode or "lightweight").strip(),
+            gm2_promotion_threshold=float(args.gm2_promotion_threshold),
+            gm2_shared_global_dir=global_dir,
+        )
+        if args.gm2_enable_overlay:
+            gm2_common_extras["gm2_enable_overlay"] = True
+    train_mem_extras = {**alfworld_mem_overrides, **mem_profile_extras, **gm2_common_extras}
+
+    def apply_gm2_scene_config(mgr: TaskManager, scene: str, *, settings: str = "local_only", freeze: bool = False) -> None:
+        if args.mas_memory != "graph_memory2":
+            return
+        mgr.mem_config.update(
+            gm2_owner_scene=scene,
+            gm2_settings=settings,
+            gm2_freeze_memory=freeze,
+            **gm2_common_extras,
+        )
     train_metrics: dict[str, Any] = {
         "dataset_family": args.dataset_family,
         "run_id": run_id,
@@ -1461,6 +1716,9 @@ def main() -> None:
         apply_collab_mem_tags(b_manager, "B", task_b_label, "pass1_local")
         a_manager.mem_config.update(train_mem_extras)
         b_manager.mem_config.update(train_mem_extras)
+        train_gm2_settings = str(args.gm2_settings or "local_plus_global")
+        apply_gm2_scene_config(a_manager, task_a_label, settings=train_gm2_settings, freeze=False)
+        apply_gm2_scene_config(b_manager, task_b_label, settings=train_gm2_settings, freeze=False)
         a_manager.mas_config.update(alfworld_mas_overrides)
         b_manager.mas_config.update(alfworld_mas_overrides)
         a_manager.mas_config.update({"silent_mas": True})
@@ -1468,7 +1726,7 @@ def main() -> None:
         build_mas(a_manager, args.reasoning, args.mas_memory, args.model)
         build_mas(b_manager, args.reasoning, args.mas_memory, args.model)
 
-        alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials} if args.dataset_family == "alfworld" else None
+        alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials, "alfworld_game_root": args.alfworld_game_root} if args.dataset_family == "alfworld" else None
         if args.mas_memory == "selectivemem" and args.dataset_family == "mtmind2web":
             # MT-Mind2Web SelectiveMem collaborative flow aligned with g-memory:
             # batch-wise local A/B -> rebuild global -> global-only A/B on the same batch.
@@ -2164,7 +2422,8 @@ def main() -> None:
                         b_att=b_att,
                     )
 
-                run_tasks(
+                train_a_t0 = time.perf_counter()
+                a_train_rewards, _, _, a_train_skipped, a_train_mt = run_tasks(
                     a_manager,
                     0,
                     total_local,
@@ -2172,13 +2431,29 @@ def main() -> None:
                     alfworld_subprocess_args=alfworld_sp,
                     progress_hook=_hook_a,
                 )
-                run_tasks(
+                train_a_wall = time.perf_counter() - train_a_t0
+                print(
+                    f"[TIMER][train][{task_a_label}] "
+                    f"wall_time_sec={train_a_wall:.2f} "
+                    f"requested={total_local} completed={len(a_train_rewards)} skipped={len(a_train_skipped)}",
+                    flush=True,
+                )
+
+                train_b_t0 = time.perf_counter()
+                b_train_rewards, _, _, b_train_skipped, b_train_mt = run_tasks(
                     b_manager,
                     0,
                     total_local,
                     args.tool_mode,
                     alfworld_subprocess_args=alfworld_sp,
                     progress_hook=_hook_b,
+                )
+                train_b_wall = time.perf_counter() - train_b_t0
+                print(
+                    f"[TIMER][train][{task_b_label}] "
+                    f"wall_time_sec={train_b_wall:.2f} "
+                    f"requested={total_local} completed={len(b_train_rewards)} skipped={len(b_train_skipped)}",
+                    flush=True,
                 )
                 _print_train_progress(
                     phase="train(g-memory)",
@@ -2193,6 +2468,26 @@ def main() -> None:
                     b_att=b_att,
                     endline=True,
                 )
+                train_metrics["train_summary"] = {
+                    "local_A": {
+                        **compute_metrics(a_train_rewards, a_train_mt),
+                        "domain": task_a_label,
+                        "wall_time_sec": train_a_wall,
+                        "num_tasks": total_local,
+                        "num_completed": len(a_train_rewards),
+                        "num_skipped": len(a_train_skipped),
+                        "num_success": sum(1 for r in a_train_rewards if r > 0),
+                    },
+                    "local_B": {
+                        **compute_metrics(b_train_rewards, b_train_mt),
+                        "domain": task_b_label,
+                        "wall_time_sec": train_b_wall,
+                        "num_tasks": total_local,
+                        "num_completed": len(b_train_rewards),
+                        "num_skipped": len(b_train_skipped),
+                        "num_success": sum(1 for r in b_train_rewards if r > 0),
+                    },
+                }
 
         # Force persist local entity graphs
         for mgr, tag in [(a_manager, task_a_label), (b_manager, task_b_label)]:
@@ -2201,6 +2496,7 @@ def main() -> None:
                 persist_fn()
                 # Persisted artifact is still saved to disk; keep terminal quiet.
 
+    global_build_t0 = time.perf_counter()
     # ---- Build global memory ----
     # SelectiveMem: GG is rebuilt during local training in batches (with snapshots),
     # so we only need a final rebuild here for safety (no snapshot).
@@ -2211,6 +2507,17 @@ def main() -> None:
             model_name=args.model,
             snapshot_tag=None,
         )
+    elif args.mas_memory == "graph_memory2" and args.gm2_dynamic_graph:
+        rebuild_graph_memory2_global_from_locals(
+            local_dirs=[local_a_dir, local_b_dir],
+            global_dir=global_dir,
+            promotion_threshold=float(args.gm2_promotion_threshold),
+            gm2_repo_root=args.gm2_repo_root,
+        )
+    elif args.mas_memory == "empty":
+        # Empty is the no-memory baseline. There is no global memory to build
+        # and no dual/global replay should be charged to this condition.
+        pass
     else:
         if args.dataset_family == "mtmind2web":
             # MT branch has already updated global memory incrementally
@@ -2261,7 +2568,7 @@ def main() -> None:
             batch_size = max(1, args.batch_size)
             for start in range(0, total, batch_size):
                 end = min(start + batch_size, total)
-                alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials} if args.dataset_family == "alfworld" else None
+                alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials, "alfworld_game_root": args.alfworld_game_root} if args.dataset_family == "alfworld" else None
                 with ThreadPoolExecutor(max_workers=2) as executor:
                     fut_a = executor.submit(run_tasks, a_manager_dual, start, end, args.tool_mode, alfworld_sp)
                     fut_b = executor.submit(run_tasks, b_manager_dual, start, end, args.tool_mode, alfworld_sp)
@@ -2300,27 +2607,50 @@ def main() -> None:
             if callable(persist_fn):
                 persist_fn()
 
+    if not args.eval_only:
+        global_build_wall = time.perf_counter() - global_build_t0
+        train_metrics.setdefault("train_summary", {})["global_build"] = {
+            "wall_time_sec": global_build_wall,
+            "memory": args.mas_memory,
+        }
+        print(
+            f"[TIMER][train_global][{args.mas_memory}] wall_time_sec={global_build_wall:.2f}",
+            flush=True,
+        )
+
     # ---- Evaluation (freeze memory) ----
-    if args.dataset_family == "mtmind2web":
-        # MT collaborative setting requested by user:
-        # 2 local-only results + 2 local+global results, all on test sets.
-        EVAL_SCENARIOS = [
-            ("local_A_on_A_test", task_a_eval_name, local_a_dir, task_a_eval_tasks, False),
-            ("local_B_on_B_test", task_b_eval_name, local_b_dir, task_b_eval_tasks, False),
-            ("global_A_on_A_test", task_a_eval_name, local_a_dir, task_a_eval_tasks, True),
-            ("global_B_on_B_test", task_b_eval_name, local_b_dir, task_b_eval_tasks, True),
+    def make_eval_scenarios(
+        split_a_eval_tasks: list[dict] | None,
+        split_b_eval_tasks: list[dict] | None,
+    ) -> list[tuple[str, str, str, list[dict] | None, bool]]:
+        if args.dataset_family == "mtmind2web":
+            # MT collaborative setting requested by user:
+            # 2 local-only results + 2 local+global results, all on test sets.
+            return [
+                ("local_A_on_A_test", task_a_eval_name, local_a_dir, split_a_eval_tasks, False),
+                ("local_B_on_B_test", task_b_eval_name, local_b_dir, split_b_eval_tasks, False),
+                ("global_A_on_A_test", task_a_eval_name, local_a_dir, split_a_eval_tasks, True),
+                ("global_B_on_B_test", task_b_eval_name, local_b_dir, split_b_eval_tasks, True),
+            ]
+        # 6 tasks: inner/cross × baseline/ours (no redundant cross_ours, since they duplicate inner_ours)
+        return [
+            ("inner_baseline_A_on_A", task_a_eval_name, local_a_dir, split_a_eval_tasks, False),
+            ("inner_baseline_B_on_B", task_b_eval_name, local_b_dir, split_b_eval_tasks, False),
+            # Ours: use local retrieval as base, then augment with global abstract insights.
+            ("inner_ours_A_on_A", task_a_eval_name, local_a_dir, split_a_eval_tasks, True),
+            ("inner_ours_B_on_B", task_b_eval_name, local_b_dir, split_b_eval_tasks, True),
+            ("cross_baseline_A_on_B", task_b_eval_name, local_a_dir, split_b_eval_tasks, False),
+            ("cross_baseline_B_on_A", task_a_eval_name, local_b_dir, split_a_eval_tasks, False),
+        ]
+
+    if args.dataset_family == "alfworld" and alfworld_eval_task_sets:
+        eval_groups = [
+            (split_name, make_eval_scenarios(split_a_tasks, split_b_tasks))
+            for split_name, (split_a_tasks, split_b_tasks) in alfworld_eval_task_sets.items()
         ]
     else:
-        # 6 tasks: inner/cross × baseline/ours (no redundant cross_ours, since they duplicate inner_ours)
-        EVAL_SCENARIOS = [
-            ("inner_baseline_A_on_A", task_a_eval_name, local_a_dir, task_a_eval_tasks, False),
-            ("inner_baseline_B_on_B", task_b_eval_name, local_b_dir, task_b_eval_tasks, False),
-            # Ours: use local retrieval as base, then augment with global abstract insights.
-            ("inner_ours_A_on_A", task_a_eval_name, local_a_dir, task_a_eval_tasks, True),
-            ("inner_ours_B_on_B", task_b_eval_name, local_b_dir, task_b_eval_tasks, True),
-            ("cross_baseline_A_on_B", task_b_eval_name, local_a_dir, task_b_eval_tasks, False),
-            ("cross_baseline_B_on_A", task_a_eval_name, local_b_dir, task_a_eval_tasks, False),
-        ]
+        eval_groups = [("", make_eval_scenarios(task_a_eval_tasks, task_b_eval_tasks))]
+    EVAL_SCENARIOS = eval_groups[0][1] if eval_groups else []
 
     raw = [s.strip() for s in args.scenarios.split(",") if s.strip()]
     # When max_eval=0, skip evaluation entirely (v3_ss may not provide valid_unseen files).
@@ -2353,6 +2683,9 @@ def main() -> None:
     ) -> dict[str, float]:
         log_eval = os.path.join(log_base, "eval", tag)
         manager = build_manager(task_name, memory_dir, log_eval, tasks_override)
+        gm2_eval_scene = task_a_label if task_a_label in memory_dir.replace("\\", "/") else task_b_label
+        gm2_eval_settings = str(args.gm2_settings or "local_plus_global") if use_global_insights else "local_only"
+        apply_gm2_scene_config(manager, gm2_eval_scene, settings=gm2_eval_settings, freeze=True)
         if args.dataset_family == "alfworld" and args.mas_memory == "selectivemem":
             mem_norm = memory_dir.replace("\\", "/")
             if task_a_label in mem_norm:
@@ -2384,6 +2717,12 @@ def main() -> None:
                 global_config={
                     "working_dir": global_dir,
                     "freeze_memory": True,
+                    "gm2_freeze_memory": True,
+                    "gm2_dynamic_graph": bool(args.gm2_dynamic_graph),
+                    "gm2_repo_root": str(args.gm2_repo_root or "").strip(),
+                    "gm2_retrieval_mode": str(args.gm2_retrieval_mode or "lightweight").strip(),
+                    "gm2_settings": "global_only",
+                    "gm2_promotion_threshold": float(args.gm2_promotion_threshold),
                     **mem_profile_extras,
                 },
                 llm_model=GPTChat(model_name=args.model),
@@ -2402,12 +2741,20 @@ def main() -> None:
             end = min(5, len(manager.tasks))
         else:
             end = len(manager.tasks)
-        alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials} if args.dataset_family == "alfworld" else None
+        alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials, "alfworld_game_root": args.alfworld_game_root} if args.dataset_family == "alfworld" else None
         if alfworld_sp and use_global_insights and args.mas_memory == "selectivemem":
             alfworld_sp["use_global_insights"] = True
             alfworld_sp["global_dir"] = global_dir
+        eval_t0 = time.perf_counter()
         rewards, _, _, skipped_tasks, eval_mt = run_tasks(
             manager, 0, end, args.tool_mode, alfworld_subprocess_args=alfworld_sp
+        )
+        eval_wall = time.perf_counter() - eval_t0
+        print(
+            f"[TIMER][eval][{tag}] "
+            f"wall_time_sec={eval_wall:.2f} requested={end} "
+            f"completed={len(rewards)} skipped={len(skipped_tasks)}",
+            flush=True,
         )
         if skipped_tasks:
             load_err_count = sum(
@@ -2430,23 +2777,30 @@ def main() -> None:
         metrics["num_completed"] = len(rewards)
         metrics["num_skipped"] = len(skipped_tasks)
         metrics["skipped_tasks"] = skipped_tasks
+        metrics["wall_time_sec"] = eval_wall
         return metrics
 
     results = []
-    for idx in selected_indices:
-        scenario, task_name, memory_dir, tasks_override, use_global_insights = EVAL_SCENARIOS[idx]
-        results.append(
-            {
-                "scenario": scenario,
-                **eval_on(
-                    task_name,
-                    memory_dir,
-                    scenario,
-                    tasks_override=tasks_override,
-                    use_global_insights=use_global_insights,
-                ),
-            }
-        )
+    for split_name, scenarios_for_split in eval_groups:
+        for idx in selected_indices:
+            if idx >= len(scenarios_for_split):
+                continue
+            scenario, task_name, memory_dir, tasks_override, use_global_insights = scenarios_for_split[idx]
+            eval_tag = f"{split_name}/{scenario}" if split_name else scenario
+            result_name = f"{split_name}:{scenario}" if split_name else scenario
+            results.append(
+                {
+                    "scenario": result_name,
+                    "eval_split": split_name or None,
+                    **eval_on(
+                        task_name,
+                        memory_dir,
+                        eval_tag,
+                        tasks_override=tasks_override,
+                        use_global_insights=use_global_insights,
+                    ),
+                }
+            )
 
     # Always save results to a new timestamped folder under reports/collab
     report_ts = time.strftime("%Y%m%d_%H%M%S")
@@ -2468,23 +2822,25 @@ def main() -> None:
         if show_mt_eval:
             f.write(
                 "| Scenario | Accuracy | Avg Reward | avg_Ele.Acc | avg_Op.F1 | avg_SSR | avg_TSR | "
-                "Requested | Completed | Skipped |\n"
+                "Requested | Completed | Skipped | Wall Time(s) |\n"
             )
-            f.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+            f.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             for item in results:
                 f.write(
                     f"| {item['scenario']} | {item['accuracy']:.4f} | {item['avg_reward']:.4f} | "
                     f"{float(item.get('avg_ele_acc', 0.0)):.4f} | {float(item.get('avg_op_f1', 0.0)):.4f} | "
                     f"{float(item.get('avg_ssr', 0.0)):.4f} | {float(item.get('avg_tsr', 0.0)):.4f} | "
-                    f"{item['num_tasks']} | {item['num_completed']} | {item['num_skipped']} |\n"
+                    f"{item['num_tasks']} | {item['num_completed']} | {item['num_skipped']} | "
+                    f"{float(item.get('wall_time_sec', 0.0)):.2f} |\n"
                 )
         else:
-            f.write("| Scenario | Accuracy | Avg Reward | Requested | Completed | Skipped |\n")
-            f.write("|---|---:|---:|---:|---:|---:|\n")
+            f.write("| Scenario | Accuracy | Avg Reward | Requested | Completed | Skipped | Wall Time(s) |\n")
+            f.write("|---|---:|---:|---:|---:|---:|---:|\n")
             for item in results:
                 f.write(
                     f"| {item['scenario']} | {item['accuracy']:.4f} | {item['avg_reward']:.4f} | "
-                    f"{item['num_tasks']} | {item['num_completed']} | {item['num_skipped']} |\n"
+                    f"{item['num_tasks']} | {item['num_completed']} | {item['num_skipped']} | "
+                    f"{float(item.get('wall_time_sec', 0.0)):.2f} |\n"
                 )
 
     # Persist all train metrics (batch-level + summary), so both train/test are recorded.
@@ -2526,6 +2882,22 @@ def main() -> None:
                 f"- batch_size: {int(summary.get('batch_size', 0))}\n"
                 f"- num_batches: {int(summary.get('num_batches', 0))}\n\n"
             )
+            timer_rows = [
+                (key, row)
+                for key, row in summary.items()
+                if isinstance(row, dict) and "wall_time_sec" in row
+            ]
+            if timer_rows:
+                f.write("## Wall Clock Timers\n\n")
+                f.write("| Stage | Domain/Memory | Requested | Completed | Skipped | Wall Time(s) |\n")
+                f.write("|---|---|---:|---:|---:|---:|\n")
+                for key, row in timer_rows:
+                    f.write(
+                        f"| {key} | {row.get('domain', row.get('memory', ''))} | "
+                        f"{int(row.get('num_tasks', 0))} | {int(row.get('num_completed', 0))} | "
+                        f"{int(row.get('num_skipped', 0))} | {float(row.get('wall_time_sec', 0.0)):.2f} |\n"
+                    )
+                f.write("\n")
 
         batches = train_metrics.get("train_batches") or []
         if batches:

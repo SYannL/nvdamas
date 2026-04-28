@@ -12,6 +12,7 @@ from .memory import (
     GMemory,
     GMemoryGraphMASMemory,
     SelectiveMemMASMemory,
+    GraphMemory2MASMemory,
 )
 
 
@@ -32,6 +33,7 @@ def module_map(
         'g-memory': GMemory,
         'gmemgraph': GMemoryGraphMASMemory,
         'selectivemem': SelectiveMemMASMemory,
+        'graph_memory2': GraphMemory2MASMemory,
     }
 
     if reasoning not in reasoning_map:

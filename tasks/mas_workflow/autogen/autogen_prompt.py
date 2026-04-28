@@ -19,4 +19,3 @@ class AutoGenPrompt:
     ground_truth_system_prompt: str = ground_truth_system_prompt
 
 AUTOGEN_PROMPT = AutoGenPrompt()
-
