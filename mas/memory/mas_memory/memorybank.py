@@ -2,7 +2,7 @@ import math
 import copy
 from dataclasses import dataclass, field
 from langchain_chroma import Chroma
-from langchain.docstore.document import Document
+from mas.langchain_compat import Document
 
 from .memory_base import MASMemoryBase
 from .prompt import MEMORYBANK
@@ -75,10 +75,10 @@ class MemoryBankMASMemory(MASMemoryBase):
         agent_messages: list[AgentMessage] = [pair[0] for pair in trajectory_time_pairs]
         return self.current_task_context.task_description + MemoryForgetter.format_task_trajectory(agent_messages)
 
-    def save_task_context(self, label: bool, feedback: str = None) -> MASMessage:
+    def save_task_context(self, label: bool, feedback: str = None, **kargs) -> MASMessage:
         self.current_time_stemp = 0
         self.memory_forgetter.clear()
-        return super().save_task_context(label, feedback=feedback)
+        return super().save_task_context(label, feedback=feedback, **kargs)
 
     def add_memory(self, mas_message: MASMessage) -> None:
         raw_task_main: str = mas_message.task_main
@@ -143,5 +143,3 @@ class MemoryBankMASMemory(MASMemoryBase):
 
 
     
-
-

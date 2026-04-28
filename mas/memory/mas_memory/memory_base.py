@@ -56,7 +56,7 @@ class MASMemoryBase(StorageNameSpace, ABC):
     def move_memory_state(self, action: str, observation: str, **kargs) -> None:
         self.current_task_context.move_state(action, observation, **kargs)
     
-    def save_task_context(self, label: bool, feedback: str = None) -> MASMessage:
+    def save_task_context(self, label: bool, feedback: str = None, **kargs) -> MASMessage:
         if self.current_task_context == None:
             raise RuntimeError('The current inside-trial memory is empty.')
         
@@ -77,9 +77,42 @@ class MASMemoryBase(StorageNameSpace, ABC):
     
     def retrieve_memory(self, **kargs) -> tuple[list, list, list]:
         return [], [], []
+
+    def retrieve_prompt_payload(self, **kargs) -> dict[str, list[str]]:
+        successful, failed, insights = self.retrieve_memory(**kargs)
+        execution_patterns: list[str] = []
+        for item in successful:
+            if isinstance(item, MASMessage):
+                execution_patterns.append(self._message_to_execution_pattern(item))
+            elif str(item).strip():
+                execution_patterns.append(str(item))
+        repair_hints = (
+            ["[Memory] Similar failed cases exist; consider changing the current action pattern."]
+            if failed
+            else []
+        )
+        return {
+            "reference_cases": [],
+            "execution_patterns": execution_patterns,
+            "insights": [str(item) for item in insights if str(item).strip()],
+            "planner_notes": [],
+            "action_constraints": [],
+            "repair_hints": repair_hints,
+        }
     
     def update_memory(self, query: str, **kargs) -> None:
         pass
     
     def backward(self, reward, **kwargs) -> None:
         pass
+
+    @staticmethod
+    def _message_to_execution_pattern(message: MASMessage) -> str:
+        description = str(message.task_description or "").strip()
+        trajectory = str(message.task_trajectory or "").strip()
+        parts: list[str] = []
+        if description:
+            parts.append("### Task description:\n" + description)
+        if trajectory:
+            parts.append("### Detailed trajectory:\n" + trajectory)
+        return "\n\n".join(parts).strip()

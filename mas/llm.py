@@ -75,8 +75,8 @@ class GPTChat(LLM):
         if not self._is_qwen:
             return prepared
 
-        # Qwen3 defaults to a thinking preamble on many OpenAI-compatible servers.
-        # For ALFWorld we need a short executable command, not a long hidden trace.
+        # Qwen3 often emits a long reasoning preamble on OpenAI-compatible servers.
+        # For ALFWorld we want one executable command, not hidden chain-of-thought.
         for msg in reversed(prepared):
             if msg["role"] == "user":
                 content = str(msg.get("content") or "")

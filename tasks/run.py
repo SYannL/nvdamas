@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 os.environ['HF_ENDPOINT'] = 'https://huggingface.co'
 import sys
@@ -62,6 +64,31 @@ def load_alfworld_tasks_json(path: str) -> list[dict]:
     return data
 
 
+def _export_alfworld_history_if_enabled(
+    task_manager: TaskManager,
+    task_config: dict,
+    *,
+    status_override: str | None = None,
+) -> str | None:
+    if task_manager.task_name != "alfworld":
+        return None
+    export_enabled = bool(task_manager.mem_config.get("export_gm2_history", False))
+    if not export_enabled:
+        return None
+    history_dir = str(task_manager.mem_config.get("gm2_history_dir", "") or "").strip()
+    if not history_dir:
+        return None
+    env = getattr(task_manager, "env", None)
+    if env is None or not hasattr(env, "export_gm2_history"):
+        return None
+    model_id = str(task_config.get("model_type") or task_manager.mas_config.get("model_type", "") or "")
+    try:
+        return env.export_gm2_history(history_dir, model_id=model_id, status_override=status_override)
+    except Exception as exc:
+        task_manager.recorder.log(f"[gm2_history_export] failed: {type(exc).__name__}: {exc}")
+        return None
+
+
 @dataclass
 class TaskManager:
     task_name: str              # task name
@@ -75,13 +102,26 @@ class TaskManager:
     mem_config: dict = field(default_factory=dict)   # memory configs
 
 
-def build_task(task: str, mas_type: str, memory_type: str, max_steps: int) -> TaskManager:
+def build_task(
+    task: str,
+    mas_type: str,
+    memory_type: str,
+    max_steps: int,
+    *,
+    alfworld_game_root: str = "",
+) -> TaskManager:
 
     with open(CONFIG.get(task).get('env_config_path')) as reader:
         config = yaml.safe_load(reader)
+    if task == "alfworld" and str(alfworld_game_root or "").strip():
+        config["external_game_root"] = os.path.abspath(str(alfworld_game_root).strip())
 
-    env: BaseEnv = get_env(task, config, max_steps)
     recorder: BaseRecorder = get_recorder(task, working_dir=LOG_DIR, namespace='total_task')
+    recorder.log(f"[startup] task={task} mas_type={mas_type} memory_type={memory_type} log_dir={os.path.abspath(LOG_DIR)}")
+    if task == "alfworld" and config.get("external_game_root"):
+        recorder.log(f"[startup] alfworld_game_root={config['external_game_root']}")
+        print(f"ALFWorld game root remap: {config['external_game_root']}", flush=True)
+    env: BaseEnv = get_env(task, config, max_steps)
     tasks: list[dict] = get_task(task, env_config=config)
     mas_workflow: MetaMAS = get_mas(mas_type)
     mas_config: dict = CONFIG.get(mas_type, {})
@@ -147,6 +187,7 @@ def run_task(task_manager: TaskManager) -> None:
             task_config["task_index"] = task_id
             task_config["task_index_1based"] = task_id + 1
             task_config["mas_memory_type"] = task_manager.memory_type
+            task_config["model_type"] = task_manager.mas_config.get("model_type", "")
             if task_manager.memory_type in ("g-memory", "selectivemem"):
                 _ma_dir = os.path.join(task_manager.recorder.working_dir, "memory_augmentation")
                 os.makedirs(_ma_dir, exist_ok=True)
@@ -159,6 +200,9 @@ def run_task(task_manager: TaskManager) -> None:
 
             reward, done = task_manager.mas.schedule(task_config)
             task_manager.recorder.task_end(reward, done)
+            exported = _export_alfworld_history_if_enabled(task_manager, task_config)
+            if exported:
+                task_manager.recorder.log(f"[gm2_history_export] saved: {exported}")
         except Exception as e:
             # Robustness: ALFWorld/TextWorld occasionally crashes on some gamefiles (e.g. PDDL parser issues).
             # We skip the task but keep the run alive, logging full traceback for later inspection.
@@ -176,6 +220,9 @@ def run_task(task_manager: TaskManager) -> None:
             # Treat skipped task as failure for running accuracy accounting.
             reward, done = 0.0, False
             task_manager.recorder.task_end(reward, done)
+            exported = _export_alfworld_history_if_enabled(task_manager, task_config, status_override="fail")
+            if exported:
+                task_manager.recorder.log(f"[gm2_history_export] saved after crash: {exported}")
             # Continue to next task.
             continue
         
@@ -305,6 +352,11 @@ if __name__ == '__main__':
         help='Optional run identifier to isolate memory/log outputs (creates subfolders under .db and logs).',
     )
     parser.add_argument(
+        '--reset_memory',
+        action='store_true',
+        help='Delete this run_id memory directory under .db before starting; use for fresh train/build runs.',
+    )
+    parser.add_argument(
         '--max_tasks',
         type=int,
         default=None,
@@ -317,6 +369,90 @@ if __name__ == '__main__':
             'MT-Mind2Web only: store/load memory under .db/.../mtmind2web/... (same --run_id) '
             'so mtmind2web_train and mtmind2web_test_* runs share one G-Memory working_dir.'
         ),
+    )
+    parser.add_argument(
+        '--export_gm2_history',
+        action='store_true',
+        help='ALFWorld only: export gm2-compatible history_*.json files while running the original project pipeline.',
+    )
+    parser.add_argument(
+        '--gm2_history_dir',
+        type=str,
+        default='',
+        help='ALFWorld only: directory for exported gm2-compatible history files. Defaults to <log_dir>/game_trajectory.',
+    )
+    parser.add_argument(
+        '--alfworld_game_root',
+        type=str,
+        default='',
+        help=(
+            'ALFWorld only: external json_2.1.1 root to remap subset gamefile paths, '
+            'for example /bigdata/.../run_alf/ALFWORLD_DATA/json_2.1.1'
+        ),
+    )
+    parser.add_argument(
+        '--gm2_memory_dir',
+        type=str,
+        default='',
+        help='GraphMemory2 only: optional external directory for prebuilt/static gm2 memory artifacts.',
+    )
+    parser.add_argument(
+        '--gm2_repo_root',
+        type=str,
+        default='',
+        help='Deprecated: GraphMemory2 graph modules are vendored under gm2_backend.',
+    )
+    parser.add_argument(
+        '--gm2_dynamic_graph',
+        action='store_true',
+        help='GraphMemory2 only: dynamically build real local/global graph memory from episodes in this run.',
+    )
+    parser.add_argument(
+        '--gm2_retrieval_mode',
+        type=str,
+        default='lightweight',
+        choices=[
+            'lightweight',
+            'query',
+            'phasee_compat',
+            'phasee_policy',
+            'phasee_action',
+            'hybrid_policy',
+            'hybrid_repair',
+            'lightweight_repair',
+            'graph_policy',
+            'graph_policy_feedback',
+        ],
+        help='GraphMemory2 only: retrieval mode for external graph memory artifacts.',
+    )
+    parser.add_argument(
+        '--gm2_settings',
+        type=str,
+        default='local_only',
+        choices=['base', 'local_only', 'global_only', 'local_plus_global'],
+        help='GraphMemory2 only: which external graph memories to use.',
+    )
+    parser.add_argument(
+        '--gm2_owner_scene',
+        type=str,
+        default='',
+        help='GraphMemory2 only: local memory scene name, e.g. kitchen for local_kitchen.json.',
+    )
+    parser.add_argument(
+        '--gm2_freeze_memory',
+        action='store_true',
+        help='GraphMemory2 only: disable cross-task memory updates and use committed memory in read-only mode.',
+    )
+    parser.add_argument(
+        '--gm2_enable_overlay',
+        action='store_true',
+        help='GraphMemory2 only: enable per-episode overlay updates during a task.',
+    )
+    parser.add_argument(
+        '--gm2_promotion_threshold',
+        type=float,
+        default=0.35,
+        help='GraphMemory2 only: placeholder threshold for local-to-global promotion logic.',
     )
 
     args = parser.parse_args()
@@ -337,8 +473,8 @@ if __name__ == '__main__':
     if args.run_id:
         WORKING_DIR = os.path.join(WORKING_DIR, args.run_id)
         LOG_DIR = os.path.join(LOG_DIR, args.run_id)
-    # if os.path.exists(WORKING_DIR):
-    #     shutil.rmtree(WORKING_DIR)
+    if args.reset_memory and os.path.exists(WORKING_DIR):
+        shutil.rmtree(WORKING_DIR)
     os.makedirs(WORKING_DIR, exist_ok=True)
     os.makedirs(LOG_DIR, exist_ok=True)
     if args.mtmind2web_shared_memory and task.startswith('mtmind2web_'):
@@ -348,13 +484,31 @@ if __name__ == '__main__':
         )
     
     # run tasks
-    task_configs: TaskManager = build_task(task, mas_type, mas_memory_type, max_trials)
+    task_configs: TaskManager = build_task(
+        task,
+        mas_type,
+        mas_memory_type,
+        max_trials,
+        alfworld_game_root=args.alfworld_game_root,
+    )
     if task == 'alfworld' and args.alfworld_tasks_json:
         loaded = load_alfworld_tasks_json(args.alfworld_tasks_json)
         if args.alfworld_max_tasks is not None:
             n = max(0, int(args.alfworld_max_tasks))
             loaded = loaded[:n]
         task_configs.tasks = loaded
+        subset_msg = (
+            f"[alfworld_tasks_json] loaded {len(loaded)} tasks from "
+            f"{os.path.abspath(args.alfworld_tasks_json)}"
+        )
+        print(subset_msg, flush=True)
+        task_configs.recorder.log(subset_msg)
+        if loaded:
+            first_gamefile = ((loaded[0].get("env_kwargs") or {}).get("gamefile")) if isinstance(loaded[0], dict) else None
+            if first_gamefile:
+                first_msg = f"[alfworld_tasks_json] first gamefile: {first_gamefile}"
+                print(first_msg, flush=True)
+                task_configs.recorder.log(first_msg)
     if args.max_tasks is not None:
         n_any = max(0, int(args.max_tasks))
         task_configs.tasks = task_configs.tasks[:n_any]
@@ -363,6 +517,7 @@ if __name__ == '__main__':
     task_configs.mas_config['insights_topk'] = args.insights_topk
     task_configs.mas_config['threshold'] = args.threshold
     task_configs.mas_config['use_projector'] = args.use_projector
+    task_configs.mas_config['model_type'] = model_type
     quiet_mode = not args.verbose
     task_configs.mas_config['quiet'] = quiet_mode
     if quiet_mode:
@@ -375,6 +530,28 @@ if __name__ == '__main__':
         hop=args.hop,
         task_name=_mem_task_name,
     )
+    if mas_memory_type == "graph_memory2":
+        task_configs.mem_config.update(
+            gm2_memory_dir=str(args.gm2_memory_dir or "").strip(),
+            gm2_repo_root=str(args.gm2_repo_root or "").strip(),
+            gm2_dynamic_graph=bool(args.gm2_dynamic_graph),
+            gm2_retrieval_mode=str(args.gm2_retrieval_mode or "lightweight").strip(),
+            gm2_settings=str(args.gm2_settings or "local_only").strip(),
+            gm2_owner_scene=str(args.gm2_owner_scene or "").strip(),
+            gm2_freeze_memory=bool(args.gm2_freeze_memory),
+            gm2_promotion_threshold=float(args.gm2_promotion_threshold),
+        )
+        if args.gm2_enable_overlay:
+            task_configs.mem_config["gm2_enable_overlay"] = True
+    if task == "alfworld":
+        history_dir = args.gm2_history_dir.strip() or os.path.join(LOG_DIR, "game_trajectory")
+        task_configs.mem_config.update(
+            export_gm2_history=bool(args.export_gm2_history),
+            gm2_history_dir=history_dir,
+        )
+        if args.export_gm2_history:
+            os.makedirs(history_dir, exist_ok=True)
+            print(f"GM2-compatible histories will be exported to: {os.path.abspath(history_dir)}", flush=True)
 
     build_mas(task_configs, reasoning_type, mas_memory_type, model_type)
 

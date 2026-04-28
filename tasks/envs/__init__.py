@@ -8,7 +8,6 @@ from .fever_env import FeverEnv, FeverRecorder
 from .huskyqa_env import HuskyQAEnv, HuskyQARecorder
 from .medmcqa_env import MedMCQAEnv, MedMCQARecorder
 from .mtmind2web_env import MTMind2WebEnv, MTMind2WebRecorder
-from .scienceworld_env import ScienceWorldEnv, ScienceWorldRecorder
 try:
     from .pddl_env.pddl_env import PDDLEnv, PDDLRecorder, get_all_environment_configs
 except ImportError:
@@ -50,29 +49,16 @@ TASKS_PATH = {
     'medmcqa_pharma_20_test': 'data/medmcqa/medmcqa_pharma_20_test.jsonl',
     'medmcqa_anatomy_20': 'data/medmcqa/medmcqa_anatomy_20.jsonl',
     'medmcqa_surgery_20': 'data/medmcqa/medmcqa_surgery_20.jsonl',
-    # 'mtmind2web_train': 'data/MT-Mind2Web/mtmind2web_train_eval.jsonl',
-    # 'mtmind2web_test_task': 'data/MT-Mind2Web/mtmind2web_test_task_eval.jsonl',
-    # 'mtmind2web_test_website': 'data/MT-Mind2Web/mtmind2web_test_website_eval.jsonl',
-    # 'mtmind2web_test_subdomain': 'data/MT-Mind2Web/mtmind2web_test_subdomain_eval.jsonl',
-    'scienceworld_train': 'data/scienceworld/scienceworld_train.jsonl',
-    'scienceworld_dev': 'data/scienceworld/scienceworld_dev.jsonl',
-    'scienceworld_test': 'data/scienceworld/scienceworld_test.jsonl',
-    'scienceworld_domain_a_train': 'data/scienceworld/scienceworld_domain_a_train.jsonl',
-    'scienceworld_domain_b_train': 'data/scienceworld/scienceworld_domain_b_train.jsonl',
-    'scienceworld_domain_a_test': 'data/scienceworld/scienceworld_domain_a_test.jsonl',
-    'scienceworld_domain_b_test': 'data/scienceworld/scienceworld_domain_b_test.jsonl',
+    'mtmind2web_train': 'data/MT-Mind2Web/mtmind2web_train_eval.jsonl',
+    'mtmind2web_test_task': 'data/MT-Mind2Web/mtmind2web_test_task_eval.jsonl',
+    'mtmind2web_test_website': 'data/MT-Mind2Web/mtmind2web_test_website_eval.jsonl',
+    'mtmind2web_test_subdomain': 'data/MT-Mind2Web/mtmind2web_test_subdomain_eval.jsonl',
 }
 
 
 def _load_jsonl_rows(path: str) -> list[dict]:
     with open(path, "r", encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
-
-
-def _load_jsonl_rows_if_exists(path: str) -> list[dict]:
-    if not os.path.exists(path):
-        return []
-    return _load_jsonl_rows(path)
 
 ## Tasks
 if AlfworldEnv is not None:
@@ -338,14 +324,6 @@ with open(TASKS_PATH['medmcqa_surgery_20'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-# mtmind2web_train_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_train'])
-# mtmind2web_test_task_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_test_task'])
-# mtmind2web_test_website_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_test_website'])
-# mtmind2web_test_subdomain_tasks = _load_jsonl_rows(TASKS_PATH['mtmind2web_test_subdomain'])
-# scienceworld_train_tasks = _load_jsonl_rows(TASKS_PATH['scienceworld_train'])
-# scienceworld_dev_tasks = _load_jsonl_rows(TASKS_PATH['scienceworld_dev'])
-# scienceworld_test_tasks = _load_jsonl_rows(TASKS_PATH['scienceworld_test'])
-
 TASK_NAMES = ["barman", "blockworld", "gripper", "tyreworld"]
 if get_all_environment_configs is not None:
     pddl_tasks: list[dict] = get_all_environment_configs(TASK_NAMES, TASKS_PATH['pddl'])
@@ -372,13 +350,12 @@ TASK_DATA = {
     'medmcqa_pharma_20_test': medmcqa_pharma_20_test_tasks,
     'medmcqa_anatomy_20': medmcqa_anatomy_20_tasks,
     'medmcqa_surgery_20': medmcqa_surgery_20_tasks,
-    # 'mtmind2web_train': mtmind2web_train_tasks,
-    # 'mtmind2web_test_task': mtmind2web_test_task_tasks,
-    # 'mtmind2web_test_website': mtmind2web_test_website_tasks,
-    # 'mtmind2web_test_subdomain': mtmind2web_test_subdomain_tasks,
-    # 'scienceworld_train': scienceworld_train_tasks,
-    # 'scienceworld_dev': scienceworld_dev_tasks,
-    # 'scienceworld_test': scienceworld_test_tasks,
+    # Load MT-Mind2Web only on demand so unrelated runs (e.g. ALFWorld in Docker)
+    # do not fail just because those dataset files are absent.
+    'mtmind2web_train': None,
+    'mtmind2web_test_task': None,
+    'mtmind2web_test_website': None,
+    'mtmind2web_test_subdomain': None,
 }
 
 ENVS = {
@@ -399,13 +376,10 @@ ENVS = {
     'medmcqa_pharma_20_test': MedMCQAEnv,
     'medmcqa_anatomy_20': MedMCQAEnv,
     'medmcqa_surgery_20': MedMCQAEnv,
-    # 'mtmind2web_train': MTMind2WebEnv,
-    # 'mtmind2web_test_task': MTMind2WebEnv,
-    # 'mtmind2web_test_website': MTMind2WebEnv,
-    # 'mtmind2web_test_subdomain': MTMind2WebEnv,
-    # 'scienceworld_train': ScienceWorldEnv,
-    # 'scienceworld_dev': ScienceWorldEnv,
-    # 'scienceworld_test': ScienceWorldEnv,
+    'mtmind2web_train': MTMind2WebEnv,
+    'mtmind2web_test_task': MTMind2WebEnv,
+    'mtmind2web_test_website': MTMind2WebEnv,
+    'mtmind2web_test_subdomain': MTMind2WebEnv,
 }
 if AlfworldEnv is not None:
     ENVS['alfworld'] = AlfworldEnv
@@ -428,13 +402,10 @@ RECORDERS = {
     'medmcqa_pharma_20_test': MedMCQARecorder,
     'medmcqa_anatomy_20': MedMCQARecorder,
     'medmcqa_surgery_20': MedMCQARecorder,
-    # 'mtmind2web_train': MTMind2WebRecorder,
-    # 'mtmind2web_test_task': MTMind2WebRecorder,
-    # 'mtmind2web_test_website': MTMind2WebRecorder,
-    # 'mtmind2web_test_subdomain': MTMind2WebRecorder,
-    # 'scienceworld_train': ScienceWorldRecorder,
-    # 'scienceworld_dev': ScienceWorldRecorder,
-    # 'scienceworld_test': ScienceWorldRecorder,
+    'mtmind2web_train': MTMind2WebRecorder,
+    'mtmind2web_test_task': MTMind2WebRecorder,
+    'mtmind2web_test_website': MTMind2WebRecorder,
+    'mtmind2web_test_subdomain': MTMind2WebRecorder,
 }
 if AlfworldRecorder is not None:
     RECORDERS['alfworld'] = AlfworldRecorder
@@ -489,6 +460,15 @@ def get_recorder(task: str, working_dir: str, namespace: str) -> BaseRecorder:
     return RECORDERS.get(task)(working_dir=working_dir, namespace=namespace)
 
 def get_task(task: str, env_config: dict | None = None) -> list[dict]:
+
+    if task.startswith('mtmind2web_') and TASK_DATA.get(task) is None:
+        data_path = TASKS_PATH.get(task)
+        if not data_path or not os.path.exists(data_path):
+            raise FileNotFoundError(
+                f"Dataset file for task '{task}' not found: {data_path}. "
+                "This task is optional and loaded lazily; please make sure the file exists before running it."
+            )
+        TASK_DATA[task] = _load_jsonl_rows(data_path)
 
     if TASK_DATA.get(task) is None:
         if task == 'alfworld':

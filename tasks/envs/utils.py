@@ -5,7 +5,7 @@ import string
 import re
 
 import requests
-from langchain.docstore.document import Document
+from mas.langchain_compat import Document
 import wikipedia
 
 # Common medical/pharma abbreviations -> Wikipedia-friendly full names

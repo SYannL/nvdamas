@@ -5,7 +5,7 @@ Output folder: data/alfworld/collab_subsets/v3_s
 
 Policy (per scene_domain file in v3):
   - train: keep first 100 tasks
-  - valid_unseen (test): keep first 20 tasks
+  - valid_seen / valid_unseen (test): keep first 20 tasks
 
 We keep the original deterministic ordering from v3 (and additionally sort by
 selection_key for safety) so repeated runs produce identical subsets.
@@ -58,6 +58,10 @@ def main() -> None:
         ("living", "train"),
         ("bedroom", "train"),
         ("bathroom", "train"),
+        ("kitchen", "valid_seen"),
+        ("living", "valid_seen"),
+        ("bedroom", "valid_seen"),
+        ("bathroom", "valid_seen"),
         ("kitchen", "valid_unseen"),
         ("living", "valid_unseen"),
         ("bedroom", "valid_unseen"),
@@ -105,4 +109,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -32,7 +32,7 @@ class ChatDevMASMemory(MASMemoryBase):
         response: str = self.llm_model(messages)
         return self.current_task_context.task_description + '\n' + response
     
-    def save_task_context(self, label: bool, feedback: str = None) -> MASMessage:
+    def save_task_context(self, label: bool, feedback: str = None, **kargs) -> MASMessage:
         self.counter = 0
-        return super().save_task_context(label, feedback=feedback)
+        return super().save_task_context(label, feedback=feedback, **kargs)
     
