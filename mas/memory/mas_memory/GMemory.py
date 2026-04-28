@@ -1,6 +1,6 @@
 from dataclasses import dataclass, replace
 from langchain_chroma import Chroma
-from langchain.docstore.document import Document
+from mas.langchain_compat import Document
 import os
 import copy
 import re

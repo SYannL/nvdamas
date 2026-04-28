@@ -163,3 +163,27 @@ def format_memory_augmentation_parts(
         "memory_few_shots": mem_text,
         "insights": ins_text,
     }
+
+
+def format_prompt_payload(
+    payload: dict[str, list[str]] | None,
+    task_description: str,
+    *,
+    intermediate_findings_env: str | None = None,
+) -> str:
+    payload = payload or {}
+    reference_cases = [str(item) for item in payload.get("reference_cases", []) if str(item).strip()]
+    execution_patterns = [str(item) for item in payload.get("execution_patterns", []) if str(item).strip()]
+    insights = [str(item) for item in payload.get("insights", []) if str(item).strip()]
+    planner_notes = [str(item) for item in payload.get("planner_notes", []) if str(item).strip()]
+    action_constraints = [str(item) for item in payload.get("action_constraints", []) if str(item).strip()]
+    repair_hints = [str(item) for item in payload.get("repair_hints", []) if str(item).strip()]
+
+    combined_insights = insights + planner_notes + action_constraints + repair_hints
+    return format_task_prompt_with_insights(
+        few_shots=reference_cases,
+        memory_few_shots=execution_patterns,
+        insights=combined_insights,
+        task_description=task_description,
+        intermediate_findings_env=intermediate_findings_env,
+    )

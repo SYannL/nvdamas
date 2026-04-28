@@ -68,6 +68,26 @@ class GPTChat(LLM):
             base_url=URL,
             api_key=KEY
         )
+        self._is_qwen = "qwen" in (model_name or "").lower()
+
+    def _prepare_messages(self, messages: List[Message]) -> list[dict]:
+        prepared = [{"role": msg.role, "content": msg.content} for msg in messages]
+        if not self._is_qwen:
+            return prepared
+
+        # Qwen3 often emits a long reasoning preamble on OpenAI-compatible servers.
+        # For ALFWorld we want one executable command, not hidden chain-of-thought.
+        for msg in reversed(prepared):
+            if msg["role"] == "user":
+                content = str(msg.get("content") or "")
+                if "/no_think" not in content:
+                    msg["content"] = (
+                        "/no_think\n"
+                        "Output exactly one valid command and nothing else.\n"
+                        f"{content}"
+                    )
+                break
+        return prepared
 
     def __call__(
         self,
@@ -80,7 +100,12 @@ class GPTChat(LLM):
         import time
         global prompt_tokens, completion_tokens
         
-        messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+        messages = self._prepare_messages(messages)
+        request_kwargs = {}
+        if self._is_qwen:
+            request_kwargs["extra_body"] = {
+                "chat_template_kwargs": {"enable_thinking": False}
+            }
 
         max_retries = 5  
         wait_time = 1 
@@ -93,7 +118,8 @@ class GPTChat(LLM):
                     max_tokens=max_tokens,
                     temperature=temperature,
                     n=num_comps,
-                    stop=stop_strs
+                    stop=stop_strs,
+                    **request_kwargs,
                 )
 
                 answer = response.choices[0].message.content
@@ -119,6 +145,14 @@ class GPTChat(LLM):
 
                 # For rate limit or 429 errors, back off and retry
                 if "rate limit" in error_message.lower() or "429" in error_message:
+                    time.sleep(wait_time)
+                    continue
+
+                if request_kwargs and any(
+                    marker in error_message
+                    for marker in ("chat_template_kwargs", "enable_thinking", "extra_body")
+                ):
+                    request_kwargs = {}
                     time.sleep(wait_time)
                     continue
 

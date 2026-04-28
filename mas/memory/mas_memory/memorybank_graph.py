@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from langchain.docstore.document import Document
+from mas.langchain_compat import Document
 
 from .memorybank import MemoryBankMASMemory
 from ..common import MASMessage

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from langchain_chroma import Chroma
-from langchain.docstore.document import Document
+from mas.langchain_compat import Document
 import re
 
 from .memory_base import MASMemoryBase
