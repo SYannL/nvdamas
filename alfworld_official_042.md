@@ -351,7 +351,7 @@ python scripts/medmcqa/eval_collab_domain_adaptation.py \
   --mas_type autogen \
   --mas_memory graph_memory2 \
   --reasoning io \
-  --model qwen32b-api \
+  --model gpt-40-mini \
   --max_trials 30 \
   --batch_size 1 \
   --max_train 2 \

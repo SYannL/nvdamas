@@ -23,6 +23,26 @@ fever_oral_test:
   max_steps: 12
   few_shots_num: 3
 
+fever_ab_train_a:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_ab_train_b:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_ab_test_a:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_ab_test_b:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
 pddl:
   env_config_path: tasks/env_configs/pddl_config.yaml
   max_steps: 30

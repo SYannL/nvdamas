@@ -11,42 +11,42 @@
     "kitchen__train.json": {
       "scene_domain": "kitchen",
       "split_name": "train",
-      "num_tasks": 1964
+      "num_tasks": 1696
     },
     "living__train.json": {
       "scene_domain": "living",
       "split_name": "train",
-      "num_tasks": 856
+      "num_tasks": 477
     },
     "bedroom__train.json": {
       "scene_domain": "bedroom",
       "split_name": "train",
-      "num_tasks": 874
+      "num_tasks": 734
     },
     "bathroom__train.json": {
       "scene_domain": "bathroom",
       "split_name": "train",
-      "num_tasks": 958
+      "num_tasks": 646
     },
     "kitchen__valid_unseen.json": {
       "scene_domain": "kitchen",
       "split_name": "valid_unseen",
-      "num_tasks": 90
+      "num_tasks": 77
     },
     "living__valid_unseen.json": {
       "scene_domain": "living",
       "split_name": "valid_unseen",
-      "num_tasks": 42
+      "num_tasks": 11
     },
     "bedroom__valid_unseen.json": {
       "scene_domain": "bedroom",
       "split_name": "valid_unseen",
-      "num_tasks": 36
+      "num_tasks": 27
     },
     "bathroom__valid_unseen.json": {
       "scene_domain": "bathroom",
       "split_name": "valid_unseen",
-      "num_tasks": 27
+      "num_tasks": 19
     }
   }
 }

@@ -24,27 +24,6 @@
     "subset_group": "bathroom",
     "source_split": "valid_unseen",
     "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|Cloth|Cabinet|None|trial_T20190908_022345_347148",
-    "trial_id": "trial_T20190908_022345_347148",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_clean_then_place_in_recep",
-    "object_target": "Cloth",
-    "parent_target": "None",
-    "receptacle_target": "Cabinet",
-    "goal_instruction": "Your task is to: put a clean cloth in cabinet.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_clean_then_place_in_recep-Cloth-None-Cabinet-424/trial_T20190908_022345_347148/game.tw-pddl"
-    },
-    "task_type": "clean",
-    "env_name": "pick_clean_then_place",
-    "selection_rank": 2
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
     "selection_key": "424|Cloth|Cabinet|None|trial_T20190908_022436_073995",
     "trial_id": "trial_T20190908_022436_073995",
     "scene_id": 424,
@@ -60,28 +39,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 3
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|Cloth|CounterTop|None|trial_T20190908_100512_362932",
-    "trial_id": "trial_T20190908_100512_362932",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_clean_then_place_in_recep",
-    "object_target": "Cloth",
-    "parent_target": "None",
-    "receptacle_target": "CounterTop",
-    "goal_instruction": "Your task is to: clean some cloth and put it in countertop.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_clean_then_place_in_recep-Cloth-None-CounterTop-424/trial_T20190908_100512_362932/game.tw-pddl"
-    },
-    "task_type": "clean",
-    "env_name": "pick_clean_then_place",
-    "selection_rank": 4
+    "selection_rank": 2
   },
   {
     "subset_group": "bathroom",
@@ -102,7 +60,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 5
+    "selection_rank": 3
   },
   {
     "subset_group": "bathroom",
@@ -123,70 +81,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 6
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|Plunger|Cabinet|None|trial_T20190908_021510_064551",
-    "trial_id": "trial_T20190908_021510_064551",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_and_place_simple",
-    "object_target": "Plunger",
-    "parent_target": "None",
-    "receptacle_target": "Cabinet",
-    "goal_instruction": "Your task is to: put some plunger on cabinet.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-Plunger-None-Cabinet-424/trial_T20190908_021510_064551/game.tw-pddl"
-    },
-    "task_type": "put",
-    "env_name": "pick_and_place",
-    "selection_rank": 7
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|Plunger|Cabinet|None|trial_T20190908_021537_611374",
-    "trial_id": "trial_T20190908_021537_611374",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_and_place_simple",
-    "object_target": "Plunger",
-    "parent_target": "None",
-    "receptacle_target": "Cabinet",
-    "goal_instruction": "Your task is to: put a plunger in cabinet.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-Plunger-None-Cabinet-424/trial_T20190908_021537_611374/game.tw-pddl"
-    },
-    "task_type": "put",
-    "env_name": "pick_and_place",
-    "selection_rank": 8
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|Plunger|Cabinet|None|trial_T20190908_062908_529599",
-    "trial_id": "trial_T20190908_062908_529599",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_and_place_simple",
-    "object_target": "Plunger",
-    "parent_target": "None",
-    "receptacle_target": "Cabinet",
-    "goal_instruction": "Your task is to: put a plunger in cabinet.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-Plunger-None-Cabinet-424/trial_T20190908_062908_529599/game.tw-pddl"
-    },
-    "task_type": "put",
-    "env_name": "pick_and_place",
-    "selection_rank": 9
+    "selection_rank": 4
   },
   {
     "subset_group": "bathroom",
@@ -207,7 +102,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 10
+    "selection_rank": 5
   },
   {
     "subset_group": "bathroom",
@@ -228,7 +123,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 11
+    "selection_rank": 6
   },
   {
     "subset_group": "bathroom",
@@ -249,7 +144,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 12
+    "selection_rank": 7
   },
   {
     "subset_group": "bathroom",
@@ -270,7 +165,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 13
+    "selection_rank": 8
   },
   {
     "subset_group": "bathroom",
@@ -291,28 +186,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 14
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|SoapBar|Cabinet|None|trial_T20190909_081814_796540",
-    "trial_id": "trial_T20190909_081814_796540",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_two_obj_and_place",
-    "object_target": "SoapBar",
-    "parent_target": "None",
-    "receptacle_target": "Cabinet",
-    "goal_instruction": "Your task is to: put two soapbar in cabinet.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_two_obj_and_place-SoapBar-None-Cabinet-424/trial_T20190909_081814_796540/game.tw-pddl"
-    },
-    "task_type": "puttwo",
-    "env_name": "pick_two_obj",
-    "selection_rank": 15
+    "selection_rank": 9
   },
   {
     "subset_group": "bathroom",
@@ -333,7 +207,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 16
+    "selection_rank": 10
   },
   {
     "subset_group": "bathroom",
@@ -354,7 +228,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 17
+    "selection_rank": 11
   },
   {
     "subset_group": "bathroom",
@@ -375,7 +249,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 18
+    "selection_rank": 12
   },
   {
     "subset_group": "bathroom",
@@ -396,7 +270,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 19
+    "selection_rank": 13
   },
   {
     "subset_group": "bathroom",
@@ -417,7 +291,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 20
+    "selection_rank": 14
   },
   {
     "subset_group": "bathroom",
@@ -438,7 +312,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 21
+    "selection_rank": 15
   },
   {
     "subset_group": "bathroom",
@@ -459,7 +333,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 22
+    "selection_rank": 16
   },
   {
     "subset_group": "bathroom",
@@ -480,7 +354,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 23
+    "selection_rank": 17
   },
   {
     "subset_group": "bathroom",
@@ -501,28 +375,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 24
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|ToiletPaper|Cabinet|None|trial_T20190906_202903_584090",
-    "trial_id": "trial_T20190906_202903_584090",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_two_obj_and_place",
-    "object_target": "ToiletPaper",
-    "parent_target": "None",
-    "receptacle_target": "Cabinet",
-    "goal_instruction": "Your task is to: put two toiletpaper in cabinet.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_two_obj_and_place-ToiletPaper-None-Cabinet-424/trial_T20190906_202903_584090/game.tw-pddl"
-    },
-    "task_type": "puttwo",
-    "env_name": "pick_two_obj",
-    "selection_rank": 25
+    "selection_rank": 18
   },
   {
     "subset_group": "bathroom",
@@ -543,27 +396,6 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 26
-  },
-  {
-    "subset_group": "bathroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "424|ToiletPaper|Cabinet|None|trial_T20190906_203003_627271",
-    "trial_id": "trial_T20190906_203003_627271",
-    "scene_id": 424,
-    "scene_domain": "bathroom",
-    "alfworld_task_type": "pick_two_obj_and_place",
-    "object_target": "ToiletPaper",
-    "parent_target": "None",
-    "receptacle_target": "Cabinet",
-    "goal_instruction": "Your task is to: put two toiletpaper in cabinet.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_two_obj_and_place-ToiletPaper-None-Cabinet-424/trial_T20190906_203003_627271/game.tw-pddl"
-    },
-    "task_type": "puttwo",
-    "env_name": "pick_two_obj",
-    "selection_rank": 27
+    "selection_rank": 19
   }
 ]

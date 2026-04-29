@@ -35,6 +35,10 @@ TASKS_PATH = {
     'fever': 'data/fever/fever_dev.jsonl',
     'fever_aca_test': 'data/fever/fever_dev_test_aca.jsonl',
     'fever_oral_test': 'data/fever/fever_dev_test_oral.jsonl',
+    'fever_ab_train_a': 'data/fever/fever_ab_train_A.jsonl',
+    'fever_ab_train_b': 'data/fever/fever_ab_train_B.jsonl',
+    'fever_ab_test_a': 'data/fever/fever_ab_test_A.jsonl',
+    'fever_ab_test_b': 'data/fever/fever_ab_test_B.jsonl',
     'pddl': 'data/pddl/test.jsonl',
     'huskyqa': 'data/HuskyQA/huskyQA.json',
     'huskyqa_aca_test': 'data/HuskyQA/huskyQA_aca_test.json',
@@ -336,6 +340,12 @@ TASK_DATA = {
     'fever': fever_tasks,
     'fever_aca_test': fever_aca_test_tasks,
     'fever_oral_test': fever_oral_test_tasks,
+    # FEVER collaborative AB splits are generated on demand by script:
+    # scripts/fever/annotate_fever_domains_llm.py
+    'fever_ab_train_a': None,
+    'fever_ab_train_b': None,
+    'fever_ab_test_a': None,
+    'fever_ab_test_b': None,
     'pddl': pddl_tasks,
     'huskyqa': huskyqa_tasks,
     'huskyqa_aca_test': huskyqa_aca_test_tasks,
@@ -362,6 +372,10 @@ ENVS = {
     'fever': FeverEnv,
     'fever_aca_test': FeverEnv,
     'fever_oral_test': FeverEnv,
+    'fever_ab_train_a': FeverEnv,
+    'fever_ab_train_b': FeverEnv,
+    'fever_ab_test_a': FeverEnv,
+    'fever_ab_test_b': FeverEnv,
     'pddl': PDDLEnv,
     'huskyqa': HuskyQAEnv,
     'huskyqa_aca_test': HuskyQAEnv,
@@ -388,6 +402,10 @@ RECORDERS = {
     'fever': FeverRecorder,
     'fever_aca_test': FeverRecorder,
     'fever_oral_test': FeverRecorder,
+    'fever_ab_train_a': FeverRecorder,
+    'fever_ab_train_b': FeverRecorder,
+    'fever_ab_test_a': FeverRecorder,
+    'fever_ab_test_b': FeverRecorder,
     'pddl': PDDLRecorder,
     'huskyqa': HuskyQARecorder,
     'huskyqa_aca_test': HuskyQARecorder,
@@ -461,14 +479,28 @@ def get_recorder(task: str, working_dir: str, namespace: str) -> BaseRecorder:
 
 def get_task(task: str, env_config: dict | None = None) -> list[dict]:
 
-    if task.startswith('mtmind2web_') and TASK_DATA.get(task) is None:
+    if (task.startswith('mtmind2web_') or task.startswith('fever_ab_')) and TASK_DATA.get(task) is None:
         data_path = TASKS_PATH.get(task)
         if not data_path or not os.path.exists(data_path):
             raise FileNotFoundError(
                 f"Dataset file for task '{task}' not found: {data_path}. "
                 "This task is optional and loaded lazily; please make sure the file exists before running it."
             )
-        TASK_DATA[task] = _load_jsonl_rows(data_path)
+        loaded_rows = _load_jsonl_rows(data_path)
+        if task.startswith('fever_ab_'):
+            # FEVER env expects keys: task/answer/env_name.
+            converted = []
+            for row in loaded_rows:
+                converted.append(
+                    {
+                        'task': row.get('task') or row.get('claim'),
+                        'answer': row.get('answer') or row.get('label'),
+                        'env_name': 'fever',
+                    }
+                )
+            TASK_DATA[task] = converted
+        else:
+            TASK_DATA[task] = loaded_rows
 
     if TASK_DATA.get(task) is None:
         if task == 'alfworld':
