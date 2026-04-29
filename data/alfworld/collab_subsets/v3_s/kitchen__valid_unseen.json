@@ -129,69 +129,6 @@
     "subset_group": "kitchen",
     "source_split": "valid_unseen",
     "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "010|Apple|SinkBasin|None|trial_T20190907_020258_749030",
-    "trial_id": "trial_T20190907_020258_749030",
-    "scene_id": 10,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Apple",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: heat some apple and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_heat_then_place_in_recep-Apple-None-SinkBasin-10/trial_T20190907_020258_749030/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 7
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "010|Apple|SinkBasin|None|trial_T20190907_020329_050110",
-    "trial_id": "trial_T20190907_020329_050110",
-    "scene_id": 10,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Apple",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: heat some apple and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_heat_then_place_in_recep-Apple-None-SinkBasin-10/trial_T20190907_020329_050110/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 8
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "010|Apple|SinkBasin|None|trial_T20190907_020403_745438",
-    "trial_id": "trial_T20190907_020403_745438",
-    "scene_id": 10,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Apple",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: heat some apple and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_heat_then_place_in_recep-Apple-None-SinkBasin-10/trial_T20190907_020403_745438/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 9
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
     "selection_key": "010|Bowl|Cabinet|None|trial_T20190909_061130_844814",
     "trial_id": "trial_T20190909_061130_844814",
     "scene_id": 10,
@@ -207,7 +144,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 10
+    "selection_rank": 7
   },
   {
     "subset_group": "kitchen",
@@ -228,7 +165,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 11
+    "selection_rank": 8
   },
   {
     "subset_group": "kitchen",
@@ -249,49 +186,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 12
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "010|BreadSliced|Microwave|None|trial_T20190906_224631_058932",
-    "trial_id": "trial_T20190906_224631_058932",
-    "scene_id": 10,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_cool_then_place_in_recep",
-    "object_target": "BreadSliced",
-    "parent_target": "None",
-    "receptacle_target": "Microwave",
-    "goal_instruction": "Your task is to: put a cool slice of bread in microwave.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_cool_then_place_in_recep-BreadSliced-None-Microwave-10/trial_T20190906_224631_058932/game.tw-pddl"
-    },
-    "task_type": "cool",
-    "env_name": "pick_cool_then_place",
-    "selection_rank": 13
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "010|BreadSliced|Microwave|None|trial_T20190906_224718_745017",
-    "trial_id": "trial_T20190906_224718_745017",
-    "scene_id": 10,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_cool_then_place_in_recep",
-    "object_target": "BreadSliced",
-    "parent_target": "None",
-    "receptacle_target": "Microwave",
-    "goal_instruction": "Your task is to: put a cool slice of bread in microwave.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_cool_then_place_in_recep-BreadSliced-None-Microwave-10/trial_T20190906_224718_745017/game.tw-pddl"
-    },
-    "task_type": "cool",
-    "env_name": "pick_cool_then_place",
-    "selection_rank": 14
+    "selection_rank": 9
   },
   {
     "subset_group": "kitchen",
@@ -312,7 +207,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 15
+    "selection_rank": 10
   },
   {
     "subset_group": "kitchen",
@@ -333,7 +228,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 16
+    "selection_rank": 11
   },
   {
     "subset_group": "kitchen",
@@ -354,28 +249,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 17
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "010|ButterKnife|CounterTop|Cup|trial_T20190908_235919_129519",
-    "trial_id": "trial_T20190908_235919_129519",
-    "scene_id": 10,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_and_place_with_movable_recep",
-    "object_target": "ButterKnife",
-    "parent_target": "Cup",
-    "receptacle_target": "CounterTop",
-    "goal_instruction": "Your task is to: put butterknife in a cup and then put them in countertop.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_with_movable_recep-ButterKnife-Cup-CounterTop-10/trial_T20190908_235919_129519/game.tw-pddl"
-    },
-    "task_type": "put",
-    "env_name": "pick_and_place",
-    "selection_rank": 18
+    "selection_rank": 12
   },
   {
     "subset_group": "kitchen",
@@ -396,7 +270,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 19
+    "selection_rank": 13
   },
   {
     "subset_group": "kitchen",
@@ -417,6 +291,132 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
+    "selection_rank": 14
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "010|Cup|Cabinet|None|trial_T20190907_083507_594820",
+    "trial_id": "trial_T20190907_083507_594820",
+    "scene_id": 10,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Cup",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put a hot cup in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_heat_then_place_in_recep-Cup-None-Cabinet-10/trial_T20190907_083507_594820/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 15
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "010|Egg|GarbageCan|None|trial_T20190908_113432_673307",
+    "trial_id": "trial_T20190908_113432_673307",
+    "scene_id": 10,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Egg",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: heat some egg and put it in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_heat_then_place_in_recep-Egg-None-GarbageCan-10/trial_T20190908_113432_673307/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 16
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "010|Egg|GarbageCan|None|trial_T20190908_113523_123938",
+    "trial_id": "trial_T20190908_113523_123938",
+    "scene_id": 10,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Egg",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: heat some egg and put it in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_heat_then_place_in_recep-Egg-None-GarbageCan-10/trial_T20190908_113523_123938/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 17
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "010|Egg|GarbageCan|None|trial_T20190908_113610_425142",
+    "trial_id": "trial_T20190908_113610_425142",
+    "scene_id": 10,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Egg",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: heat some egg and put it in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_heat_then_place_in_recep-Egg-None-GarbageCan-10/trial_T20190908_113610_425142/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 18
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "010|Egg|Microwave|None|trial_T20190909_120554_888709",
+    "trial_id": "trial_T20190909_120554_888709",
+    "scene_id": 10,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Egg",
+    "parent_target": "None",
+    "receptacle_target": "Microwave",
+    "goal_instruction": "Your task is to: clean some egg and put it in microwave.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_clean_then_place_in_recep-Egg-None-Microwave-10/trial_T20190909_120554_888709/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 19
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "010|Egg|Microwave|None|trial_T20190909_120632_691361",
+    "trial_id": "trial_T20190909_120632_691361",
+    "scene_id": 10,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Egg",
+    "parent_target": "None",
+    "receptacle_target": "Microwave",
+    "goal_instruction": "Your task is to: put a clean egg in microwave.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_clean_then_place_in_recep-Egg-None-Microwave-10/trial_T20190909_120632_691361/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
     "selection_rank": 20
   }
 ]

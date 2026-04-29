@@ -1124,3 +1124,160 @@ think: ... -> take wrong_object ...
 ```
 
 这是为了在不破坏 nvdamas workflow 公平性的前提下，让 GM2 的 graph-based local/global memory 真正参与决策。
+
+## 18. 当前保存版本：official042 / v3_s / graph_policy
+
+本节记录当前要提交的版本状态，方便后续从 git commit 回到同一套实验配置。
+
+### 18.1 ALFWorld 数据与 subset
+
+当前推荐的 ALFWorld game root 是 official 0.4.2 下载得到的完整目录：
+
+```text
+/workspace/run_alf/ALFWORLD_DATA/alfworld_official_042/json_2.1.1
+```
+
+`data/alfworld/collab_subsets/v3_s` 由：
+
+```bash
+python scripts/alfworld/materialize_collab_subsets_v3_s.py --clean
+```
+
+从 `data/alfworld/collab_subsets/v3` 截断生成。该脚本只读取 `v3`，只写入 `v3_s`，不会修改 `v3`。
+
+当前 `v3_s` 计数为：
+
+```text
+bathroom__train.json          100
+bathroom__valid_seen.json      20
+bathroom__valid_unseen.json    19
+bedroom__train.json           100
+bedroom__valid_seen.json       20
+bedroom__valid_unseen.json     20
+kitchen__train.json           100
+kitchen__valid_seen.json       20
+kitchen__valid_unseen.json     20
+living__train.json            100
+living__valid_seen.json        17
+living__valid_unseen.json      11
+```
+
+这些数量反映 official042 数据中当前可 materialize 的任务数量；不是每个 domain 的 valid split 都一定能达到 20。
+
+### 18.2 当前 graph_policy 的重点实现
+
+当前 `--gm2_retrieval_mode graph_policy` 的目标是让 GraphMemory2 的 local/global graph 以不同角色参与决策：
+
+```text
+global graph memory:
+  只作为 abstract task skeleton / transferable workflow 使用。
+  不把 found-at / layout-specific source location 当作 unseen 决策依据。
+
+local graph memory:
+  作为 current-state grounding 和 source-priority evidence 使用。
+  只在目标物、任务类型、当前可执行动作能够对齐时，给出 source/action priority。
+
+action hook:
+  只保留保守 deterministic repair。
+  包括 official042 put->move delivery 修复、wrong-object guard、以及 graph_policy 下的 source-priority search assist。
+  不把自由文本 think 强行投影成动作。
+```
+
+和前面版本相比，当前版本补了几个关键点：
+
+1. **nested memory loading**
+
+   eval-only 或复制历史 run memory 时，会正确读取类似：
+
+   ```text
+   .../memory/graph_memory2/local/kitchen/graph_memory2/local_kitchen.json
+   .../memory/graph_memory2/global/graph_memory2/global_memory.json
+   ```
+
+   这避免了“复制了 memory 但实际没有加载”的问题。
+
+2. **target-object source filtering**
+
+   local source hint 只允许来自真正和目标物相关的 `take/found/scene_relation` evidence，避免把同场景共现对象误当成目标物位置。
+
+3. **direct local scene relation assist**
+
+   对 graph_policy，local graph 中的 `object_location_prior` 可以在当前 admissible actions 中映射成候选 source action，例如：
+
+   ```text
+   go to countertop 3
+   open cabinet 5
+   examine shelf 1
+   ```
+
+   这个逻辑只在 `graph_policy` 下启用，不影响 `lightweight`、`phasee_policy`、`graph_policy_quality` 等其他 mode。
+
+4. **保守 action hook**
+
+   如果 solver 已经输出具体可执行动作，graph_policy 通常不覆盖。
+   如果 solver 输出 `think:`，不会做自由文本动作投影；最多在明确 search intent 且 local graph 有高置信 source candidate 时做非常窄的 search assist。
+
+### 18.3 当前推荐 full run
+
+```bash
+cd /workspace/nvdamas
+export OPENAI_API_BASE=http://127.0.0.1:8000/v1
+export OPENAI_API_KEY=EMPTY
+
+nohup python scripts/medmcqa/eval_collab_domain_adaptation.py \
+  --dataset_family alfworld \
+  --alfworld_group_a kitchen \
+  --alfworld_group_b living \
+  --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
+  --alfworld_eval_split valid_seen,valid_unseen \
+  --alfworld_game_root /workspace/run_alf/ALFWORLD_DATA/alfworld_official_042/json_2.1.1 \
+  --mas_type autogen \
+  --mas_memory graph_memory2 \
+  --reasoning io \
+  --model qwen32b-api \
+  --max_trials 30 \
+  --batch_size 1 \
+  --run_id gm2_graph_policy_nestedload_directsource_full \
+  --reset_memory \
+  --gm2_dynamic_graph \
+  --gm2_retrieval_mode graph_policy \
+  --gm2_settings local_plus_global \
+  --gm2_enable_overlay \
+  --scenarios inner_ours_A_on_A,inner_ours_B_on_B,cross_baseline_A_on_B,cross_baseline_B_on_A,cross_ours_A_on_B,cross_ours_B_on_A \
+  > /workspace/nvdamas/L_gm2_graph_policy_nestedload_directsource_full.log 2>&1 &
+```
+
+### 18.4 宿主和 container 同步
+
+代码修改通常先在宿主：
+
+```text
+/bigdata/xenial/nvdamas
+```
+
+再同步到 container：
+
+```bash
+docker cp /bigdata/xenial/nvdamas/mas/memory/mas_memory/graph_memory2.py \
+  mcma-recover:/workspace/nvdamas/mas/memory/mas_memory/graph_memory2.py
+
+docker cp /bigdata/xenial/nvdamas/scripts/medmcqa/eval_collab_domain_adaptation.py \
+  mcma-recover:/workspace/nvdamas/scripts/medmcqa/eval_collab_domain_adaptation.py
+
+docker cp /bigdata/xenial/nvdamas/tasks/run.py \
+  mcma-recover:/workspace/nvdamas/tasks/run.py
+```
+
+如果需要同步宿主的 subset 到 container：
+
+```bash
+docker cp /bigdata/xenial/nvdamas/data/alfworld/collab_subsets \
+  mcma-recover:/workspace/nvdamas/data/alfworld/
+```
+
+如果需要把 container 的 subset 拷回宿主，方向相反：
+
+```bash
+docker cp mcma-recover:/workspace/nvdamas/data/alfworld/collab_subsets \
+  /bigdata/xenial/nvdamas/data/alfworld/
+```

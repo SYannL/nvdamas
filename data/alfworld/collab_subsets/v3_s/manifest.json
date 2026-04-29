@@ -8,56 +8,84 @@
       "split_name": "train",
       "num_tasks": 100,
       "keep_n": 100,
-      "source_num_tasks": 1964
+      "source_num_tasks": 1696
     },
     "living__train.json": {
       "scene_domain": "living",
       "split_name": "train",
       "num_tasks": 100,
       "keep_n": 100,
-      "source_num_tasks": 856
+      "source_num_tasks": 477
     },
     "bedroom__train.json": {
       "scene_domain": "bedroom",
       "split_name": "train",
       "num_tasks": 100,
       "keep_n": 100,
-      "source_num_tasks": 874
+      "source_num_tasks": 734
     },
     "bathroom__train.json": {
       "scene_domain": "bathroom",
       "split_name": "train",
       "num_tasks": 100,
       "keep_n": 100,
-      "source_num_tasks": 958
+      "source_num_tasks": 646
+    },
+    "kitchen__valid_seen.json": {
+      "scene_domain": "kitchen",
+      "split_name": "valid_seen",
+      "num_tasks": 20,
+      "keep_n": 20,
+      "source_num_tasks": 68
+    },
+    "living__valid_seen.json": {
+      "scene_domain": "living",
+      "split_name": "valid_seen",
+      "num_tasks": 17,
+      "keep_n": 20,
+      "source_num_tasks": 17
+    },
+    "bedroom__valid_seen.json": {
+      "scene_domain": "bedroom",
+      "split_name": "valid_seen",
+      "num_tasks": 20,
+      "keep_n": 20,
+      "source_num_tasks": 25
+    },
+    "bathroom__valid_seen.json": {
+      "scene_domain": "bathroom",
+      "split_name": "valid_seen",
+      "num_tasks": 20,
+      "keep_n": 20,
+      "source_num_tasks": 30
     },
     "kitchen__valid_unseen.json": {
       "scene_domain": "kitchen",
       "split_name": "valid_unseen",
       "num_tasks": 20,
       "keep_n": 20,
-      "source_num_tasks": 90
+      "source_num_tasks": 77
     },
     "living__valid_unseen.json": {
       "scene_domain": "living",
       "split_name": "valid_unseen",
-      "num_tasks": 20,
+      "num_tasks": 11,
       "keep_n": 20,
-      "source_num_tasks": 42
+      "source_num_tasks": 11
     },
     "bedroom__valid_unseen.json": {
       "scene_domain": "bedroom",
       "split_name": "valid_unseen",
       "num_tasks": 20,
       "keep_n": 20,
-      "source_num_tasks": 36
+      "source_num_tasks": 27
     },
     "bathroom__valid_unseen.json": {
       "scene_domain": "bathroom",
       "split_name": "valid_unseen",
-      "num_tasks": 20,
+      "num_tasks": 19,
       "keep_n": 20,
-      "source_num_tasks": 27
+      "source_num_tasks": 19
     }
   }
 }

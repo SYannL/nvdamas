@@ -633,27 +633,6 @@
     "subset_group": "kitchen",
     "source_split": "train",
     "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Egg|GarbageCan|None|trial_T20190908_133009_671026",
-    "trial_id": "trial_T20190908_133009_671026",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Egg",
-    "parent_target": "None",
-    "receptacle_target": "GarbageCan",
-    "goal_instruction": "Your task is to: heat some egg and put it in garbagecan.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Egg-None-GarbageCan-1/trial_T20190908_133009_671026/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 31
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
     "selection_key": "001|Glassbottle|Fridge|None|trial_T20190906_210352_897478",
     "trial_id": "trial_T20190906_210352_897478",
     "scene_id": 1,
@@ -669,7 +648,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 32
+    "selection_rank": 31
   },
   {
     "subset_group": "kitchen",
@@ -690,49 +669,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 33
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Glassbottle|Fridge|None|trial_T20190906_210645_277965",
-    "trial_id": "trial_T20190906_210645_277965",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_two_obj_and_place",
-    "object_target": "Glassbottle",
-    "parent_target": "None",
-    "receptacle_target": "Fridge",
-    "goal_instruction": "Your task is to: find two glassbottle and put them in fridge.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Fridge-1/trial_T20190906_210645_277965/game.tw-pddl"
-    },
-    "task_type": "puttwo",
-    "env_name": "pick_two_obj",
-    "selection_rank": 34
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Glassbottle|Shelf|None|trial_T20190907_122128_766172",
-    "trial_id": "trial_T20190907_122128_766172",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_two_obj_and_place",
-    "object_target": "Glassbottle",
-    "parent_target": "None",
-    "receptacle_target": "Shelf",
-    "goal_instruction": "Your task is to: find two glassbottle and put them in shelf.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Shelf-1/trial_T20190907_122128_766172/game.tw-pddl"
-    },
-    "task_type": "puttwo",
-    "env_name": "pick_two_obj",
-    "selection_rank": 35
+    "selection_rank": 32
   },
   {
     "subset_group": "kitchen",
@@ -753,7 +690,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 36
+    "selection_rank": 33
   },
   {
     "subset_group": "kitchen",
@@ -774,7 +711,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 37
+    "selection_rank": 34
   },
   {
     "subset_group": "kitchen",
@@ -795,7 +732,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 38
+    "selection_rank": 35
   },
   {
     "subset_group": "kitchen",
@@ -816,7 +753,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 39
+    "selection_rank": 36
   },
   {
     "subset_group": "kitchen",
@@ -837,7 +774,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 40
+    "selection_rank": 37
   },
   {
     "subset_group": "kitchen",
@@ -858,7 +795,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 41
+    "selection_rank": 38
   },
   {
     "subset_group": "kitchen",
@@ -879,7 +816,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 42
+    "selection_rank": 39
   },
   {
     "subset_group": "kitchen",
@@ -900,7 +837,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 43
+    "selection_rank": 40
   },
   {
     "subset_group": "kitchen",
@@ -921,7 +858,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 44
+    "selection_rank": 41
   },
   {
     "subset_group": "kitchen",
@@ -942,7 +879,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 45
+    "selection_rank": 42
   },
   {
     "subset_group": "kitchen",
@@ -963,7 +900,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 46
+    "selection_rank": 43
   },
   {
     "subset_group": "kitchen",
@@ -984,7 +921,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 47
+    "selection_rank": 44
   },
   {
     "subset_group": "kitchen",
@@ -1005,7 +942,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 48
+    "selection_rank": 45
   },
   {
     "subset_group": "kitchen",
@@ -1026,7 +963,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 49
+    "selection_rank": 46
   },
   {
     "subset_group": "kitchen",
@@ -1047,7 +984,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 50
+    "selection_rank": 47
   },
   {
     "subset_group": "kitchen",
@@ -1068,7 +1005,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 51
+    "selection_rank": 48
   },
   {
     "subset_group": "kitchen",
@@ -1089,7 +1026,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 52
+    "selection_rank": 49
   },
   {
     "subset_group": "kitchen",
@@ -1110,7 +1047,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 53
+    "selection_rank": 50
   },
   {
     "subset_group": "kitchen",
@@ -1131,7 +1068,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 54
+    "selection_rank": 51
   },
   {
     "subset_group": "kitchen",
@@ -1152,7 +1089,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 55
+    "selection_rank": 52
   },
   {
     "subset_group": "kitchen",
@@ -1173,7 +1110,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 56
+    "selection_rank": 53
   },
   {
     "subset_group": "kitchen",
@@ -1194,7 +1131,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 57
+    "selection_rank": 54
   },
   {
     "subset_group": "kitchen",
@@ -1215,7 +1152,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 58
+    "selection_rank": 55
   },
   {
     "subset_group": "kitchen",
@@ -1236,7 +1173,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 59
+    "selection_rank": 56
   },
   {
     "subset_group": "kitchen",
@@ -1257,7 +1194,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 60
+    "selection_rank": 57
   },
   {
     "subset_group": "kitchen",
@@ -1278,7 +1215,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 61
+    "selection_rank": 58
   },
   {
     "subset_group": "kitchen",
@@ -1299,7 +1236,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 62
+    "selection_rank": 59
   },
   {
     "subset_group": "kitchen",
@@ -1320,7 +1257,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 63
+    "selection_rank": 60
   },
   {
     "subset_group": "kitchen",
@@ -1341,7 +1278,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 64
+    "selection_rank": 61
   },
   {
     "subset_group": "kitchen",
@@ -1362,7 +1299,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 65
+    "selection_rank": 62
   },
   {
     "subset_group": "kitchen",
@@ -1383,7 +1320,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 66
+    "selection_rank": 63
   },
   {
     "subset_group": "kitchen",
@@ -1404,7 +1341,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 67
+    "selection_rank": 64
   },
   {
     "subset_group": "kitchen",
@@ -1425,7 +1362,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 68
+    "selection_rank": 65
   },
   {
     "subset_group": "kitchen",
@@ -1446,7 +1383,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 69
+    "selection_rank": 66
   },
   {
     "subset_group": "kitchen",
@@ -1467,7 +1404,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 70
+    "selection_rank": 67
   },
   {
     "subset_group": "kitchen",
@@ -1488,70 +1425,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 71
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Pan|SinkBasin|None|trial_T20190908_232530_634436",
-    "trial_id": "trial_T20190908_232530_634436",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_cool_then_place_in_recep",
-    "object_target": "Pan",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: put a cool pan in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-SinkBasin-1/trial_T20190908_232530_634436/game.tw-pddl"
-    },
-    "task_type": "cool",
-    "env_name": "pick_cool_then_place",
-    "selection_rank": 72
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Pan|SinkBasin|None|trial_T20190908_232703_122907",
-    "trial_id": "trial_T20190908_232703_122907",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_cool_then_place_in_recep",
-    "object_target": "Pan",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: cool some pan and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-SinkBasin-1/trial_T20190908_232703_122907/game.tw-pddl"
-    },
-    "task_type": "cool",
-    "env_name": "pick_cool_then_place",
-    "selection_rank": 73
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Pan|SinkBasin|None|trial_T20190909_004050_942851",
-    "trial_id": "trial_T20190909_004050_942851",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_cool_then_place_in_recep",
-    "object_target": "Pan",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: put a cool pan in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-SinkBasin-1/trial_T20190909_004050_942851/game.tw-pddl"
-    },
-    "task_type": "cool",
-    "env_name": "pick_cool_then_place",
-    "selection_rank": 74
+    "selection_rank": 68
   },
   {
     "subset_group": "kitchen",
@@ -1572,7 +1446,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 75
+    "selection_rank": 69
   },
   {
     "subset_group": "kitchen",
@@ -1593,7 +1467,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 76
+    "selection_rank": 70
   },
   {
     "subset_group": "kitchen",
@@ -1614,7 +1488,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 77
+    "selection_rank": 71
   },
   {
     "subset_group": "kitchen",
@@ -1635,7 +1509,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 78
+    "selection_rank": 72
   },
   {
     "subset_group": "kitchen",
@@ -1656,7 +1530,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 79
+    "selection_rank": 73
   },
   {
     "subset_group": "kitchen",
@@ -1677,7 +1551,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 80
+    "selection_rank": 74
   },
   {
     "subset_group": "kitchen",
@@ -1698,7 +1572,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 81
+    "selection_rank": 75
   },
   {
     "subset_group": "kitchen",
@@ -1719,7 +1593,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 82
+    "selection_rank": 76
   },
   {
     "subset_group": "kitchen",
@@ -1740,7 +1614,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 83
+    "selection_rank": 77
   },
   {
     "subset_group": "kitchen",
@@ -1761,7 +1635,7 @@
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
-    "selection_rank": 84
+    "selection_rank": 78
   },
   {
     "subset_group": "kitchen",
@@ -1782,7 +1656,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 85
+    "selection_rank": 79
   },
   {
     "subset_group": "kitchen",
@@ -1803,7 +1677,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 86
+    "selection_rank": 80
   },
   {
     "subset_group": "kitchen",
@@ -1824,7 +1698,7 @@
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
-    "selection_rank": 87
+    "selection_rank": 81
   },
   {
     "subset_group": "kitchen",
@@ -1845,7 +1719,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 88
+    "selection_rank": 82
   },
   {
     "subset_group": "kitchen",
@@ -1866,7 +1740,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 89
+    "selection_rank": 83
   },
   {
     "subset_group": "kitchen",
@@ -1887,49 +1761,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 90
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Plate|SinkBasin|None|trial_T20190908_062258_949850",
-    "trial_id": "trial_T20190908_062258_949850",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Plate",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: heat some plate and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-SinkBasin-1/trial_T20190908_062258_949850/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 91
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Plate|SinkBasin|None|trial_T20190908_062334_289743",
-    "trial_id": "trial_T20190908_062334_289743",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Plate",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: heat some plate and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-SinkBasin-1/trial_T20190908_062334_289743/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 92
+    "selection_rank": 84
   },
   {
     "subset_group": "kitchen",
@@ -1950,7 +1782,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 93
+    "selection_rank": 85
   },
   {
     "subset_group": "kitchen",
@@ -1971,49 +1803,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 94
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Potato|SinkBasin|None|trial_T20190909_003249_280701",
-    "trial_id": "trial_T20190909_003249_280701",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Potato",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: heat some potato and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Potato-None-SinkBasin-1/trial_T20190909_003249_280701/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 95
-  },
-  {
-    "subset_group": "kitchen",
-    "source_split": "train",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "001|Potato|SinkBasin|None|trial_T20190909_003333_263947",
-    "trial_id": "trial_T20190909_003333_263947",
-    "scene_id": 1,
-    "scene_domain": "kitchen",
-    "alfworld_task_type": "pick_heat_then_place_in_recep",
-    "object_target": "Potato",
-    "parent_target": "None",
-    "receptacle_target": "SinkBasin",
-    "goal_instruction": "Your task is to: heat some potato and put it in sinkbasin.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Potato-None-SinkBasin-1/trial_T20190909_003333_263947/game.tw-pddl"
-    },
-    "task_type": "heat",
-    "env_name": "pick_heat_then_place",
-    "selection_rank": 96
+    "selection_rank": 86
   },
   {
     "subset_group": "kitchen",
@@ -2034,7 +1824,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 97
+    "selection_rank": 87
   },
   {
     "subset_group": "kitchen",
@@ -2055,7 +1845,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 98
+    "selection_rank": 88
   },
   {
     "subset_group": "kitchen",
@@ -2076,7 +1866,7 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
-    "selection_rank": 99
+    "selection_rank": 89
   },
   {
     "subset_group": "kitchen",
@@ -2097,6 +1887,216 @@
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
+    "selection_rank": 90
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|CounterTop|None|trial_T20190909_124252_504581",
+    "trial_id": "trial_T20190909_124252_504581",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: cool some pot and put it in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_124252_504581/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 91
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|CounterTop|None|trial_T20190909_124332_831471",
+    "trial_id": "trial_T20190909_124332_831471",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: cool some pot and put it in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_124332_831471/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 92
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190906_234856_560153",
+    "trial_id": "trial_T20190906_234856_560153",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: cool some pot and put it in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 93
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190906_235021_524522",
+    "trial_id": "trial_T20190906_235021_524522",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put a cool pot in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_235021_524522/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 94
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190907_210536_883114",
+    "trial_id": "trial_T20190907_210536_883114",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put two pot in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190907_210536_883114/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 95
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190908_001754_526257",
+    "trial_id": "trial_T20190908_001754_526257",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put a clean pot in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_001754_526257/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 96
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190908_001818_534745",
+    "trial_id": "trial_T20190908_001818_534745",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put a clean pot in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_001818_534745/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 97
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190908_145243_949385",
+    "trial_id": "trial_T20190908_145243_949385",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put a clean pot in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_145243_949385/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 98
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190908_170636_981445",
+    "trial_id": "trial_T20190908_170636_981445",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put two pot in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190908_170636_981445/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 99
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "train",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Pot|Shelf|None|trial_T20190908_171357_561933",
+    "trial_id": "trial_T20190908_171357_561933",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Pot",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put two pot in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190908_171357_561933/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
     "selection_rank": 100
   }
 ]

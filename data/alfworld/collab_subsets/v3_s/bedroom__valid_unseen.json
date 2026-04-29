@@ -66,195 +66,6 @@
     "subset_group": "bedroom",
     "source_split": "valid_unseen",
     "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BaseballBat|Bed|None|trial_T20190906_185459_653538",
-    "trial_id": "trial_T20190906_185459_653538",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "pick_and_place_simple",
-    "object_target": "BaseballBat",
-    "parent_target": "None",
-    "receptacle_target": "Bed",
-    "goal_instruction": "Your task is to: put a baseballbat in bed.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-BaseballBat-None-Bed-308/trial_T20190906_185459_653538/game.tw-pddl"
-    },
-    "task_type": "put",
-    "env_name": "pick_and_place",
-    "selection_rank": 4
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BaseballBat|Bed|None|trial_T20190906_185515_986084",
-    "trial_id": "trial_T20190906_185515_986084",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "pick_and_place_simple",
-    "object_target": "BaseballBat",
-    "parent_target": "None",
-    "receptacle_target": "Bed",
-    "goal_instruction": "Your task is to: put a baseballbat in bed.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-BaseballBat-None-Bed-308/trial_T20190906_185515_986084/game.tw-pddl"
-    },
-    "task_type": "put",
-    "env_name": "pick_and_place",
-    "selection_rank": 5
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BaseballBat|Bed|None|trial_T20190906_185530_954329",
-    "trial_id": "trial_T20190906_185530_954329",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "pick_and_place_simple",
-    "object_target": "BaseballBat",
-    "parent_target": "None",
-    "receptacle_target": "Bed",
-    "goal_instruction": "Your task is to: put a baseballbat in bed.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-BaseballBat-None-Bed-308/trial_T20190906_185530_954329/game.tw-pddl"
-    },
-    "task_type": "put",
-    "env_name": "pick_and_place",
-    "selection_rank": 6
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BaseballBat|DeskLamp|None|trial_T20190906_214631_761426",
-    "trial_id": "trial_T20190906_214631_761426",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "BaseballBat",
-    "parent_target": "None",
-    "receptacle_target": "DeskLamp",
-    "goal_instruction": "Your task is to: examine the baseballbat with the desklamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-BaseballBat-None-DeskLamp-308/trial_T20190906_214631_761426/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 7
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BaseballBat|DeskLamp|None|trial_T20190906_214648_973919",
-    "trial_id": "trial_T20190906_214648_973919",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "BaseballBat",
-    "parent_target": "None",
-    "receptacle_target": "DeskLamp",
-    "goal_instruction": "Your task is to: examine the baseballbat with the desklamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-BaseballBat-None-DeskLamp-308/trial_T20190906_214648_973919/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 8
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BaseballBat|DeskLamp|None|trial_T20190906_214706_219505",
-    "trial_id": "trial_T20190906_214706_219505",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "BaseballBat",
-    "parent_target": "None",
-    "receptacle_target": "DeskLamp",
-    "goal_instruction": "Your task is to: examine the baseballbat with the desklamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-BaseballBat-None-DeskLamp-308/trial_T20190906_214706_219505/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 9
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BasketBall|DeskLamp|None|trial_T20190907_161210_531813",
-    "trial_id": "trial_T20190907_161210_531813",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "BasketBall",
-    "parent_target": "None",
-    "receptacle_target": "DeskLamp",
-    "goal_instruction": "Your task is to: examine the basketball with the desklamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-BasketBall-None-DeskLamp-308/trial_T20190907_161210_531813/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 10
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BasketBall|DeskLamp|None|trial_T20190907_161235_786153",
-    "trial_id": "trial_T20190907_161235_786153",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "BasketBall",
-    "parent_target": "None",
-    "receptacle_target": "DeskLamp",
-    "goal_instruction": "Your task is to: look at basketball under the desklamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-BasketBall-None-DeskLamp-308/trial_T20190907_161235_786153/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 11
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "308|BasketBall|DeskLamp|None|trial_T20190907_161252_926204",
-    "trial_id": "trial_T20190907_161252_926204",
-    "scene_id": 308,
-    "scene_domain": "bedroom",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "BasketBall",
-    "parent_target": "None",
-    "receptacle_target": "DeskLamp",
-    "goal_instruction": "Your task is to: look at basketball under the desklamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-BasketBall-None-DeskLamp-308/trial_T20190907_161252_926204/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 12
-  },
-  {
-    "subset_group": "bedroom",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
     "selection_key": "308|Book|DeskLamp|None|trial_T20190908_020029_636862",
     "trial_id": "trial_T20190908_020029_636862",
     "scene_id": 308,
@@ -270,7 +81,7 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
-    "selection_rank": 13
+    "selection_rank": 4
   },
   {
     "subset_group": "bedroom",
@@ -291,7 +102,7 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
-    "selection_rank": 14
+    "selection_rank": 5
   },
   {
     "subset_group": "bedroom",
@@ -312,7 +123,7 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
-    "selection_rank": 15
+    "selection_rank": 6
   },
   {
     "subset_group": "bedroom",
@@ -333,7 +144,7 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
-    "selection_rank": 16
+    "selection_rank": 7
   },
   {
     "subset_group": "bedroom",
@@ -354,7 +165,7 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
-    "selection_rank": 17
+    "selection_rank": 8
   },
   {
     "subset_group": "bedroom",
@@ -375,7 +186,7 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
-    "selection_rank": 18
+    "selection_rank": 9
   },
   {
     "subset_group": "bedroom",
@@ -396,7 +207,7 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
-    "selection_rank": 19
+    "selection_rank": 10
   },
   {
     "subset_group": "bedroom",
@@ -417,6 +228,195 @@
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
+    "selection_rank": 11
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|CD|DeskLamp|None|trial_T20190908_142046_281296",
+    "trial_id": "trial_T20190908_142046_281296",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "look_at_obj_in_light",
+    "object_target": "CD",
+    "parent_target": "None",
+    "receptacle_target": "DeskLamp",
+    "goal_instruction": "Your task is to: examine the cd with the desklamp.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-CD-None-DeskLamp-308/trial_T20190908_142046_281296/game.tw-pddl"
+    },
+    "task_type": "examine",
+    "env_name": "look_at_obj",
+    "selection_rank": 12
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|CD|Safe|None|trial_T20190907_050942_897916",
+    "trial_id": "trial_T20190907_050942_897916",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "CD",
+    "parent_target": "None",
+    "receptacle_target": "Safe",
+    "goal_instruction": "Your task is to: put two cd in safe.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_two_obj_and_place-CD-None-Safe-308/trial_T20190907_050942_897916/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 13
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|CD|Safe|None|trial_T20190907_051013_060265",
+    "trial_id": "trial_T20190907_051013_060265",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "CD",
+    "parent_target": "None",
+    "receptacle_target": "Safe",
+    "goal_instruction": "Your task is to: find two cd and put them in safe.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_two_obj_and_place-CD-None-Safe-308/trial_T20190907_051013_060265/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 14
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|CD|Safe|None|trial_T20190907_051056_585414",
+    "trial_id": "trial_T20190907_051056_585414",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "CD",
+    "parent_target": "None",
+    "receptacle_target": "Safe",
+    "goal_instruction": "Your task is to: put two cd in safe.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_two_obj_and_place-CD-None-Safe-308/trial_T20190907_051056_585414/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 15
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|Mug|DeskLamp|None|trial_T20190908_161733_213242",
+    "trial_id": "trial_T20190908_161733_213242",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "look_at_obj_in_light",
+    "object_target": "Mug",
+    "parent_target": "None",
+    "receptacle_target": "DeskLamp",
+    "goal_instruction": "Your task is to: look at mug under the desklamp.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Mug-None-DeskLamp-308/trial_T20190908_161733_213242/game.tw-pddl"
+    },
+    "task_type": "examine",
+    "env_name": "look_at_obj",
+    "selection_rank": 16
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|Mug|DeskLamp|None|trial_T20190908_201421_021646",
+    "trial_id": "trial_T20190908_201421_021646",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "look_at_obj_in_light",
+    "object_target": "Mug",
+    "parent_target": "None",
+    "receptacle_target": "DeskLamp",
+    "goal_instruction": "Your task is to: examine the mug with the desklamp.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Mug-None-DeskLamp-308/trial_T20190908_201421_021646/game.tw-pddl"
+    },
+    "task_type": "examine",
+    "env_name": "look_at_obj",
+    "selection_rank": 17
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|Mug|DeskLamp|None|trial_T20190908_201444_037645",
+    "trial_id": "trial_T20190908_201444_037645",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "look_at_obj_in_light",
+    "object_target": "Mug",
+    "parent_target": "None",
+    "receptacle_target": "DeskLamp",
+    "goal_instruction": "Your task is to: examine the mug with the desklamp.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Mug-None-DeskLamp-308/trial_T20190908_201444_037645/game.tw-pddl"
+    },
+    "task_type": "examine",
+    "env_name": "look_at_obj",
+    "selection_rank": 18
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|Mug|Desk|None|trial_T20190908_125200_737896",
+    "trial_id": "trial_T20190908_125200_737896",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Mug",
+    "parent_target": "None",
+    "receptacle_target": "Desk",
+    "goal_instruction": "Your task is to: put a mug in desk.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-Mug-None-Desk-308/trial_T20190908_125200_737896/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 19
+  },
+  {
+    "subset_group": "bedroom",
+    "source_split": "valid_unseen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "308|Mug|Desk|None|trial_T20190909_203041_433487",
+    "trial_id": "trial_T20190909_203041_433487",
+    "scene_id": 308,
+    "scene_domain": "bedroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Mug",
+    "parent_target": "None",
+    "receptacle_target": "Desk",
+    "goal_instruction": "Your task is to: put some mug on desk.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_and_place_simple-Mug-None-Desk-308/trial_T20190909_203041_433487/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
     "selection_rank": 20
   }
 ]
