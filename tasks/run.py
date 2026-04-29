@@ -422,6 +422,9 @@ if __name__ == '__main__':
             'lightweight_repair',
             'graph_policy',
             'graph_policy_feedback',
+            'graph_policy_sourcehint',
+            'graph_policy_sourcehint_feedback',
+            'graph_policy_quality',
         ],
         help='GraphMemory2 only: retrieval mode for external graph memory artifacts.',
     )

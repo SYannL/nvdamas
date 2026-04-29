@@ -562,7 +562,8 @@ layout_id
 
 ## 8. Retrieve 返回的是什么
 
-当前 `--gm2_retrieval_mode graph_policy` 走：
+当前 `--
+ graph_policy` 走：
 
 ```text
 QueryBasedRetriever(top_k=5)

@@ -405,6 +405,8 @@ def run_tasks(
 
     script_path = os.path.abspath(__file__)
     use_subprocess = alfworld_subprocess_args is not None
+    records_dir = getattr(task_manager.recorder, "working_dir", None) or task_manager.mem_config.get("working_dir", ".")
+    task_records_path = os.path.join(records_dir, "task_records.jsonl")
 
     def _is_pddl_crash(gamefile: Any, err: Any) -> bool:
         gf = str(gamefile or "")
@@ -415,6 +417,43 @@ def run_tasks(
             or "KeyError: 'val1'" in em
             or "textworld" in em.lower() and "pddl" in em.lower()
         )
+
+    def _append_task_record(
+        *,
+        task_id: int,
+        task_config: dict[str, Any],
+        reward: float,
+        done: bool,
+        skipped: bool,
+        pddl_crash: bool,
+        error_type: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        record = {
+            "task_id": int(task_id),
+            "task_index_1based": int(task_id) + 1,
+            "task_name": task_manager.task_name,
+            "env_name": task_config.get("env_name"),
+            "gamefile": (task_config.get("env_kwargs") or {}).get("gamefile"),
+            "goal": task_config.get("task_main") or task_config.get("task_description"),
+            "reward": float(reward),
+            "done": bool(done),
+            "success": bool(float(reward) > 0),
+            "skipped": bool(skipped),
+            "pddl_crash": bool(pddl_crash),
+            "error_type": error_type,
+            "error_message": error_message,
+        }
+        for key in ("_source_index_1based", "_smoke_source_index_1based", "_regression_label"):
+            if key in task_config:
+                record[key] = task_config.get(key)
+        try:
+            os.makedirs(records_dir, exist_ok=True)
+            with open(task_records_path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception:
+            # Diagnostics must never alter task execution, scoring, or memory updates.
+            pass
 
     for task_id in range(start, end):
         task_config = copy.deepcopy(task_manager.tasks[task_id])
@@ -512,6 +551,14 @@ def run_tasks(
                 elapsed = time.time() - start_time
                 if float(reward) > 0:
                     successes += 1
+                _append_task_record(
+                    task_id=task_id,
+                    task_config=task_config,
+                    reward=float(reward),
+                    done=bool(done),
+                    skipped=False,
+                    pddl_crash=False,
+                )
                 attempted += 1
                 done_count += 1
 
@@ -558,6 +605,16 @@ def run_tasks(
                     "pddl_crash": bool(pddl_crash),
                 }
                 skipped_tasks.append(skip_info)
+                _append_task_record(
+                    task_id=task_id,
+                    task_config=task_config,
+                    reward=0.0,
+                    done=False,
+                    skipped=True,
+                    pddl_crash=bool(pddl_crash),
+                    error_type=skip_info["error_type"],
+                    error_message=skip_info["error_message"],
+                )
                 # Include the crash/exception snippet in logs; otherwise we only see the gamefile.
                 err_preview = (skip_info.get("error_message") or "")[:500]
                 task_manager.recorder.log(
@@ -598,6 +655,16 @@ def run_tasks(
                     "pddl_crash": bool(pddl_crash),
                 }
                 skipped_tasks.append(skip_info)
+                _append_task_record(
+                    task_id=task_id,
+                    task_config=task_config,
+                    reward=0.0,
+                    done=False,
+                    skipped=True,
+                    pddl_crash=bool(pddl_crash),
+                    error_type=skip_info["error_type"],
+                    error_message=skip_info["error_message"],
+                )
                 err_preview = (skip_info.get("error_message") or "")[:500]
                 task_manager.recorder.log(
                     f"{progress_msg} Task {task_id + 1} skipped (subprocess crash/error): {gamefile}. "
@@ -672,6 +739,14 @@ def run_tasks(
 
             if float(reward) > 0:
                 successes += 1
+            _append_task_record(
+                task_id=task_id,
+                task_config=task_config,
+                reward=float(reward),
+                done=bool(done),
+                skipped=False,
+                pddl_crash=False,
+            )
             attempted += 1
             done_count += 1
 
@@ -736,6 +811,16 @@ def run_tasks(
                 "pddl_crash": bool(pddl_crash),
             }
             skipped_tasks.append(skip_info)
+            _append_task_record(
+                task_id=task_id,
+                task_config=task_config,
+                reward=0.0,
+                done=False,
+                skipped=True,
+                pddl_crash=bool(pddl_crash),
+                error_type=skip_info["error_type"],
+                error_message=skip_info["error_message"],
+            )
             # Short message for known ALFWorld grammar/load errors (including PDDL parse crash) so logs stay readable
             is_load_error = (
                 "FailedToken" in type(exc).__name__
@@ -1470,7 +1555,7 @@ def main() -> None:
     parser.add_argument(
         "--eval_only",
         action="store_true",
-        help="Skip all training (local A/B and global); only run the 6 eval scenarios. Requires existing memory at --run_id.",
+        help="Skip all training (local A/B and global); only run eval scenarios. Requires existing memory at --run_id.",
     )
     parser.add_argument(
         "--test_mode",
@@ -1501,6 +1586,9 @@ def main() -> None:
             "lightweight_repair",
             "graph_policy",
             "graph_policy_feedback",
+            "graph_policy_sourcehint",
+            "graph_policy_sourcehint_feedback",
+            "graph_policy_quality",
         ],
         help="GraphMemory2 retrieval mode.",
     )
@@ -2674,7 +2762,11 @@ def main() -> None:
                 ("global_A_on_A_test", task_a_eval_name, local_a_dir, split_a_eval_tasks, True),
                 ("global_B_on_B_test", task_b_eval_name, local_b_dir, split_b_eval_tasks, True),
             ]
-        # 6 tasks: inner/cross × baseline/ours (no redundant cross_ours, since they duplicate inner_ours)
+        # ALFWorld collaborative eval:
+        # - inner_baseline: local-only memory on its own domain
+        # - inner_ours: local + global memory on its own domain
+        # - cross_baseline: transfer using only the source domain local memory
+        # - cross_ours: transfer using source domain local memory plus shared global memory
         return [
             ("inner_baseline_A_on_A", task_a_eval_name, local_a_dir, split_a_eval_tasks, False),
             ("inner_baseline_B_on_B", task_b_eval_name, local_b_dir, split_b_eval_tasks, False),
@@ -2683,6 +2775,8 @@ def main() -> None:
             ("inner_ours_B_on_B", task_b_eval_name, local_b_dir, split_b_eval_tasks, True),
             ("cross_baseline_A_on_B", task_b_eval_name, local_a_dir, split_b_eval_tasks, False),
             ("cross_baseline_B_on_A", task_a_eval_name, local_b_dir, split_a_eval_tasks, False),
+            ("cross_ours_A_on_B", task_b_eval_name, local_a_dir, split_b_eval_tasks, True),
+            ("cross_ours_B_on_A", task_a_eval_name, local_b_dir, split_a_eval_tasks, True),
         ]
 
     if args.dataset_family == "alfworld" and alfworld_eval_task_sets:
