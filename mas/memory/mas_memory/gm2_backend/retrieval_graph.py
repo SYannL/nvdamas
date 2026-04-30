@@ -787,6 +787,22 @@ def _artifact_relevance(
                 score += 0.08 if attempts > 0 else -0.04
             elif relation_kind == "object_location_prior":
                 score -= 0.12 if attempts > 1 else 0.04
+    if artifact.kind == ArtifactKind.PROTOTYPE and pattern_kind == "source_type_prior":
+        source_base = str(payload.get("source_base", ""))
+        goal_object = str(payload.get("goal_object", ""))
+        query_object = str(query.goal_roles.get("object", ""))
+        if query.progress_state.startswith("search"):
+            score += 0.22
+        if goal_object and query_object and goal_object == query_object:
+            score += 0.18
+        elif goal_object and query_object:
+            score -= 0.08
+        if source_base:
+            attempts = _search_attempt_count(query, source_base)
+            if artifact.stats.confidence >= 0.5:
+                score -= min(0.18, attempts * 0.06)
+            else:
+                score -= 0.04
     if artifact.kind == ArtifactKind.REFLECTION and str(anchor.get("failure_signature", "")) == "premature_destination_focus":
         if query.held_relevant_count <= 0 and query.progress_state not in {"carry_target", "finalize"}:
             score += 0.16

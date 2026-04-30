@@ -1462,6 +1462,32 @@ class LocalGraphMaintainer:
                         success=True,
                         utility_delta=0.14,
                     )
+                    if source_base and not source_base.isdigit():
+                        upsert_artifact(
+                            kind=ArtifactKind.PROTOTYPE,
+                            summary=(
+                                "Source type prior: for this task family and target_object, "
+                                f"source type {source_base} has helped find the target."
+                            ),
+                            anchor={
+                                "task_family": family,
+                                "goal_arity": goal_arity,
+                                "goal_signature": f"{goal_roles.get('object', '')}->{goal_roles.get('destination', '')}",
+                                "artifact_role": "source_type_prior",
+                            },
+                            payload={
+                                "source": "source_type_prior",
+                                "pattern_kind": "source_type_prior",
+                                "relation_kind": "source_type_prior",
+                                "object_role": "target_object",
+                                "source_role": source_role,
+                                "source_base": source_base,
+                                "goal_object": target_base,
+                                "action_patterns": _relation_action_patterns("", source_base, source_role),
+                            },
+                            success=True,
+                            utility_delta=0.12,
+                        )
 
                 search_ref = str(belief.search_ref or "").lower()
                 if (
@@ -1498,6 +1524,32 @@ class LocalGraphMaintainer:
                         success=True,
                         utility_delta=0.08,
                     )
+                    if source_base and not source_base.isdigit():
+                        upsert_artifact(
+                            kind=ArtifactKind.PROTOTYPE,
+                            summary=(
+                                "Source type prior: for this task family and target_object, "
+                                f"source type {source_base} has been searched without finding the target."
+                            ),
+                            anchor={
+                                "task_family": family,
+                                "goal_arity": goal_arity,
+                                "goal_signature": f"{goal_roles.get('object', '')}->{goal_roles.get('destination', '')}",
+                                "artifact_role": "source_type_prior",
+                            },
+                            payload={
+                                "source": "source_type_prior",
+                                "pattern_kind": "source_type_prior",
+                                "relation_kind": "source_type_prior",
+                                "object_role": "target_object",
+                                "source_role": source_role,
+                                "source_base": source_base,
+                                "goal_object": target_base,
+                                "action_patterns": _relation_action_patterns("", source_base, source_role),
+                            },
+                            success=False,
+                            utility_delta=0.02,
+                        )
 
         return list(artifacts.values())
 
@@ -1562,6 +1614,14 @@ class GlobalPromoter:
             return 2
         pattern_kind = str(artifact.payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
         artifact_role = str(artifact.anchor.get("artifact_role", ""))
+        if pattern_kind == "source_type_prior" or artifact_role == "source_type_prior":
+            if (
+                artifact.support >= 2
+                and artifact.stats.success >= 1
+                and artifact.stats.confidence >= 0.45
+                and artifact.stats.stalled <= max(1, artifact.support // 3)
+            ):
+                return 1
         if (
             artifact.kind in {ArtifactKind.PROTOTYPE, ArtifactKind.RULE}
             and pattern_kind != "scene_relation"
@@ -1591,14 +1651,31 @@ class GlobalPromoter:
         )
 
     def _global_artifact_copy(self, artifact: MemoryArtifact) -> MemoryArtifact | None:
-        anchor = _abstract_global_mapping(artifact.anchor)
-        payload = _abstract_global_mapping(artifact.payload)
-        pattern_kind = str(payload.get("pattern_kind", "") or anchor.get("pattern_kind", ""))
-        artifact_role = str(anchor.get("artifact_role", ""))
+        raw_pattern_kind = str(artifact.payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
+        raw_artifact_role = str(artifact.anchor.get("artifact_role", ""))
         if artifact.kind == ArtifactKind.REFLECTION:
             return None
-        if pattern_kind == "scene_relation" or artifact_role == "scene_relation":
+        if raw_pattern_kind == "scene_relation" or raw_artifact_role == "scene_relation":
             return None
+        if raw_pattern_kind == "source_type_prior" or raw_artifact_role == "source_type_prior":
+            anchor = {
+                "task_family": artifact.anchor.get("task_family", ""),
+                "goal_arity": artifact.anchor.get("goal_arity", 1),
+                "artifact_role": "source_type_prior",
+            }
+            payload = {
+                "source": "source_type_prior",
+                "pattern_kind": "source_type_prior",
+                "relation_kind": "source_type_prior",
+                "object_role": artifact.payload.get("object_role", "target_object"),
+                "source_role": artifact.payload.get("source_role", ""),
+                "source_base": artifact.payload.get("source_base", ""),
+                "goal_object": artifact.payload.get("goal_object", ""),
+                "action_patterns": artifact.payload.get("action_patterns", []),
+            }
+        else:
+            anchor = _abstract_global_mapping(artifact.anchor)
+            payload = _abstract_global_mapping(artifact.payload)
         return MemoryArtifact(
             artifact_id=_global_artifact_id(artifact, anchor, payload),
             kind=artifact.kind,
@@ -1710,15 +1787,24 @@ class GlobalPromoter:
 
         for artifact in aggregated_artifacts.values():
             min_scene_coverage = self._artifact_min_scene_coverage(artifact)
-            min_support = 3
+            pattern_kind = str(artifact.payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
+            if pattern_kind == "source_type_prior":
+                min_support = 2
+                min_success = 1
+                min_confidence = 0.45
+            else:
+                min_support = 3
+                min_success = 2
+                min_confidence = 0.6
             if (
                 artifact.support >= min_support
-                and artifact.stats.success >= 2
-                and artifact.stats.confidence >= 0.6
+                and artifact.stats.success >= min_success
+                and artifact.stats.confidence >= min_confidence
                 and artifact.coverage >= min_scene_coverage
                 and artifact.promotion_score >= self.score_threshold
             ):
                 global_memory.artifacts_by_id[artifact.artifact_id] = artifact
 
-        global_memory.promoted_batches.append(batch_name)
+        if batch_name and batch_name not in global_memory.promoted_batches:
+            global_memory.promoted_batches.append(batch_name)
         return global_memory

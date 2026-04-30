@@ -1585,6 +1585,7 @@ def main() -> None:
             "hybrid_repair",
             "lightweight_repair",
             "graph_policy",
+            "graph_policy_rerank",
             "graph_policy_feedback",
             "graph_policy_sourcehint",
             "graph_policy_sourcehint_feedback",
