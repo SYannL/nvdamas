@@ -61,6 +61,10 @@ class GraphMemory2MASMemory(MASMemoryBase):
     _gm2_graph_policy_source_key: str = field(default="", init=False, repr=False)
     _gm2_graph_policy_source_queue: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
     _gm2_graph_policy_next_source_action: str = field(default="", init=False, repr=False)
+    _gm2_debug_trace_path: Path | None = field(default=None, init=False, repr=False)
+    _gm2_debug_current_task: str = field(default="", init=False, repr=False)
+    _gm2_debug_last_step: int = field(default=0, init=False, repr=False)
+    _gm2_debug_env_step: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -89,10 +93,23 @@ class GraphMemory2MASMemory(MASMemoryBase):
         self._gm2_graph_policy_source_key = ""
         self._gm2_graph_policy_source_queue = []
         self._gm2_graph_policy_next_source_action = ""
+        self._gm2_debug_current_task = str(task_main or "")
+        self._gm2_debug_last_step = 0
+        self._gm2_debug_env_step = 0
         return message
 
     def move_memory_state(self, action: str, observation: str, **kargs) -> None:
         super().move_memory_state(action, observation, **kargs)
+        self._gm2_debug_env_step += 1
+        self._gm2_debug_append(
+            "env_feedback",
+            step_index=self._gm2_debug_env_step,
+            payload={
+                "action": str(action or ""),
+                "reward": kargs.get("reward"),
+                "observation": self._gm2_debug_text(str(observation or ""), limit=1200),
+            },
+        )
         if self.enable_overlay and self.episode_builder is not None:
             self.episode_builder.update(action, observation)
 
@@ -134,6 +151,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         if not memory_dir and not dynamic_graph:
             return
         memory_path = Path(memory_dir).expanduser() if memory_dir else Path(self.persist_dir)
+        local_artifact_scene = self._gm2_local_artifact_scene(memory_path)
         if memory_dir and not memory_path.exists():
             self._external_error = f"external gm2_memory_dir not found: {memory_path}"
             return
@@ -184,6 +202,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         self._external_global_to_dict = _global_to_dict
         self._external_load_global_memory = load_global_memory
         self._external_artifact_dir = Path(self.persist_dir)
+        self._gm2_debug_trace_path = Path(self.persist_dir) / "gm2_debug_trace.jsonl"
         self._dynamic_graph_enabled = dynamic_graph
         shared_global_dir = str(self.global_config.get("gm2_shared_global_dir", "") or "").strip()
         if shared_global_dir:
@@ -234,6 +253,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
             if not self.reset_memory:
                 for local_file in _iter_local_memory_files(memory_path):
                     scene = local_file.stem[len("local_") :]
+                    if local_artifact_scene and scene != local_artifact_scene:
+                        continue
                     try:
                         self._external_local_memories[scene] = load_local_memory(str(local_file))
                     except Exception:
@@ -257,6 +278,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
         else:
             for local_file in _iter_local_memory_files(memory_path):
                 scene = local_file.stem[len("local_") :]
+                if local_artifact_scene and scene != local_artifact_scene:
+                    continue
                 try:
                     self._external_local_memories[scene] = load_local_memory(str(local_file))
                 except Exception:
@@ -273,6 +296,24 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
         self._external_enabled = True
         self.refresh_each_step = True
+
+    @staticmethod
+    def _gm2_local_artifact_scene(path: Path) -> str:
+        """Return the scene owned by a local GM2 artifact directory.
+
+        Full collab runs store per-scene memory under:
+            .../graph_memory2/local/<scene>/graph_memory2/
+
+        Workers should not load or persist other scenes' local_*.json files inside
+        this directory. Older runs may contain such stale cross-scene copies, and
+        loading them by scene name can overwrite the real local graph.
+        """
+        try:
+            if path.name == "graph_memory2" and path.parent.parent.name == "local":
+                return path.parent.name
+        except Exception:
+            return ""
+        return ""
 
     def _refresh_shared_global_memory(self) -> None:
         if self._external_shared_global_dir is None:
@@ -295,6 +336,13 @@ class GraphMemory2MASMemory(MASMemoryBase):
         if self._external_shared_global_dir is None:
             return
         self._external_shared_global_dir.mkdir(parents=True, exist_ok=True)
+        promoted_batches = self._dedupe_promoted_batches(
+            list(getattr(self._external_global_memory, "promoted_batches", []) or [])
+        )
+        try:
+            self._external_global_memory.promoted_batches = promoted_batches
+        except Exception:
+            pass
         global_path = self._external_shared_global_dir / "global_memory.json"
         with global_path.open("w", encoding="utf-8") as writer:
             json.dump(self._external_global_to_dict(self._external_global_memory), writer, ensure_ascii=False, indent=2)
@@ -304,16 +352,228 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 "candidate_count": len(getattr(self._external_global_memory, "candidates", {})),
                 "rule_count": len(getattr(self._external_global_memory, "rules_by_id", {})),
                 "artifact_count": len(getattr(self._external_global_memory, "artifacts_by_id", {})),
-                "promoted_batches": list(getattr(self._external_global_memory, "promoted_batches", []) or []),
+                "promoted_batches": promoted_batches,
             },
         }
         with (self._external_shared_global_dir / "summary.json").open("w", encoding="utf-8") as writer:
             json.dump(summary, writer, ensure_ascii=False, indent=2)
 
+    @staticmethod
+    def _dedupe_promoted_batches(batches: list[str]) -> list[str]:
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for batch in batches:
+            key = str(batch or "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            deduped.append(key)
+        return deduped
+
+    def _gm2_debug_enabled(self) -> bool:
+        return bool(
+            self._external_enabled
+            and self._gm2_debug_trace_path is not None
+            and self._external_retrieval_mode
+            in {
+                "graph_policy",
+                "graph_policy_rerank",
+                "graph_policy_feedback",
+                "graph_policy_sourcehint",
+                "graph_policy_sourcehint_feedback",
+                "graph_policy_quality",
+            }
+        )
+
+    def _gm2_debug_text(self, text: str, *, limit: int = 800) -> str:
+        value = str(text or "")
+        if limit <= 0 or len(value) <= limit:
+            return value
+        return value[:limit] + f"...[truncated {len(value) - limit}]"
+
+    def _gm2_debug_jsonable(self, value: Any, *, depth: int = 0) -> Any:
+        if depth > 4:
+            return self._gm2_debug_text(str(value), limit=300)
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, dict):
+            out: dict[str, Any] = {}
+            for idx, (key, item) in enumerate(value.items()):
+                if idx >= 40:
+                    out["..."] = f"{len(value) - idx} more"
+                    break
+                out[str(key)] = self._gm2_debug_jsonable(item, depth=depth + 1)
+            return out
+        if isinstance(value, (list, tuple, set)):
+            seq = list(value)
+            out = [self._gm2_debug_jsonable(item, depth=depth + 1) for item in seq[:40]]
+            if len(seq) > 40:
+                out.append(f"... {len(seq) - 40} more")
+            return out
+        return self._gm2_debug_text(str(value), limit=500)
+
+    def _gm2_debug_query_snapshot(self, query: Any) -> dict[str, Any]:
+        if query is None:
+            return {}
+        return {
+            "goal": str(getattr(query, "goal", "") or ""),
+            "task_family": str(getattr(query, "task_family", "") or ""),
+            "scene_id": str(getattr(query, "scene_id", "") or ""),
+            "location": str(getattr(query, "location", "") or ""),
+            "current_stage": str(getattr(query, "current_stage", "") or ""),
+            "progress_state": str(getattr(query, "progress_state", "") or ""),
+            "progress_hint": str(getattr(query, "progress_hint", "") or ""),
+            "required_count": getattr(query, "required_count", None),
+            "held_relevant_count": getattr(query, "held_relevant_count", None),
+            "placed_relevant_count": getattr(query, "placed_relevant_count", None),
+            "remaining_relevant_count": getattr(query, "remaining_relevant_count", None),
+            "goal_roles": self._gm2_debug_jsonable(getattr(query, "goal_roles", {}) or {}),
+            "dynamic_context": self._gm2_debug_jsonable(getattr(query, "dynamic_context", {}) or {}),
+        }
+
+    def _gm2_debug_item_snapshot(self, item: Any) -> dict[str, Any]:
+        dynamic = getattr(item, "dynamic", {}) or {}
+        if not isinstance(dynamic, dict):
+            dynamic = {"value": str(dynamic)}
+        payload = dynamic.get("payload", {}) if isinstance(dynamic.get("payload", {}), dict) else {}
+        dynamic_keys = (
+            "relation_kind",
+            "artifact_kind",
+            "object_role",
+            "source_instance",
+            "source_type",
+            "location",
+            "target",
+            "container",
+        )
+        compact_dynamic = {
+            key: dynamic.get(key)
+            for key in dynamic_keys
+            if key in dynamic and dynamic.get(key) not in (None, "")
+        }
+        for key in dynamic_keys:
+            if key in payload and payload.get(key) not in (None, ""):
+                compact_dynamic[f"payload.{key}"] = payload.get(key)
+        graph_refs = payload.get("graph_refs", [])
+        if graph_refs:
+            compact_dynamic["payload.graph_refs"] = list(graph_refs)[:5]
+        action_patterns = [
+            str(pattern)
+            for pattern in (getattr(item, "action_patterns", ()) or ())
+            if str(pattern).strip()
+        ]
+        candidate_type = getattr(item, "candidate_type", "")
+        candidate_type_text = getattr(candidate_type, "value", candidate_type)
+        return {
+            "source": str(getattr(item, "source", "") or ""),
+            "candidate_id": str(getattr(item, "candidate_id", "") or ""),
+            "candidate_type": str(candidate_type_text or ""),
+            "pattern_kind": str(getattr(item, "pattern_kind", "") or ""),
+            "branch_tag": str(getattr(item, "branch_tag", "") or ""),
+            "score": float(getattr(item, "score", 0.0) or 0.0),
+            "task_relevance": float(getattr(item, "task_relevance", 0.0) or 0.0),
+            "goal_relevance": float(getattr(item, "goal_relevance", 0.0) or 0.0),
+            "state_relevance": float(getattr(item, "state_relevance", 0.0) or 0.0),
+            "positive": int(getattr(item, "positive", 0) or 0),
+            "negative": int(getattr(item, "negative", 0) or 0),
+            "summary": self._gm2_debug_text(str(getattr(item, "summary", "") or ""), limit=700),
+            "action_patterns": action_patterns[:5],
+            "dynamic": self._gm2_debug_jsonable(compact_dynamic),
+        }
+
+    def _gm2_debug_items(self, bundle: Any, field_name: str, *, limit: int = 8) -> list[dict[str, Any]]:
+        return [
+            self._gm2_debug_item_snapshot(item)
+            for item in list(getattr(bundle, field_name, []) or [])[:limit]
+        ]
+
+    def _gm2_debug_bundle_snapshot(self, bundle: Any) -> dict[str, Any]:
+        if bundle is None:
+            return {}
+        return {
+            "routing_weights": self._gm2_debug_jsonable(getattr(bundle, "routing_weights", {}) or {}),
+            "routing_decisions": self._gm2_debug_jsonable(getattr(bundle, "routing_decisions", {}) or {}),
+            "local": {
+                "local_items": self._gm2_debug_items(bundle, "local_items"),
+                "fact_items": self._gm2_debug_items(bundle, "fact_items"),
+                "relation_items": self._gm2_debug_items(bundle, "relation_items"),
+                "local_graph_contribution": self._gm2_debug_items(bundle, "local_graph_contribution"),
+                "local_promoted_contribution": self._gm2_debug_items(bundle, "local_promoted_contribution"),
+                "plan_items": self._gm2_debug_items(bundle, "plan_items"),
+                "workflow_items": [
+                    item
+                    for item in self._gm2_debug_items(bundle, "workflow_items")
+                    if not str(item.get("source", "")).startswith("global")
+                ],
+            },
+            "global": {
+                "global_items": self._gm2_debug_items(bundle, "global_items"),
+                "global_task_plan_items": self._gm2_debug_items(bundle, "global_task_plan_items"),
+                "global_promoted_contribution": self._gm2_debug_items(bundle, "global_promoted_contribution"),
+                "workflow_items": [
+                    item
+                    for item in self._gm2_debug_items(bundle, "workflow_items")
+                    if str(item.get("source", "")).startswith("global")
+                ],
+                "precondition_items": [
+                    item
+                    for item in self._gm2_debug_items(bundle, "precondition_items")
+                    if str(item.get("source", "")).startswith("global")
+                ],
+            },
+            "policy_outputs": {
+                "suggested_actions": self._gm2_debug_jsonable(getattr(bundle, "suggested_actions", []) or []),
+                "blocked_actions": self._gm2_debug_jsonable(getattr(bundle, "blocked_actions", []) or []),
+                "warnings": self._gm2_debug_jsonable(getattr(bundle, "warnings", []) or []),
+                "workflow_hints": self._gm2_debug_jsonable(getattr(bundle, "workflow_hints", []) or []),
+            },
+        }
+
+    def _gm2_debug_memory_counts(self, memory: Any) -> dict[str, int]:
+        if memory is None:
+            return {}
+        return {
+            "episodes": len(getattr(memory, "episode_ids", []) or []),
+            "candidates": len(getattr(memory, "candidates", {}) or {}),
+            "rules": len(getattr(memory, "rules_by_id", {}) or {}),
+            "artifacts": len(getattr(memory, "artifacts_by_id", {}) or {}),
+            "nodes": len(getattr(memory, "nodes_by_signature", {}) or {}),
+            "edges": len(getattr(memory, "edges_by_signature", {}) or {}),
+        }
+
+    def _gm2_debug_append(
+        self,
+        event: str,
+        *,
+        step_index: int = 0,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        if not self._gm2_debug_enabled():
+            return
+        try:
+            path = self._gm2_debug_trace_path
+            if path is None:
+                return
+            path.parent.mkdir(parents=True, exist_ok=True)
+            record = {
+                "event": str(event),
+                "step_index": int(step_index or 0),
+                "task": self._gm2_debug_current_task,
+                "retrieval_mode": self._external_retrieval_mode,
+                "freeze_memory": bool(getattr(self, "freeze_memory", False)),
+                "payload": self._gm2_debug_jsonable(payload or {}),
+            }
+            with path.open("a", encoding="utf-8") as writer:
+                writer.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception:
+            return
+
     def _retrieve_external_prompt_payload(self, **kargs) -> dict[str, list[str]]:
         if not self._external_enabled:
             return {"reference_cases": [], "execution_patterns": [], "insights": []}
         query = self._build_external_query(**kargs)
+        step_index = int(kargs.get("step_index", 0) or 0)
+        self._gm2_debug_last_step = step_index
         setting = str(self.global_config.get("gm2_settings", "local_only") or "local_only")
         trajectory_payload = None
         if setting not in {"base", "global_only"}:
@@ -326,6 +586,11 @@ class GraphMemory2MASMemory(MASMemoryBase):
             )
         if query is None:
             note = self._external_error or "external GraphMemory2 query unavailable for this task state."
+            self._gm2_debug_append(
+                "retrieve_unavailable",
+                step_index=step_index,
+                payload={"note": note, "setting": setting},
+            )
             return {
                 "reference_cases": [],
                 "execution_patterns": list(trajectory_payload.execution_patterns) if trajectory_payload else [],
@@ -345,7 +610,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             self._refresh_shared_global_memory()
         suppress_global_for_second_search = (
             self._gm2_is_two_object_second_search(query)
-            and self._external_retrieval_mode not in {"graph_policy", "graph_policy_quality"}
+            and self._external_retrieval_mode not in {"graph_policy", "graph_policy_rerank", "graph_policy_quality"}
         )
         global_memory = (
             self._external_empty_global()
@@ -372,7 +637,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             # static memory evidence together below. Keeping support_text empty
             # avoids duplicating routed evidence in the final prompt.
             support_text = ""
-        elif self._external_retrieval_mode in {"graph_policy", "graph_policy_feedback"}:
+        elif self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_feedback"}:
             support_text = self._render_graph_policy_evidence(
                 query=query,
                 bundle=bundle,
@@ -408,6 +673,21 @@ class GraphMemory2MASMemory(MASMemoryBase):
         insights = list(trajectory_payload.insights) if trajectory_payload else []
         repair_hints = (list(trajectory_payload.repair_hints) if trajectory_payload else []) + list(repair_hints)
         if not execution_patterns and not insights and not planner_notes and not action_constraints and not repair_hints:
+            self._gm2_debug_append(
+                "retrieve",
+                step_index=step_index,
+                payload={
+                    "query": self._gm2_debug_query_snapshot(query),
+                    "setting": setting,
+                    "owner_scene": owner_scene,
+                    "local_memory_counts": self._gm2_debug_memory_counts(local_memory),
+                    "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
+                    "bundle": self._gm2_debug_bundle_snapshot(bundle),
+                    "rendered_prompt_sections": {},
+                    "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
+                    "next_source_action": self._gm2_graph_policy_next_source_action,
+                },
+            )
             return {
                 "reference_cases": [],
                 "execution_patterns": [],
@@ -416,7 +696,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 "action_constraints": [],
                 "repair_hints": [],
             }
-        return {
+        payload = {
             "reference_cases": [],
             "execution_patterns": execution_patterns,
             "insights": insights,
@@ -424,6 +704,51 @@ class GraphMemory2MASMemory(MASMemoryBase):
             "action_constraints": action_constraints,
             "repair_hints": repair_hints,
         }
+        self._gm2_debug_append(
+            "retrieve",
+            step_index=step_index,
+            payload={
+                "query": self._gm2_debug_query_snapshot(query),
+                "setting": setting,
+                "owner_scene": owner_scene,
+                "local_memory_counts": self._gm2_debug_memory_counts(local_memory),
+                "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
+                "bundle": self._gm2_debug_bundle_snapshot(bundle),
+                "rendered_prompt_sections": {
+                    "support_text": self._gm2_debug_text(support_text, limit=3000),
+                    "planner_notes": [
+                        self._gm2_debug_text(item, limit=2500)
+                        for item in planner_notes[:5]
+                    ],
+                    "action_constraints": [
+                        self._gm2_debug_text(item, limit=1000)
+                        for item in action_constraints[:8]
+                    ],
+                    "repair_hints": [
+                        self._gm2_debug_text(item, limit=1000)
+                        for item in repair_hints[:8]
+                    ],
+                    "execution_patterns": [
+                        self._gm2_debug_text(item, limit=1000)
+                        for item in execution_patterns[:5]
+                    ],
+                    "insights": [
+                        self._gm2_debug_text(item, limit=1000)
+                        for item in insights[:5]
+                    ],
+                    "counts": {
+                        "planner_notes": len(planner_notes),
+                        "action_constraints": len(action_constraints),
+                        "repair_hints": len(repair_hints),
+                        "execution_patterns": len(execution_patterns),
+                        "insights": len(insights),
+                    },
+                },
+                "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
+                "next_source_action": self._gm2_graph_policy_next_source_action,
+            },
+        )
+        return payload
 
     def _phasee_policy_prompt_payload(self, *, query: Any, bundle: Any, env_ref: Any) -> dict[str, list[str]]:
         """Render PhaseE state policy as prompt-only guidance.
@@ -625,6 +950,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             "hybrid_repair",
             "lightweight_repair",
             "graph_policy",
+            "graph_policy_rerank",
             "graph_policy_feedback",
             "graph_policy_quality",
         }
@@ -636,6 +962,24 @@ class GraphMemory2MASMemory(MASMemoryBase):
         normalized_admissible = {self._normalize_action_text(cmd): cmd for cmd in admissible}
         normalized_processed = self._normalize_action_text(processed_action)
         processed_admissible = normalized_admissible.get(normalized_processed)
+
+        def _debug_return(selected_action: str, reason: str) -> str:
+            self._gm2_debug_append(
+                "repair_action",
+                step_index=step_index,
+                payload={
+                    "reason": reason,
+                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "processed_action": str(processed_action or ""),
+                    "processed_admissible": bool(processed_admissible),
+                    "final_action": str(selected_action or ""),
+                    "admissible_sample": admissible[:30],
+                    "next_source_action": self._gm2_graph_policy_next_source_action,
+                    "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
+                    "last_action_candidates": self._gm2_debug_jsonable(self._gm2_quality_last_action_candidates),
+                },
+            )
+            return selected_action
 
         # Official042 exposes final placement as `move X to Y`. When the
         # solver is already holding the target at the destination it can still
@@ -654,9 +998,9 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 f"last {self._external_retrieval_mode}=delivery_repair; "
                 f"selected={delivery_repair}"
             )
-            return delivery_repair
+            return _debug_return(delivery_repair, "delivery_repair")
 
-        if self._external_retrieval_mode in {"graph_policy", "graph_policy_feedback", "graph_policy_quality"} and self._is_concrete_alfworld_action(
+        if self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_feedback", "graph_policy_quality"} and self._is_concrete_alfworld_action(
             processed_action
         ):
             object_guard = self._deterministic_object_guard_repair(
@@ -671,39 +1015,16 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     f"last {self._external_retrieval_mode}=object_guard_repair; "
                     f"selected={object_guard}"
                 )
-                return object_guard
-            if self._external_retrieval_mode == "graph_policy":
-                direct_scene_source = self._gm2_graph_policy_direct_scene_source_action(
-                    processed_action=processed_admissible or processed_action,
-                    admissible_actions=admissible,
-                    env_ref=env_ref,
-                    task_config=task_config or {},
-                    step_index=step_index,
-                    broad_only=True,
-                )
-                if direct_scene_source:
-                    self._external_error = (
-                        f"last {self._external_retrieval_mode}=direct_scene_source_repair; "
-                        f"selected={direct_scene_source}"
-                    )
-                    return direct_scene_source
-                source_queue_repair = self._gm2_graph_policy_source_queue_repair(
-                    processed_action=processed_admissible or processed_action,
-                    admissible_actions=admissible,
-                    env_ref=env_ref,
-                )
-                if source_queue_repair:
-                    self._external_error = (
-                        f"last {self._external_retrieval_mode}=source_queue_repair; "
-                        f"selected={source_queue_repair}"
-                    )
-                    return source_queue_repair
+                return _debug_return(object_guard, "object_guard_repair")
             # Preserve the solver/env workflow for concrete ALFWorld commands.
             # The env adapter still handles official042 syntax normalization
             # such as put -> move. Graph policy is only a fallback for thoughts
             # or unparseable model output.
             self._external_error = f"last {self._external_retrieval_mode}=concrete_action_preserved"
-            return processed_admissible or processed_action
+            return _debug_return(
+                processed_admissible or processed_action,
+                "concrete_action_preserved",
+            )
 
         if processed_admissible and self._external_retrieval_mode == "phasee_action":
             self._external_error = "last repair_action=already_admissible"
@@ -766,10 +1087,13 @@ class GraphMemory2MASMemory(MASMemoryBase):
             self._external_error = "last lightweight_repair=no_deterministic_repair"
             return processed_action
 
-        if self._external_retrieval_mode == "graph_policy":
+        if self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank"}:
             if processed_admissible:
                 self._external_error = f"last {self._external_retrieval_mode}=already_admissible"
-                return processed_admissible
+                return _debug_return(processed_admissible, "already_admissible")
+            freeform_text = self._normalize_search_text_for_projection(
+                " ".join(str(part or "") for part in (raw_response, processed_action))
+            )
             queued_search = self._gm2_graph_policy_queued_search_from_text(
                 raw_response=str(raw_response or ""),
                 processed_action=processed_action,
@@ -780,7 +1104,36 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     f"last {self._external_retrieval_mode}=queued_search_from_text; "
                     f"selected={queued_search}"
                 )
-                return queued_search
+                return _debug_return(queued_search, "queued_search_from_text")
+            safe_search_intent = self._gm2_extract_safe_search_intent(
+                raw_response=str(raw_response or ""),
+                processed_action=processed_action,
+                admissible_actions=admissible,
+            )
+            if self._external_retrieval_mode == "graph_policy_rerank":
+                reranked_search = self._gm2_graph_policy_rerank_freeform_search(
+                    raw_response=str(raw_response or ""),
+                    processed_action=processed_action,
+                    explicit_search_action=safe_search_intent,
+                    admissible_actions=admissible,
+                )
+                if reranked_search:
+                    self._external_error = (
+                        "last graph_policy_rerank=episode_source_rerank; "
+                        f"selected={reranked_search}"
+                    )
+                    return _debug_return(reranked_search, "episode_source_rerank")
+            if safe_search_intent:
+                self._external_error = (
+                    f"last {self._external_retrieval_mode}=explicit_search_intent; "
+                    f"selected={safe_search_intent}"
+                )
+                return _debug_return(safe_search_intent, "explicit_search_intent")
+            if self._gm2_has_explicit_search_target_text(freeform_text):
+                self._external_error = (
+                    f"last {self._external_retrieval_mode}=explicit_search_unmatched_no_memory_override"
+                )
+                return _debug_return(processed_action, "explicit_search_unmatched_no_memory_override")
             direct_scene_source = self._gm2_graph_policy_direct_scene_source_action(
                 processed_action=processed_action,
                 admissible_actions=admissible,
@@ -794,24 +1147,13 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     f"last {self._external_retrieval_mode}=direct_scene_source_from_text; "
                     f"selected={direct_scene_source}"
                 )
-                return direct_scene_source
-            safe_search_intent = self._gm2_extract_safe_search_intent(
-                raw_response=str(raw_response or ""),
-                processed_action=processed_action,
-                admissible_actions=admissible,
-            )
-            if safe_search_intent:
-                self._external_error = (
-                    f"last {self._external_retrieval_mode}=safe_search_intent; "
-                    f"selected={safe_search_intent}"
-                )
-                return safe_search_intent
+                return _debug_return(direct_scene_source, "direct_scene_source_from_text")
             # GraphPolicy uses graph memory during prompt routing. The action
             # hook remains deterministic and should not run a second retrieve
             # just to reject free-form thoughts; delivery/object guards above
             # are the only action-level interventions for these modes.
             self._external_error = f"last {self._external_retrieval_mode}=no_freeform_action_projection"
-            return processed_action
+            return _debug_return(processed_action, "no_freeform_action_projection")
 
         query = self._build_external_query(
             env_ref=env_ref,
@@ -928,6 +1270,87 @@ class GraphMemory2MASMemory(MASMemoryBase):
         except Exception as exc:
             self._external_error = f"hybrid repair skipped: {type(exc).__name__}: {exc}"
             return processed_action
+
+    def _gm2_graph_policy_rerank_freeform_search(
+        self,
+        *,
+        raw_response: str,
+        processed_action: str,
+        explicit_search_action: str | None,
+        admissible_actions: list[str],
+    ) -> str | None:
+        """Use the graph-policy source queue only to break repeated search sweeps.
+
+        This is intentionally narrower than general action repair. It only runs
+        for graph_policy_rerank, only when the solver produced a free-form
+        search/thought, and only when the queued graph-supported action points
+        to a different source type than the current explicit search intent.
+        Concrete solver actions are preserved before this helper is reached.
+        """
+        queued = str(self._gm2_graph_policy_next_source_action or "").strip()
+        if not queued:
+            return None
+        normalized = {self._normalize_action_text(cmd): cmd for cmd in admissible_actions}
+        queued_admissible = normalized.get(self._normalize_action_text(queued))
+        if not queued_admissible:
+            return None
+
+        text = self._normalize_search_text_for_projection(
+            " ".join(str(part or "") for part in (raw_response, processed_action))
+        )
+        if not text or not any(marker in text for marker in ("think", "search", "check", "find", "next likely", "start")):
+            return None
+        if any(marker in text for marker in ("take ", "clean ", "heat ", "cool ", "move ", "put ")):
+            return None
+
+        queued_base = self._gm2_search_action_base(queued_admissible)
+        if not queued_base:
+            return None
+
+        explicit_base = self._gm2_search_action_base(explicit_search_action or "")
+        if explicit_base and explicit_base == queued_base:
+            return None
+
+        # If the model is explicitly continuing a broad repeated sweep, let
+        # rerank switch to the next graph-supported source type. This is the
+        # failure pattern in living unseen: drawer/shelf/cabinet sequences keep
+        # consuming the 30-step budget after local evidence has gone stale.
+        if explicit_base:
+            stalled_bases = self._gm2_episode_searched_source_bases()
+            if explicit_base in stalled_bases:
+                return queued_admissible
+            if explicit_base in {"cabinet", "drawer", "shelf"} and any(
+                base in stalled_bases for base in {"cabinet", "drawer", "shelf"}
+            ):
+                return queued_admissible
+            return None
+
+        # Generic thoughts like "I should check another likely location" do not
+        # bind a concrete target; using the queued graph action is safe here.
+        return queued_admissible
+
+    def _gm2_search_action_base(self, action: str) -> str:
+        text = self._normalize_search_text_for_projection(str(action or ""))
+        for prefix in ("go to ", "open ", "examine "):
+            if text.startswith(prefix):
+                target = text[len(prefix) :].strip()
+                return re.sub(r"\s+\d+$", "", target).strip()
+        return ""
+
+    def _gm2_episode_searched_source_bases(self) -> set[str]:
+        bases: set[str] = set()
+        builder = self.episode_builder
+        if builder is None:
+            return bases
+        state = getattr(builder, "state", None)
+        exhausted = list(getattr(state, "exhausted_locations", []) or [])
+        searched = list(getattr(state, "searched_locations", []) or [])
+        for item in exhausted + searched:
+            text = self._normalize_search_text_for_projection(str(item or ""))
+            text = re.sub(r"\s+\d+$", "", text).strip()
+            if text:
+                bases.add(text)
+        return bases
 
     def _extract_admissible_action(
         self,
@@ -1508,18 +1931,18 @@ class GraphMemory2MASMemory(MASMemoryBase):
         explicitly names the same command or the same location target.
         """
         text = " ".join(str(part or "") for part in (raw_response, processed_action))
-        normalized_text = self._normalize_action_text(text).replace("_", " ")
+        normalized_text = self._normalize_search_text_for_projection(text)
         if not normalized_text:
             return None
         if not any(
             marker in normalized_text
-            for marker in ("think", "i will", "start with", "check ", "go to ", "open ", "examine ")
+            for marker in ("think", "i will", "start with", "check ", "go to ", "going to ", "open ", "examine ")
         ):
             return None
 
         matches: list[tuple[int, str]] = []
         for command in admissible_actions:
-            command_norm = self._normalize_action_text(command).replace("_", " ")
+            command_norm = self._normalize_search_text_for_projection(command)
             match = re.match(r"^(go to|open|examine)\s+(.+)$", command_norm)
             if not match:
                 continue
@@ -1528,7 +1951,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             explicit_command = command_norm in normalized_text
             explicit_target = bool(
                 re.search(
-                    rf"\b(?:start with|check|checking|try|go to|open|examine)\s+(?:the\s+)?{re.escape(target)}\b",
+                    rf"\b(?:start with|check|checking|try|go to|going to|open|examine)\s+(?:the\s+)?{re.escape(target)}\b",
                     normalized_text,
                 )
             )
@@ -1539,6 +1962,29 @@ class GraphMemory2MASMemory(MASMemoryBase):
             return None
         matches.sort(key=lambda item: item[0], reverse=True)
         return matches[0][1]
+
+    def _normalize_search_text_for_projection(self, text: str) -> str:
+        normalized = self._normalize_action_text(str(text or "")).replace("_", " ")
+        # Solver often writes object/location lists as `fridge (1)` while the
+        # ALFWorld command is `go to fridge 1`. Normalize this list notation
+        # before exact admissible matching. This stays inside graph_policy's
+        # repair path and does not affect the environment adapter.
+        normalized = re.sub(r"\b([a-z][a-z0-9]*)\s*\(\s*(\d+)\s*\)", r"\1 \2", normalized)
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        return normalized
+
+    def _gm2_has_explicit_search_target_text(self, normalized_text: str) -> bool:
+        text = str(normalized_text or "")
+        if not text or "think" not in text:
+            return False
+        if any(marker in text for marker in ("take ", "clean ", "heat ", "cool ", "move ", "put ")):
+            return False
+        return bool(
+            re.search(
+                r"\b(?:start with|check|checking|try|go to|going to|open|examine)\s+(?:the\s+)?[a-z][a-z0-9]*(?:\s+\d+)?\b",
+                text,
+            )
+        )
 
     def _gm2_graph_policy_queued_search_from_text(
         self,
@@ -1555,6 +2001,20 @@ class GraphMemory2MASMemory(MASMemoryBase):
         queued_admissible = normalized.get(self._normalize_action_text(queued))
         if not queued_admissible:
             return None
+        queue_head = (self._gm2_graph_policy_source_queue or [{}])[0]
+        try:
+            queue_score = float(queue_head.get("score", 0.0) or 0.0)
+        except Exception:
+            queue_score = 0.0
+        try:
+            queue_confidence = float(queue_head.get("confidence", 0.0) or 0.0)
+        except Exception:
+            queue_confidence = 0.0
+        try:
+            queue_support = int(queue_head.get("support", 0) or 0)
+        except Exception:
+            queue_support = 0
+        high_confidence_queue = queue_score >= 1.05 or (queue_confidence >= 0.62 and queue_support >= 2)
         text = self._normalize_action_text(" ".join(str(part or "") for part in (raw_response, processed_action))).replace("_", " ")
         if not text or "think" not in text:
             return None
@@ -1562,7 +2022,19 @@ class GraphMemory2MASMemory(MASMemoryBase):
             return None
         queued_norm = self._normalize_action_text(queued_admissible).replace("_", " ")
         if queued_norm in text:
-            return None
+            return queued_admissible
+        if high_confidence_queue and not any(
+            marker in text
+            for marker in (
+                "now i have",
+                "already have",
+                "holding",
+                "i am holding",
+                "i have picked",
+                "i have taken",
+            )
+        ):
+            return queued_admissible
         # Only override search/location thoughts. Object manipulation thoughts
         # stay with the solver unless other deterministic guards apply.
         if any(marker in text for marker in ("take ", "clean ", "heat ", "cool ", "move ", "put ")):
@@ -2658,10 +3130,12 @@ class GraphMemory2MASMemory(MASMemoryBase):
         # exact-admissible and deterministic for all graph_policy modes.
         quality_enabled = self._external_retrieval_mode in {
             "graph_policy",
+            "graph_policy_rerank",
             "graph_policy_feedback",
             "graph_policy_quality",
         }
-        sourcebase_ranking_enabled = self._external_retrieval_mode == "graph_policy"
+        sourcebase_ranking_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank"}
+        searched_source_rerank_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank"}
         if quality_enabled:
             self._gm2_quality_last_action_candidates = []
         admissible = [
@@ -2808,6 +3282,43 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     return True
             return False
 
+        def _source_type_prior_transfer_level(item: Any) -> str:
+            """Classify source-type prior evidence for current target transfer.
+
+            exact:
+                The source prior was learned for the current target object.
+            role:
+                The source prior was learned for the same task family but a
+                different object. This is useful for unseen/cross-domain
+                transfer only as a weak role-level prior.
+            none:
+                The prior is not relevant enough for source routing.
+            """
+            payload = _item_payload(item)
+            if str(payload.get("pattern_kind", "") or "") != "source_type_prior":
+                return "none"
+            target_object = _base_location(str(goal_roles.get("object", "") or ""))
+            goal_object = _base_location(str(payload.get("goal_object", "") or ""))
+            if not target_object or not goal_object or goal_object == target_object:
+                return "exact"
+
+            query_family = _norm(str(getattr(query, "task_family", "") or ""))
+            anchor = payload.get("anchor", {}) if isinstance(payload.get("anchor", {}), dict) else {}
+            item_family = _norm(
+                " ".join(
+                    str(value or "")
+                    for value in (
+                        payload.get("task_family", ""),
+                        payload.get("task_type", ""),
+                        anchor.get("task_family", ""),
+                        getattr(item, "task_family", ""),
+                    )
+                )
+            )
+            if query_family and query_family in item_family:
+                return "role"
+            return "none"
+
         def _target_take_source_from_item(item: Any) -> str:
             """Return source instance only when graph evidence took the current target.
 
@@ -2845,6 +3356,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
             if _target_take_source_from_item(item):
                 return True
             payload = _item_payload(item)
+            if str(payload.get("pattern_kind", "") or "") == "source_type_prior":
+                return _source_type_prior_transfer_level(item) in {"exact", "role"}
             if str(payload.get("relation_kind", "") or "") in {"object_location_prior", "searched_empty"}:
                 return _goal_signature_matches_object(item)
             return False
@@ -2864,11 +3377,65 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 and not any(base_norm and base_norm == _base_location(item) for item in checked_source_terms)
             )
 
+        def _searched_source_type_count(base: str) -> int:
+            """Count source instances of this base already explored in this episode.
+
+            This is used only by graph_policy modes. It is deliberately
+            episode-local: it does not alter persisted local/global memory.
+            """
+            if not searched_source_rerank_enabled:
+                return 0
+            base_norm = _base_location(base)
+            if not base_norm:
+                return 0
+            checked: set[str] = set()
+            for item in tuple(exhausted_terms) + tuple(checked_source_terms):
+                item_base = _base_location(item)
+                if item_base == base_norm:
+                    checked.add(_exact_location(item) or _norm(item))
+            return len(checked)
+
+        def _searched_source_penalty(base: str, instance: str = "") -> float:
+            if not searched_source_rerank_enabled:
+                return 0.0
+            penalty = 0.0
+            instance_norm = _norm(_display_location(instance))
+            if instance_norm and (
+                any(instance_norm == _norm(_display_location(item)) for item in exhausted_terms)
+                or instance_norm in checked_source_terms
+            ):
+                penalty += 0.55
+            count = _searched_source_type_count(base or instance)
+            if count >= 1:
+                penalty += min(0.42, 0.07 * count)
+            # Long cabinet/drawer/shelf sweeps are the dominant failure mode in
+            # living unseen two-object tasks. Once several instances of the
+            # same broad source type have been checked, prefer remaining source
+            # types with positive evidence before continuing that sweep.
+            if _base_location(base or instance) in {"shelf", "drawer", "cabinet"} and count >= 3:
+                penalty += min(0.24, 0.04 * (count - 2))
+            return min(penalty, 0.75)
+
         def _is_goal_destination_source(base: str, instance: str = "") -> bool:
             destination = _base_location(str(goal_roles.get("destination", "") or ""))
             if not destination or getattr(query, "held_relevant_count", 0) > 0:
                 return False
             return destination in {_base_location(base), _base_location(instance)}
+
+        def _goal_destination_source_penalty(base: str, instance: str = "") -> float:
+            """Keep goal destination as a weak source candidate instead of dropping it.
+
+            Some ALFWorld tasks place the target object on/in the eventual goal
+            destination, especially support surfaces such as sofa/shelf. The
+            previous hard filter improved some seen cases but hurt transfer:
+            global role-level memory could not suggest sofa/fridge as a place
+            to search. Penalize it instead, so stronger local evidence wins
+            while unseen/cross-domain runs still get a fallback.
+            """
+            if not _is_goal_destination_source(base, instance):
+                return 0.0
+            role = self._gm2_location_role(_base_location(base or instance))
+            return 0.12 if role == "support_surface" else 0.22
 
         def _is_processing_tool_source(base: str, instance: str = "") -> bool:
             tool = _base_location(str(goal_roles.get("tool", "") or ""))
@@ -2917,7 +3484,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     return _base_location(target), _exact_location(target)
             return "", ""
 
-        def _admissible_search_actions(base: str, instance: str) -> list[str]:
+        def _admissible_search_actions(base: str, instance: str, *, allow_checked: bool = False) -> list[str]:
             invalid_bases = {"", "room", "current", "unknown", "middle", "inventory", "floor"}
             base_norm = _base_location(base)
             if base_norm in invalid_bases:
@@ -2933,7 +3500,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     target = lowered[len(prefix) :].strip()
                     target_base = _base_location(target)
                     target_exact = _norm(_display_location(target))
-                    if target_exact and not _source_not_checked(target_base, target_exact.replace(" ", "_")):
+                    if target_exact and not allow_checked and not _source_not_checked(target_base, target_exact.replace(" ", "_")):
                         continue
                     if instance_norm and target_exact == instance_norm:
                         priority = weight + 3
@@ -2970,14 +3537,90 @@ class GraphMemory2MASMemory(MASMemoryBase):
         def _source_queue_active(entry: dict[str, Any]) -> dict[str, Any] | None:
             base = str(entry.get("base", "") or "")
             instance = str(entry.get("instance", "") or "")
-            if not _source_not_checked(base, instance):
+            allow_checked = bool(entry.get("allow_checked_source", False))
+            if not allow_checked and not _source_not_checked(base, instance):
                 return None
-            actions = _admissible_search_actions(base, instance)
+            actions = _admissible_search_actions(base, instance, allow_checked=allow_checked)
             if not actions:
                 return None
             refreshed = dict(entry)
             refreshed["action"] = actions[0]
             return refreshed
+
+        def _gate_source_queue_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            """Keep role-level transfer as backoff, not as a replacement for exact graph evidence."""
+            if not sourcebase_ranking_enabled:
+                return candidates
+
+            def _entry_score(entry: dict[str, Any]) -> float:
+                try:
+                    return float(entry.get("score", 0.0) or 0.0)
+                except Exception:
+                    return 0.0
+
+            def _entry_kind(entry: dict[str, Any]) -> str:
+                scope = str(entry.get("source_scope", "") or "")
+                transfer_level = str(entry.get("transfer_level", "") or "exact")
+                if scope == "previous_success_source":
+                    return "previous"
+                if transfer_level == "exact":
+                    return "exact"
+                if transfer_level == "role":
+                    return "role_global" if scope == "global" else "role_local"
+                return "fallback"
+
+            ordered = sorted(candidates, key=_entry_score, reverse=True)
+            previous = [entry for entry in ordered if _entry_kind(entry) == "previous"]
+            exact = [entry for entry in ordered if _entry_kind(entry) == "exact"]
+            role_local = [entry for entry in ordered if _entry_kind(entry) == "role_local"]
+            role_global = [entry for entry in ordered if _entry_kind(entry) == "role_global"]
+            fallback = [entry for entry in ordered if _entry_kind(entry) == "fallback"]
+
+            gated: list[dict[str, Any]] = []
+
+            def _add(entries: list[dict[str, Any]], max_new: int | None = None) -> None:
+                added = 0
+                seen = {
+                    str(entry.get("signature", "") or _source_queue_signature(entry.get("base", ""), entry.get("instance", "")))
+                    for entry in gated
+                }
+                for entry in entries:
+                    sig = str(entry.get("signature", "") or _source_queue_signature(entry.get("base", ""), entry.get("instance", "")))
+                    if sig in seen:
+                        continue
+                    gated.append(entry)
+                    seen.add(sig)
+                    added += 1
+                    if max_new is not None and added >= max_new:
+                        break
+
+            # In two-object tasks the source that yielded the first target is
+            # the strongest local clue for finding the second one. Keep it in
+            # front of broader source-type transfer.
+            _add(previous[:1])
+            _add(exact)
+
+            exact_count = len(gated)
+            if exact_count >= 2:
+                return gated
+
+            # Role-level priors are useful for unseen/cross-domain transfer,
+            # but only as backoff when exact target-object source evidence is
+            # missing or very sparse.
+            if exact_count == 1:
+                _add(role_local, max_new=1)
+                if len(gated) < 2:
+                    _add(role_global, max_new=1)
+                if len(gated) < 2:
+                    _add(fallback, max_new=1)
+                return gated
+
+            _add(role_local, max_new=2)
+            if len(gated) < 2:
+                _add(role_global, max_new=1)
+            if len(gated) < 2:
+                _add(fallback, max_new=2)
+            return gated
 
         def _reset_source_queue_if_needed() -> None:
             queue_key = _source_queue_key()
@@ -3005,14 +3648,16 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 previous = merged.get(sig)
                 if previous is None or float(active.get("score", 0.0) or 0.0) > float(previous.get("score", 0.0) or 0.0):
                     merged[sig] = active
-            queue = sorted(
+            queue_candidates = sorted(
                 merged.values(),
                 key=lambda entry: (
                     -float(entry.get("score", 0.0) or 0.0),
                     str(entry.get("base", "")),
                     str(entry.get("instance", "")),
                 ),
-            )[:limit]
+            )
+            queue_candidates = _gate_source_queue_candidates(queue_candidates)
+            queue = queue_candidates[:limit]
             self._gm2_graph_policy_source_queue = queue
             self._gm2_graph_policy_next_source_action = str(queue[0].get("action", "") or "") if queue else ""
             return queue
@@ -3030,7 +3675,9 @@ class GraphMemory2MASMemory(MASMemoryBase):
             stats: dict[str, dict[str, float]] = {}
             target_object = _norm(str(goal_roles.get("object", "") or ""))
             for item in items:
-                if not _source_is_local(item):
+                payload = _item_payload(item)
+                is_source_type_prior = str(payload.get("pattern_kind", "") or "") == "source_type_prior"
+                if not _source_is_local(item) and not is_source_type_prior:
                     continue
                 text = _item_text(item)
                 if not text:
@@ -3043,24 +3690,41 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 if (
                     not base
                     or _is_processing_tool_source(base, instance)
-                    or _is_goal_destination_source(base, instance)
                 ):
                     continue
                 lowered = _norm(text)
                 if target_object and not target_take_source and target_object not in lowered and _quality_goal_match(item, text) < 0.22:
                     continue
+                transfer_level = _source_type_prior_transfer_level(item) if is_source_type_prior else "exact"
+                transfer_factor = 1.0
+                if transfer_level == "role":
+                    # Role-level source priors are the bridge for unseen and
+                    # cross-domain tasks, but they must not overpower exact
+                    # object/location evidence.
+                    transfer_factor = 0.46 if _source_is_global(item) else 0.34
                 positive = float(getattr(item, "positive", 0) or 0)
                 negative = float(getattr(item, "negative", 0) or 0)
                 support = positive + negative
                 score = float(getattr(item, "score", 0.0) or 0.0)
                 goal_match = _quality_goal_match(item, text)
+                if _source_is_global(item):
+                    # Routing weights should control how much global transfer
+                    # can shape source search. Global source-type priors help
+                    # unseen transfer, but only when the current route assigns
+                    # real weight to global evidence.
+                    source_weight = 0.35 + 0.65 * max(0.0, min(global_transfer_weight, 1.0))
+                else:
+                    source_weight = 0.55 + 0.45 * max(
+                        0.0,
+                        min(max(local_graph_weight, local_domain_weight), 1.0),
+                    )
                 success_like = 0.0
                 failure_like = 0.0
-                if _is_positive_local_source_hint(item, text):
+                if _is_positive_local_source_hint(item, text) or (is_source_type_prior and positive > negative):
                     success_like += max(1.0, positive)
                 if positive > negative:
                     success_like += min(positive - negative, 3.0) * 0.5
-                if "not found" in lowered or "empty" in lowered or _is_failure_like(item, text):
+                if "not found" in lowered or "empty" in lowered or _is_failure_like(item, text) or (is_source_type_prior and negative > positive):
                     failure_like += max(1.0, negative)
                 if negative > positive:
                     failure_like += min(negative - positive, 3.0) * 0.5
@@ -3068,12 +3732,15 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     # A weak retrieved relation can still contribute, but only
                     # as a tiny prior if it is task-relevant.
                     success_like += max(0.0, min(score, 0.6)) * max(0.0, min(goal_match, 1.0))
+                success_like *= transfer_factor
+                failure_like *= transfer_factor
+                destination_penalty = _goal_destination_source_penalty(base, instance)
                 stat = stats.setdefault(
                     base,
                     {"success": 0.0, "failure": 0.0, "support": 0.0, "score": 0.0, "goal": 0.0},
                 )
-                stat["success"] += success_like
-                stat["failure"] += failure_like
+                stat["success"] += source_weight * success_like
+                stat["failure"] += source_weight * (failure_like + destination_penalty)
                 stat["support"] += support
                 stat["score"] = max(stat["score"], score)
                 stat["goal"] = max(stat["goal"], goal_match)
@@ -3097,6 +3764,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 + min(score, 1.0) * 0.1
                 + min(support, 6.0) * 0.015
             )
+            rank -= _searched_source_penalty(base)
             if base in {"cabinet", "drawer"} and success <= 0.0:
                 rank -= 0.12
             return max(-0.35, min(rank, 0.55))
@@ -3144,7 +3812,6 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 if (
                     not source_base
                     or _is_processing_tool_source(source_base, source_instance)
-                    or _is_goal_destination_source(source_base, source_instance)
                 ):
                     continue
                 actions = _admissible_search_actions(source_base, source_instance)
@@ -3159,6 +3826,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 confidence = float(getattr(stats, "confidence", 0.0) or 0.0)
                 role_bonus = 0.12 if str(payload.get("source_role", "") or "") == "support_surface" else 0.0
                 container_penalty = 0.05 if source_base in {"cabinet", "drawer"} else 0.0
+                destination_penalty = _goal_destination_source_penalty(source_base, source_instance)
                 score_base = (
                     0.78
                     + exact_goal_bonus
@@ -3168,13 +3836,14 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     + min(confidence, 1.0) * 0.08
                     - min(failure, 3.0) * 0.08
                     - container_penalty
+                    - destination_penalty
                 )
                 for action_index, action in enumerate(actions[:4]):
                     action_base, action_instance = _search_action_target(action)
                     instance = action_instance or source_instance
                     if not instance:
                         continue
-                    score = score_base - 0.04 * action_index
+                    score = score_base - 0.04 * action_index - _searched_source_penalty(action_base or source_base, instance)
                     sig = _source_queue_signature(action_base or source_base, instance)
                     candidate = {
                         "signature": sig,
@@ -3182,9 +3851,91 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         "instance": instance,
                         "action": action,
                         "score": score,
+                        "confidence": confidence,
+                        "support": support,
+                        "route_scale": max(0.0, min(local_graph_weight, 1.0)),
+                        "transfer_level": "exact",
+                        "source_scope": "local_scene_relation",
                         "strength": (
                             "direct local graph relation for current target_object "
                             f"(goal_signature={goal_signature}, support={support:.0f}, confidence={confidence:.2f})"
+                        ),
+                    }
+                    previous = candidates.get(sig)
+                    if previous is None or score > float(previous.get("score", 0.0) or 0.0):
+                        candidates[sig] = candidate
+            return list(candidates.values())
+
+        def _previous_target_source_candidates() -> list[dict[str, Any]]:
+            """For two-object tasks, revisit the source that yielded the first target.
+
+            This is deliberately episode-local and graph_policy-only. It does
+            not change stored memory; it only prevents broad role-level
+            transfer from overriding a strong within-episode clue in
+            `search_second`.
+            """
+            if not sourcebase_ranking_enabled:
+                return []
+            progress = str(getattr(query, "progress_state", "") or "")
+            if "second" not in progress:
+                return []
+            if getattr(query, "held_relevant_count", 0) > 0:
+                return []
+            target_object = _base_location(str(goal_roles.get("object", "") or ""))
+            if not target_object:
+                return []
+            target_pattern = re.escape(target_object.replace("_", " "))
+            seen_sources: list[tuple[str, str]] = []
+            for row in reversed(list(getattr(env_ref, "current_history", []) or [])):
+                action_text = self._normalize_action_text(str(row.get("Action", "") or "")).replace("_", " ")
+                match = re.search(
+                    rf"\btake\s+{target_pattern}(?:\s+\d+)?\s+from\s+([a-z][a-z0-9]*(?:\s+\d+)?)\b",
+                    action_text,
+                )
+                if not match:
+                    continue
+                source_instance = _exact_location(match.group(1))
+                source_base = _base_location(source_instance)
+                if not source_base or _is_processing_tool_source(source_base, source_instance):
+                    continue
+                key = (source_base, source_instance)
+                if key not in seen_sources:
+                    seen_sources.append(key)
+                if len(seen_sources) >= 2:
+                    break
+
+            candidates: dict[str, dict[str, Any]] = {}
+            for source_index, (source_base, source_instance) in enumerate(seen_sources):
+                actions = _admissible_search_actions(source_base, source_instance, allow_checked=True)
+                if not actions and source_instance:
+                    actions = _admissible_search_actions(source_base, "", allow_checked=True)
+                for action_index, action in enumerate(actions[:2]):
+                    action_base, action_instance = _search_action_target(action)
+                    instance = action_instance or source_instance
+                    if not instance:
+                        continue
+                    score = (
+                        2.05
+                        - 0.08 * source_index
+                        - 0.04 * action_index
+                        - _goal_destination_source_penalty(action_base or source_base, instance)
+                    )
+                    sig = _source_queue_signature(action_base or source_base, instance)
+                    candidate = {
+                        "signature": sig,
+                        "base": action_base or source_base,
+                        "instance": instance,
+                        "action": action,
+                        "score": score,
+                        "confidence": 0.86,
+                        "support": 1,
+                        "route_scale": 1.0,
+                        "transfer_level": "exact",
+                        "source_scope": "previous_success_source",
+                        "allow_checked_source": True,
+                        "strength": (
+                            "two-object search_second: previous successful target source "
+                            f"`{_display_location(source_instance)}` should be checked before broad transfer"
                         ),
                     }
                     previous = candidates.get(sig)
@@ -3203,14 +3954,19 @@ class GraphMemory2MASMemory(MASMemoryBase):
             if progress and not progress.startswith("search") and progress not in {"locate_target", "inspect_container"}:
                 self._gm2_graph_policy_next_source_action = ""
                 return []
+            if bool(getattr(query, "goal_object_matches_visible", False)):
+                self._gm2_graph_policy_next_source_action = ""
+                return []
 
             base_stats = _source_base_stats(items)
             ranked: dict[str, dict[str, Any]] = {}
             for item in items:
-                if not _source_is_local(item):
+                payload = _item_payload(item)
+                is_source_type_prior = str(payload.get("pattern_kind", "") or "") == "source_type_prior"
+                if not _source_is_local(item) and not is_source_type_prior:
                     continue
                 text = _item_text(item)
-                if not text or not _is_positive_local_source_hint(item, text):
+                if not text or (not _is_positive_local_source_hint(item, text) and not is_source_type_prior):
                     if not (sourcebase_ranking_enabled and _target_take_source_from_item(item)):
                         continue
                 if self._gm2_feedback_item_state(item) == "quarantined":
@@ -3222,7 +3978,9 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 base = _base_location(instance) if target_take_source else _source_base_from_item(item, text)
                 if not base:
                     continue
-                if _is_processing_tool_source(base, instance) or _is_goal_destination_source(base, instance):
+                if _is_processing_tool_source(base, instance):
+                    continue
+                if _is_goal_destination_source(base, instance) and not sourcebase_ranking_enabled:
                     continue
                 actions = _admissible_search_actions(base, instance)
                 if not actions and instance:
@@ -3243,22 +4001,51 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 role = _source_role_from_item(item, text)
                 role_bonus = 0.12 if role == "support_surface" else 0.0
                 container_penalty = 0.04 if base in {"cabinet", "drawer"} else 0.0
+                destination_penalty = _goal_destination_source_penalty(base, instance) if sourcebase_ranking_enabled else 0.0
                 base_rank_bonus = _source_base_rank(base, base_stats)
-                base_score = (
+                type_prior_bonus = 0.14 if is_source_type_prior else 0.0
+                global_prior_penalty = 0.06 if is_source_type_prior and _source_is_global(item) else 0.0
+                transfer_level = _source_type_prior_transfer_level(item) if sourcebase_ranking_enabled and is_source_type_prior else "exact"
+                role_level_penalty = 0.0
+                if transfer_level == "role":
+                    role_level_penalty = 0.24 if _source_is_global(item) else 0.32
+                if searched_source_rerank_enabled and is_source_type_prior and _source_is_global(item):
+                    # In rerank mode, global source-type memory is a weak
+                    # transfer prior. It can break ties, but local episode
+                    # evidence and already-searched sources should dominate.
+                    global_prior_penalty += 0.08
+                route_scale = (
+                    0.7 + 0.3 * max(0.0, min(global_transfer_weight, 1.0))
+                    if _source_is_global(item)
+                    else 0.7 + 0.3 * max(0.0, min(max(local_graph_weight, local_domain_weight), 1.0))
+                )
+                base_score = route_scale * (
                     float(getattr(item, "score", 0.0) or 0.0)
                     + 0.35 * adjusted_confidence
                     + min(support, 4) * 0.04
                     + role_bonus
                     + base_rank_bonus
+                    + type_prior_bonus
                     - container_penalty
+                    - destination_penalty
+                    - global_prior_penalty
+                    - role_level_penalty
                 )
-                evidence_strength = (
-                    "single-step local graph evidence"
-                    if support <= 0
-                    else "single-episode local graph evidence"
-                    if support == 1
-                    else f"support={support}, confidence={adjusted_confidence:.2f}"
-                )
+                if is_source_type_prior:
+                    origin = "global" if _source_is_global(item) else "local"
+                    transfer_note = "role-level transfer, " if transfer_level == "role" else ""
+                    evidence_strength = (
+                        f"{origin} {transfer_note}source-type prior "
+                        f"support={support}, confidence={adjusted_confidence:.2f}"
+                    )
+                else:
+                    evidence_strength = (
+                        "single-step local graph evidence"
+                        if support <= 0
+                        else "single-episode local graph evidence"
+                        if support == 1
+                        else f"support={support}, confidence={adjusted_confidence:.2f}"
+                    )
                 for action_index, action in enumerate(actions[:4]):
                     action_base, action_instance = _search_action_target(action)
                     candidate_instance = action_instance or instance
@@ -3266,7 +4053,12 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         continue
                     exact_bonus = 0.18 if instance and _norm(_display_location(instance)) == _norm(_display_location(candidate_instance)) else 0.0
                     expansion_penalty = 0.05 * action_index
-                    score = base_score + exact_bonus - expansion_penalty
+                    score = (
+                        base_score
+                        + exact_bonus
+                        - expansion_penalty
+                        - _searched_source_penalty(action_base or base, candidate_instance)
+                    )
                     sig = _source_queue_signature(action_base or base, candidate_instance)
                     candidate = {
                         "signature": sig,
@@ -3274,6 +4066,11 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         "instance": candidate_instance,
                         "action": action,
                         "score": score,
+                        "confidence": adjusted_confidence,
+                        "support": support,
+                        "route_scale": route_scale,
+                        "transfer_level": transfer_level,
+                        "source_scope": "global" if _source_is_global(item) else "local",
                         "strength": evidence_strength
                         if exact_bonus
                         else f"source-base distribution from `{_display_location(base)}` ({evidence_strength})",
@@ -3282,12 +4079,19 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     if current is None or score > float(current.get("score", 0.0) or 0.0):
                         ranked[sig] = candidate
                         rendered = (
-                            f"local graph source-base `{_display_location(base)}` supports trying `{action}`; "
+                            f"graph source-type `{_display_location(base)}` supports trying `{action}`; "
                             "advance through unvisited instances of this source_base before broad cabinet/drawer sweeps "
                             f"unless contradicted ({candidate['strength']})"
                         )
                         self._gm2_record_feedback_item(item, slot="quality_source_prior", rendered_text=rendered)
             if sourcebase_ranking_enabled:
+                for candidate in _previous_target_source_candidates():
+                    sig = str(candidate.get("signature", "") or "")
+                    if not sig:
+                        continue
+                    current = ranked.get(sig)
+                    if current is None or float(candidate.get("score", 0.0) or 0.0) > float(current.get("score", 0.0) or 0.0):
+                        ranked[sig] = candidate
                 for candidate in _direct_local_scene_relation_candidates():
                     sig = str(candidate.get("signature", "") or "")
                     if not sig:
@@ -3297,7 +4101,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         ranked[sig] = candidate
             if sourcebase_ranking_enabled:
                 for base, stat in base_stats.items():
-                    if _is_processing_tool_source(base) or _is_goal_destination_source(base):
+                    if _is_processing_tool_source(base):
                         continue
                     base_rank = _source_base_rank(base, base_stats)
                     if base_rank < 0.08:
@@ -3314,6 +4118,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
                             + base_rank
                             + min(float(stat.get("goal", 0.0) or 0.0), 1.0) * 0.08
                             - action_index * 0.045
+                            - _searched_source_penalty(action_base or base, action_instance)
+                            - _goal_destination_source_penalty(action_base or base, action_instance)
                         )
                         sig = _source_queue_signature(action_base or base, action_instance)
                         candidate = {
@@ -3322,6 +4128,11 @@ class GraphMemory2MASMemory(MASMemoryBase):
                             "instance": action_instance,
                             "action": action,
                             "score": score,
+                            "confidence": 0.5 + min(max(base_rank, 0.0), 0.5),
+                            "support": int(float(stat.get("support", 0.0) or 0.0)),
+                            "route_scale": max(0.0, min(max(local_graph_weight, global_transfer_weight), 1.0)),
+                            "transfer_level": "fallback",
+                            "source_scope": "source_base_rank",
                             "strength": (
                                 f"source-base rank for `{_display_location(base)}` "
                                 f"(success={stat.get('success', 0.0):.1f}, failure={stat.get('failure', 0.0):.1f})"
@@ -3354,6 +4165,19 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     f"({next_entry.get('strength')})"
                 )
             ]
+            if searched_source_rerank_enabled:
+                searched_bases = sorted(
+                    {
+                        _base_location(item)
+                        for item in tuple(exhausted_terms) + tuple(checked_source_terms)
+                        if _base_location(item)
+                    }
+                )
+                if searched_bases:
+                    lines.append(
+                        "episode searched-source rerank is active; already checked source types are lower priority now: "
+                        + ", ".join(searched_bases[:6])
+                    )
             if alternates:
                 lines.append(
                     "queued alternate source actions after the next one: "
@@ -3441,7 +4265,13 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 if processing_tool:
                     pieces.append(f"do not treat processing_tool=`{processing_tool}` as a likely starting source unless the target is visible there")
                 if goal_destination:
-                    pieces.append(f"do not return to goal_destination=`{goal_destination}` before holding target_object")
+                    if sourcebase_ranking_enabled:
+                        pieces.append(
+                            f"treat goal_destination=`{goal_destination}` as a lower-priority source candidate, "
+                            "not a delivery target, until target_object is held"
+                        )
+                    else:
+                        pieces.append(f"do not return to goal_destination=`{goal_destination}` before holding target_object")
                 constraints.append("; ".join(pieces) + ".")
 
             counts = dynamic.get("search_attempt_counts", {}) if isinstance(dynamic, dict) else {}
@@ -3535,6 +4365,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         def _quality_goal_match(item: Any, text: str) -> float:
             lowered = _norm(text)
             payload = _item_payload(item)
+            anchor_payload = payload.get("anchor", {}) if isinstance(payload.get("anchor", {}), dict) else {}
             item_family = _norm(
                 " ".join(
                     str(value or "")
@@ -3542,6 +4373,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         getattr(item, "task_family", ""),
                         payload.get("task_family", ""),
                         payload.get("task_type", ""),
+                        anchor_payload.get("task_family", ""),
                     )
                 )
             )
@@ -3551,7 +4383,12 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 score += 0.36
             for role, weight in (("object", 0.28), ("destination", 0.24), ("tool", 0.16)):
                 term = _norm(str(goal_roles.get(role, "") or ""))
-                if term and (term in lowered or term in _norm(str(payload.get(role, "") or ""))):
+                if term and (
+                    term in lowered
+                    or term in _norm(str(payload.get(role, "") or ""))
+                    or term in _norm(str(payload.get(f"goal_{role}", "") or ""))
+                    or term in _norm(str(anchor_payload.get("goal_signature", "") or ""))
+                ):
                     score += weight
             try:
                 required_count = int(getattr(query, "required_count", 0) or 0)
@@ -3722,6 +4559,54 @@ class GraphMemory2MASMemory(MASMemoryBase):
             source = str(getattr(item, "source", "") or "")
             return source.startswith("local") or source == "local_graph"
 
+        def _memory_artifact_support_items(memory: Any, *, source_label: str, include_scene_relations: bool) -> list[Any]:
+            """Expose structured artifacts to graph_policy source routing.
+
+            The retriever keeps the prompt compact, so source-prior artifacts
+            can be absent from the routed bundle even when they exist in the
+            local/global memory graph. This adapter is graph_policy-only and
+            creates SupportItem-like objects for source-type ranking.
+            """
+            artifacts = getattr(memory, "artifacts_by_id", {}) or {}
+            artifact_values = artifacts.values() if isinstance(artifacts, dict) else artifacts
+            rendered: list[Any] = []
+            for artifact in artifact_values:
+                payload = getattr(artifact, "payload", {}) or {}
+                anchor = getattr(artifact, "anchor", {}) or {}
+                pattern_kind = str(payload.get("pattern_kind", "") or "")
+                if pattern_kind == "scene_relation" and not include_scene_relations:
+                    continue
+                if pattern_kind not in {"source_type_prior", "scene_relation"}:
+                    continue
+                if pattern_kind == "scene_relation" and str(payload.get("relation_kind", "") or "") not in {
+                    "object_location_prior",
+                    "searched_empty",
+                }:
+                    continue
+                stats = getattr(artifact, "stats", None)
+                support = int(getattr(stats, "support", 0) or 0)
+                positive = int(getattr(stats, "success", 0) or 0)
+                negative = int(getattr(stats, "failure", 0) or 0)
+                confidence = float(getattr(stats, "confidence", 0.0) or 0.0)
+                score = float(getattr(artifact, "specificity", 0.0) or 0.0) + confidence + min(support, 5) * 0.04
+                rendered.append(
+                    SimpleNamespace(
+                        summary=str(getattr(artifact, "summary", "") or ""),
+                        source=source_label,
+                        pattern_kind=pattern_kind,
+                        score=score,
+                        positive=positive,
+                        negative=negative,
+                        task_relevance=0.0,
+                        goal_relevance=0.0,
+                        dynamic={"payload": dict(payload), "anchor": dict(anchor)},
+                        branch_tag="artifact",
+                        candidate_type=pattern_kind,
+                        candidate_id=str(getattr(artifact, "artifact_id", "")),
+                    )
+                )
+            return rendered
+
         def _select_role_items(
             items: list[Any],
             *,
@@ -3794,9 +4679,23 @@ class GraphMemory2MASMemory(MASMemoryBase):
             list(getattr(bundle, "repair_items", []) or [])
             + list(getattr(bundle, "reflection_items", []) or [])
         )
+        memory_source_type_sources = (
+            _memory_artifact_support_items(local_memory, source_label="local_artifact", include_scene_relations=True)
+            if sourcebase_ranking_enabled and local_memory is not None
+            else []
+        )
+        if sourcebase_ranking_enabled and getattr(self, "_external_global_memory", None) is not None:
+            memory_source_type_sources.extend(
+                _memory_artifact_support_items(
+                    self._external_global_memory,
+                    source_label="global_artifact",
+                    include_scene_relations=False,
+                )
+            )
         quality_source_sources = (
             local_graph_sources
             + local_domain_sources
+            + memory_source_type_sources
             + [
                 item
                 for item in (getattr(bundle, "local_items", []) or [])
@@ -4872,7 +5771,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             self._external_global_memory = self._external_promoter.promote(
                 promotion_base,
                 promotion_locals,
-                batch_name=f"dynamic_{len(local_memory.episode_ids)}",
+                batch_name=f"dynamic_{scene}_{len(local_memory.episode_ids)}",
             )
             self._persist_shared_global_memory()
             self._persist_dynamic_graph_memory()
@@ -4883,11 +5782,23 @@ class GraphMemory2MASMemory(MASMemoryBase):
         if self._external_artifact_dir is None:
             return
         self._external_artifact_dir.mkdir(parents=True, exist_ok=True)
-        for scene, memory in self._external_local_memories.items():
+        local_artifact_scene = self._gm2_local_artifact_scene(self._external_artifact_dir)
+        local_items = self._external_local_memories.items()
+        if local_artifact_scene:
+            local_memory = self._external_local_memories.get(local_artifact_scene)
+            local_items = [(local_artifact_scene, local_memory)] if local_memory is not None else []
+        for scene, memory in local_items:
             path = self._external_artifact_dir / f"local_{scene}.json"
             with path.open("w", encoding="utf-8") as writer:
                 json.dump(self._external_local_to_dict(memory, include_topology=True), writer, ensure_ascii=False, indent=2)
         global_path = self._external_artifact_dir / "global_memory.json"
+        promoted_batches = self._dedupe_promoted_batches(
+            list(getattr(self._external_global_memory, "promoted_batches", []) or [])
+        )
+        try:
+            self._external_global_memory.promoted_batches = promoted_batches
+        except Exception:
+            pass
         with global_path.open("w", encoding="utf-8") as writer:
             json.dump(self._external_global_to_dict(self._external_global_memory), writer, ensure_ascii=False, indent=2)
         summary = {
@@ -4907,7 +5818,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 "candidate_count": len(getattr(self._external_global_memory, "candidates", {})),
                 "rule_count": len(getattr(self._external_global_memory, "rules_by_id", {})),
                 "artifact_count": len(getattr(self._external_global_memory, "artifacts_by_id", {})),
-                "promoted_batches": list(getattr(self._external_global_memory, "promoted_batches", []) or []),
+                "promoted_batches": promoted_batches,
             },
         }
         with (self._external_artifact_dir / "summary.json").open("w", encoding="utf-8") as writer:
