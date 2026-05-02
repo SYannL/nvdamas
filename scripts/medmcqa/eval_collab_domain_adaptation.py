@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import sys
 import json
@@ -1783,17 +1785,18 @@ def main() -> None:
         if args.max_eval is not None:
             task_a_eval_tasks = task_a_eval_tasks[: args.max_eval]
             task_b_eval_tasks = task_b_eval_tasks[: args.max_eval]
-    elif args.dataset_family == "scienceworld":
-        task_a_name = "scienceworld_train"
-        task_b_name = "scienceworld_train"
-        task_a_label = "scienceworld_a"
-        task_b_label = "scienceworld_b"
-        task_a_train_tasks = load_jsonl_rows(args.sw_task_a_train_jsonl)
-        task_b_train_tasks = load_jsonl_rows(args.sw_task_b_train_jsonl)
-        task_a_eval_name = "scienceworld_test"
-        task_b_eval_name = "scienceworld_test"
-        task_a_eval_tasks = load_jsonl_rows(args.sw_task_a_test_jsonl)
-        task_b_eval_tasks = load_jsonl_rows(args.sw_task_b_test_jsonl)
+
+        elif args.dataset_family == "scienceworld":
+            task_a_name = "scienceworld_train"
+            task_b_name = "scienceworld_train"
+            task_a_label = "scienceworld_a"
+            task_b_label = "scienceworld_b"
+            task_a_train_tasks = load_jsonl_rows(args.sw_task_a_train_jsonl)
+            task_b_train_tasks = load_jsonl_rows(args.sw_task_b_train_jsonl)
+            task_a_eval_name = "scienceworld_test"
+            task_b_eval_name = "scienceworld_test"
+            task_a_eval_tasks = load_jsonl_rows(args.sw_task_a_test_jsonl)
+            task_b_eval_tasks = load_jsonl_rows(args.sw_task_b_test_jsonl)
 
         if args.max_train is not None:
             task_a_train_tasks = task_a_train_tasks[: args.max_train]

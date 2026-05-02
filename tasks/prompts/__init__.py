@@ -12,6 +12,10 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
         'fever': fever_solver_system_prompt,
         'fever_aca_test': fever_solver_system_prompt,
         'fever_oral_test': fever_solver_system_prompt,
+        'fever_ab_train_a': fever_solver_system_prompt,
+        'fever_ab_train_b': fever_solver_system_prompt,
+        'fever_ab_test_a': fever_solver_system_prompt,
+        'fever_ab_test_b': fever_solver_system_prompt,
         'huskyqa': huskyqa_solver_system_prompt,
         'huskyqa_aca_test': huskyqa_solver_system_prompt,
         'pddl': pddl_prompts,
@@ -63,6 +67,18 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
         return fever_few_shots[:few_shots_num]
 
     elif dataset == 'fever_oral_test':
+        return fever_few_shots[:few_shots_num]
+    
+    elif dataset == 'fever_ab_train_a':
+        return fever_few_shots[:few_shots_num]
+
+    elif dataset == 'fever_ab_train_b':
+        return fever_few_shots[:few_shots_num]
+
+    elif dataset == 'fever_ab_test_a':
+        return fever_few_shots[:few_shots_num]
+
+    elif dataset == 'fever_ab_test_b':
         return fever_few_shots[:few_shots_num]
     
     elif dataset == 'huskyqa':

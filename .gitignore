@@ -2,6 +2,7 @@ report/
 reports/
 log/
 logs/
+data/
 output/
 .env
 .DS_Store
@@ -9,3 +10,10 @@ __pycache__/
 data/alfworld/json_2.1.1/
 data/MT-Mind2Web/
 data/medmcqa/train.json
+.db/
+.pydeps/
+*.sqlite3
+.db/
+.pydeps/
+*.sqlite3
+*.so

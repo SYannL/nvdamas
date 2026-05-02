@@ -3,258 +3,6 @@
     "subset_group": "living",
     "source_split": "valid_unseen",
     "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Box|FloorLamp|None|trial_T20190907_102952_001375",
-    "trial_id": "trial_T20190907_102952_001375",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Box",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the box with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Box-None-FloorLamp-219/trial_T20190907_102952_001375/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 1
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Box|FloorLamp|None|trial_T20190907_103005_855069",
-    "trial_id": "trial_T20190907_103005_855069",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Box",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at box under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Box-None-FloorLamp-219/trial_T20190907_103005_855069/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 2
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Box|FloorLamp|None|trial_T20190907_103041_110705",
-    "trial_id": "trial_T20190907_103041_110705",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Box",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the box with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Box-None-FloorLamp-219/trial_T20190907_103041_110705/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 3
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|CellPhone|FloorLamp|None|trial_T20190908_044113_026049",
-    "trial_id": "trial_T20190908_044113_026049",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "CellPhone",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the cellphone with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-CellPhone-None-FloorLamp-219/trial_T20190908_044113_026049/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 4
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|CellPhone|FloorLamp|None|trial_T20190908_044123_416784",
-    "trial_id": "trial_T20190908_044123_416784",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "CellPhone",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the cellphone with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-CellPhone-None-FloorLamp-219/trial_T20190908_044123_416784/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 5
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|CellPhone|FloorLamp|None|trial_T20190908_044139_261907",
-    "trial_id": "trial_T20190908_044139_261907",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "CellPhone",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at cellphone under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-CellPhone-None-FloorLamp-219/trial_T20190908_044139_261907/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 6
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|CreditCard|FloorLamp|None|trial_T20190909_103553_077615",
-    "trial_id": "trial_T20190909_103553_077615",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "CreditCard",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the creditcard with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-CreditCard-None-FloorLamp-219/trial_T20190909_103553_077615/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 7
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|CreditCard|FloorLamp|None|trial_T20190909_103610_740356",
-    "trial_id": "trial_T20190909_103610_740356",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "CreditCard",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the creditcard with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-CreditCard-None-FloorLamp-219/trial_T20190909_103610_740356/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 8
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|CreditCard|FloorLamp|None|trial_T20190909_103628_479585",
-    "trial_id": "trial_T20190909_103628_479585",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "CreditCard",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at creditcard under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-CreditCard-None-FloorLamp-219/trial_T20190909_103628_479585/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 9
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|KeyChain|FloorLamp|None|trial_T20190909_103507_522012",
-    "trial_id": "trial_T20190909_103507_522012",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "KeyChain",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at keychain under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-KeyChain-None-FloorLamp-219/trial_T20190909_103507_522012/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 10
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|KeyChain|FloorLamp|None|trial_T20190909_103526_341991",
-    "trial_id": "trial_T20190909_103526_341991",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "KeyChain",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at keychain under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-KeyChain-None-FloorLamp-219/trial_T20190909_103526_341991/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 11
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|KeyChain|FloorLamp|None|trial_T20190909_103543_580765",
-    "trial_id": "trial_T20190909_103543_580765",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "KeyChain",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the keychain with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-KeyChain-None-FloorLamp-219/trial_T20190909_103543_580765/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 12
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
     "selection_key": "219|KeyChain|Safe|None|trial_T20190909_011803_423115",
     "trial_id": "trial_T20190909_011803_423115",
     "scene_id": 219,
@@ -270,28 +18,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 13
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|KeyChain|Safe|None|trial_T20190909_011850_153676",
-    "trial_id": "trial_T20190909_011850_153676",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "pick_two_obj_and_place",
-    "object_target": "KeyChain",
-    "parent_target": "None",
-    "receptacle_target": "Safe",
-    "goal_instruction": "Your task is to: find two keychain and put them in safe.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/pick_two_obj_and_place-KeyChain-None-Safe-219/trial_T20190909_011850_153676/game.tw-pddl"
-    },
-    "task_type": "puttwo",
-    "env_name": "pick_two_obj",
-    "selection_rank": 14
+    "selection_rank": 1
   },
   {
     "subset_group": "living",
@@ -312,133 +39,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 15
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Laptop|FloorLamp|None|trial_T20190906_180831_140621",
-    "trial_id": "trial_T20190906_180831_140621",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Laptop",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the laptop with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Laptop-None-FloorLamp-219/trial_T20190906_180831_140621/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 16
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Laptop|FloorLamp|None|trial_T20190906_180922_517529",
-    "trial_id": "trial_T20190906_180922_517529",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Laptop",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the laptop with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Laptop-None-FloorLamp-219/trial_T20190906_180922_517529/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 17
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Laptop|FloorLamp|None|trial_T20190906_181009_893506",
-    "trial_id": "trial_T20190906_181009_893506",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Laptop",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at laptop under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Laptop-None-FloorLamp-219/trial_T20190906_181009_893506/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 18
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Newspaper|FloorLamp|None|trial_T20190907_170955_824797",
-    "trial_id": "trial_T20190907_170955_824797",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Newspaper",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the newspaper with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Newspaper-None-FloorLamp-219/trial_T20190907_170955_824797/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 19
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Newspaper|FloorLamp|None|trial_T20190907_171015_909996",
-    "trial_id": "trial_T20190907_171015_909996",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Newspaper",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the newspaper with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Newspaper-None-FloorLamp-219/trial_T20190907_171015_909996/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 20
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Newspaper|FloorLamp|None|trial_T20190907_171035_866841",
-    "trial_id": "trial_T20190907_171035_866841",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Newspaper",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at newspaper under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Newspaper-None-FloorLamp-219/trial_T20190907_171035_866841/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 21
+    "selection_rank": 2
   },
   {
     "subset_group": "living",
@@ -459,7 +60,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 22
+    "selection_rank": 3
   },
   {
     "subset_group": "living",
@@ -480,7 +81,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 23
+    "selection_rank": 4
   },
   {
     "subset_group": "living",
@@ -501,259 +102,7 @@
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
-    "selection_rank": 24
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|RemoteControl|FloorLamp|None|trial_T20190909_032721_511027",
-    "trial_id": "trial_T20190909_032721_511027",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "RemoteControl",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the remotecontrol with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-RemoteControl-None-FloorLamp-219/trial_T20190909_032721_511027/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 25
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|RemoteControl|FloorLamp|None|trial_T20190909_032740_934457",
-    "trial_id": "trial_T20190909_032740_934457",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "RemoteControl",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at remotecontrol under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-RemoteControl-None-FloorLamp-219/trial_T20190909_032740_934457/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 26
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|RemoteControl|FloorLamp|None|trial_T20190909_032758_971610",
-    "trial_id": "trial_T20190909_032758_971610",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "RemoteControl",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the remotecontrol with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-RemoteControl-None-FloorLamp-219/trial_T20190909_032758_971610/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 27
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Statue|FloorLamp|None|trial_T20190908_041333_727215",
-    "trial_id": "trial_T20190908_041333_727215",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Statue",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at statue under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Statue-None-FloorLamp-219/trial_T20190908_041333_727215/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 28
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Statue|FloorLamp|None|trial_T20190908_041353_333106",
-    "trial_id": "trial_T20190908_041353_333106",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Statue",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the statue with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Statue-None-FloorLamp-219/trial_T20190908_041353_333106/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 29
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Statue|FloorLamp|None|trial_T20190908_041411_333458",
-    "trial_id": "trial_T20190908_041411_333458",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Statue",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at statue under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Statue-None-FloorLamp-219/trial_T20190908_041411_333458/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 30
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|TissueBox|FloorLamp|None|trial_T20190906_213857_471360",
-    "trial_id": "trial_T20190906_213857_471360",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "TissueBox",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at tissuebox under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-TissueBox-None-FloorLamp-219/trial_T20190906_213857_471360/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 31
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|TissueBox|FloorLamp|None|trial_T20190906_213926_964767",
-    "trial_id": "trial_T20190906_213926_964767",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "TissueBox",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at tissuebox under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-TissueBox-None-FloorLamp-219/trial_T20190906_213926_964767/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 32
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|TissueBox|FloorLamp|None|trial_T20190906_213948_501157",
-    "trial_id": "trial_T20190906_213948_501157",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "TissueBox",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at tissuebox under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-TissueBox-None-FloorLamp-219/trial_T20190906_213948_501157/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 33
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Vase|FloorLamp|None|trial_T20190908_071731_613441",
-    "trial_id": "trial_T20190908_071731_613441",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Vase",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: examine the vase with the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Vase-None-FloorLamp-219/trial_T20190908_071731_613441/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 34
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Vase|FloorLamp|None|trial_T20190908_203614_840353",
-    "trial_id": "trial_T20190908_203614_840353",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Vase",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at vase under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Vase-None-FloorLamp-219/trial_T20190908_203614_840353/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 35
-  },
-  {
-    "subset_group": "living",
-    "source_split": "valid_unseen",
-    "selection_policy": "all_games_per_scene_domain_v3",
-    "selection_key": "219|Vase|FloorLamp|None|trial_T20190908_203635_515565",
-    "trial_id": "trial_T20190908_203635_515565",
-    "scene_id": 219,
-    "scene_domain": "living",
-    "alfworld_task_type": "look_at_obj_in_light",
-    "object_target": "Vase",
-    "parent_target": "None",
-    "receptacle_target": "FloorLamp",
-    "goal_instruction": "Your task is to: look at vase under the floorlamp.",
-    "env_kwargs": {
-      "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/valid_unseen/look_at_obj_in_light-Vase-None-FloorLamp-219/trial_T20190908_203635_515565/game.tw-pddl"
-    },
-    "task_type": "examine",
-    "env_name": "look_at_obj",
-    "selection_rank": 36
+    "selection_rank": 5
   },
   {
     "subset_group": "living",
@@ -774,7 +123,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 37
+    "selection_rank": 6
   },
   {
     "subset_group": "living",
@@ -795,7 +144,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 38
+    "selection_rank": 7
   },
   {
     "subset_group": "living",
@@ -816,7 +165,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 39
+    "selection_rank": 8
   },
   {
     "subset_group": "living",
@@ -837,7 +186,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 40
+    "selection_rank": 9
   },
   {
     "subset_group": "living",
@@ -858,7 +207,7 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 41
+    "selection_rank": 10
   },
   {
     "subset_group": "living",
@@ -879,6 +228,6 @@
     },
     "task_type": "put",
     "env_name": "pick_and_place",
-    "selection_rank": 42
+    "selection_rank": 11
   }
 ]
