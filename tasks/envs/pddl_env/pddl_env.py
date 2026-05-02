@@ -208,8 +208,9 @@ class PDDLEnv(BaseEnv):
             return self._get_obs(), -1, self.done
 
     def feedback(self) -> tuple[float, bool, str]:
-        
-        return self.reward, self.done, ''
+        # Match ALFWorld/FEVER: `done` means task success for recorder averages, not merely env truncation.
+        success = bool(getattr(self, "won", False))
+        return float(self.reward), success, ""
 
     @staticmethod
     def process_action(action: str) -> str:
@@ -471,17 +472,18 @@ class PDDLRecorder(BaseRecorder):
         
         self.cnts[game_name] += 1
         self.rewards[game_name] += reward
-        self.dones[game_name] += done
+        self.dones[game_name] += int(done)
 
-        message = f'reward: {reward}, done: {done}.\nave reward: {self._get_average_reward()}, ave done: {self._get_average_done()}'
+        total = sum(self.cnts.values())
+        if total <= 0:
+            avg_r = 0.0
+            avg_d = 0.0
+        else:
+            avg_r = sum(self.rewards.values()) / total
+            avg_d = sum(self.dones.values()) / total
+        # Same template as FeverRecorder.task_end for comparable logs.
+        message = f"reward: {reward}, ave reward: {avg_r}.\ndone: {done}, ave done: {avg_d}"
         self.log(message)
-
-    
-    def _get_average_reward(self) -> float:
-        return sum(self.rewards.values()) / sum(self.cnts.values())
-
-    def _get_average_done(self) -> float:
-        return sum(self.dones.values()) / sum(self.cnts.values())
     
         
 # Define the mapping of predicate names to their natural language formats  

@@ -18,6 +18,7 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     CONFIG,
     GPTChat,
     EmbeddingFunc,
+    build_isolated_subprocess_args,
     build_mas,
     build_task_manager,
     compute_metrics,
@@ -258,6 +259,55 @@ def merge_eval_split(
         "source_files": source_files,
     }
     return str(out_path), deduped, meta
+
+
+def _dataset_eval_title(dataset_family: str) -> str:
+    return {
+        "alfworld": "ALFWorld",
+        "fever": "FEVER",
+        "pddl": "PDDL",
+        "amabench": "AMA-Bench",
+    }.get(dataset_family, dataset_family.replace("_", " ").title())
+
+
+def _print_multidomain_run_summary(
+    *,
+    dataset_title: str,
+    eval_results: list[dict[str, Any]],
+    train_results: list[dict[str, Any]],
+) -> None:
+    """Same stdout layout for all dataset_family (FEVER / PDDL / ALFWorld / …)."""
+    print("", flush=True)
+    print(f"=== {dataset_title} Multi-domain Global Eval | summary ===", flush=True)
+    print("-- Eval --", flush=True)
+    for row in eval_results:
+        print(
+            f"  split={row['split']} scope={row['memory_scope']} | "
+            f"accuracy={float(row.get('accuracy', 0.0)):.4f} "
+            f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
+            f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+            f"tasks={int(row.get('num_tasks', 0))} "
+            f"completed={int(row.get('num_completed', 0))} "
+            f"skipped={int(row.get('num_skipped', 0))} "
+            f"success={int(row.get('num_success', 0))} | "
+            f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
+            flush=True,
+        )
+    if train_results:
+        print("-- Train (per-domain local) --", flush=True)
+        for row in train_results:
+            print(
+                f"  domain={row['domain']} | "
+                f"accuracy={float(row.get('accuracy', 0.0)):.4f} "
+                f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
+                f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                f"tasks={int(row.get('num_tasks', 0))} "
+                f"completed={int(row.get('num_completed', 0))} "
+                f"skipped={int(row.get('num_skipped', 0))} "
+                f"success={int(row.get('num_success', 0))} | "
+                f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
+                flush=True,
+            )
 
 
 def main() -> None:
@@ -623,19 +673,16 @@ def main() -> None:
                 freeze=False,
             )
             build_mas(manager, args.reasoning, args.mas_memory, args.model)
-            alfworld_sp = (
-                {
-                    "reasoning": args.reasoning,
-                    "model": args.model,
-                    "max_trials": args.max_trials,
-                    "alfworld_game_root": args.alfworld_game_root,
-                }
-                if args.dataset_family == "alfworld"
-                else None
+            isolated_sp = build_isolated_subprocess_args(
+                dataset_family=args.dataset_family,
+                reasoning=args.reasoning,
+                model=args.model,
+                max_trials=args.max_trials,
+                alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
             )
             t0 = time.perf_counter()
             rewards, _, saved_messages, skipped, per_task_mt = run_tasks(
-                manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=alfworld_sp
+                manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=isolated_sp
             )
             saved_messages_by_domain[domain] = list(saved_messages or [])
             wall = time.perf_counter() - t0
@@ -764,19 +811,16 @@ def main() -> None:
             set_global = getattr(eval_mem, "set_global_retriever", None)
             if callable(set_global):
                 set_global(global_retriever)
-        alfworld_sp = (
-            {
-                "reasoning": args.reasoning,
-                "model": args.model,
-                "max_trials": args.max_trials,
-                "alfworld_game_root": args.alfworld_game_root,
-            }
-            if args.dataset_family == "alfworld"
-            else None
+        isolated_sp = build_isolated_subprocess_args(
+            dataset_family=args.dataset_family,
+            reasoning=args.reasoning,
+            model=args.model,
+            max_trials=args.max_trials,
+            alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
         )
         t0 = time.perf_counter()
         rewards, _, saved_messages, skipped, per_task_mt = run_tasks(
-            manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=alfworld_sp
+            manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=isolated_sp
         )
         wall = time.perf_counter() - t0
         if args.dataset_family == "amabench":
@@ -833,6 +877,7 @@ def main() -> None:
 
     json_path = os.path.join(report_base, "alfworld_multidomain_global_eval.json")
     md_path = os.path.join(report_base, "alfworld_multidomain_global_eval.md")
+    dataset_title = _dataset_eval_title(args.dataset_family)
     with open(json_path, "w", encoding="utf-8") as writer:
         json.dump(output, writer, ensure_ascii=False, indent=2)
 
@@ -843,7 +888,7 @@ def main() -> None:
                 writer.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     with open(md_path, "w", encoding="utf-8") as writer:
-        writer.write("# ALFWorld Multi-domain Global-only Eval\n\n")
+        writer.write(f"# {dataset_title} Multi-domain Global Eval\n\n")
         writer.write("## Eval Results\n\n")
         writer.write("| Split | Memory Scope | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
         writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
@@ -869,6 +914,11 @@ def main() -> None:
                 )
 
     print(json.dumps({"report_json": json_path, "report_md": md_path}, ensure_ascii=False, indent=2))
+    _print_multidomain_run_summary(
+        dataset_title=dataset_title,
+        eval_results=eval_results,
+        train_results=train_results,
+    )
 
 
 if __name__ == "__main__":

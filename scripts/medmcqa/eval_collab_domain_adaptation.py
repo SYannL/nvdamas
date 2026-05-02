@@ -240,9 +240,36 @@ def build_mas(
     return mas_memory_module
 
 
+# Per-episode subprocess isolation (captures stdout/stderr) for long / noisy env families.
+_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl"})
+
+
+def build_isolated_subprocess_args(
+    *,
+    dataset_family: str,
+    reasoning: str,
+    model: str,
+    max_trials: int,
+    alfworld_game_root: str = "",
+) -> dict[str, Any] | None:
+    """
+    When non-None, ``run_tasks`` runs each episode in a child process with redirected
+    stdout/stderr (same quiet parent logs as ALFWorld).
+    """
+    if dataset_family not in _SUBPROCESS_ISOLATED_FAMILIES:
+        return None
+    root = str(alfworld_game_root or "").strip() if dataset_family == "alfworld" else ""
+    return {
+        "reasoning": reasoning,
+        "model": model,
+        "max_trials": max_trials,
+        "alfworld_game_root": root,
+    }
+
+
 def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, result_path: str) -> None:
-    """Run a single ALFWorld task in isolation. Used by subprocess to survive SIGSEGV.
-    Exits 0 on success, 1 on caught exception. On segfault the process dies (e.g. 139).
+    """Run a single task in isolation (ALFWorld / FEVER / PDDL). Used by subprocess to survive crashes
+    and keep the parent log clean. Exits 0 on success, 1 on caught exception.
     """
     wall_worker0 = time.perf_counter()
     with open(args_json_path, "r", encoding="utf-8") as f:
@@ -1968,7 +1995,13 @@ def main() -> None:
         build_mas(a_manager, args.reasoning, args.mas_memory, args.model)
         build_mas(b_manager, args.reasoning, args.mas_memory, args.model)
 
-        alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials, "alfworld_game_root": args.alfworld_game_root} if args.dataset_family == "alfworld" else None
+        alfworld_sp = build_isolated_subprocess_args(
+            dataset_family=args.dataset_family,
+            reasoning=args.reasoning,
+            model=args.model,
+            max_trials=args.max_trials,
+            alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
+        )
         if args.mas_memory == "selectivemem" and args.dataset_family == "mtmind2web":
             # MT-Mind2Web SelectiveMem collaborative flow aligned with g-memory:
             # batch-wise local A/B -> rebuild global -> global-only A/B on the same batch.
@@ -2811,7 +2844,13 @@ def main() -> None:
             batch_size = max(1, args.batch_size)
             for start in range(0, total, batch_size):
                 end = min(start + batch_size, total)
-                alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials, "alfworld_game_root": args.alfworld_game_root} if args.dataset_family == "alfworld" else None
+                alfworld_sp = build_isolated_subprocess_args(
+                    dataset_family=args.dataset_family,
+                    reasoning=args.reasoning,
+                    model=args.model,
+                    max_trials=args.max_trials,
+                    alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
+                )
                 with ThreadPoolExecutor(max_workers=2) as executor:
                     fut_a = executor.submit(run_tasks, a_manager_dual, start, end, args.tool_mode, alfworld_sp)
                     fut_b = executor.submit(run_tasks, b_manager_dual, start, end, args.tool_mode, alfworld_sp)
@@ -2990,7 +3029,13 @@ def main() -> None:
             end = min(5, len(manager.tasks))
         else:
             end = len(manager.tasks)
-        alfworld_sp = {"reasoning": args.reasoning, "model": args.model, "max_trials": args.max_trials, "alfworld_game_root": args.alfworld_game_root} if args.dataset_family == "alfworld" else None
+        alfworld_sp = build_isolated_subprocess_args(
+            dataset_family=args.dataset_family,
+            reasoning=args.reasoning,
+            model=args.model,
+            max_trials=args.max_trials,
+            alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
+        )
         if alfworld_sp and use_global_insights and args.mas_memory == "selectivemem":
             alfworld_sp["use_global_insights"] = True
             alfworld_sp["global_dir"] = global_dir
