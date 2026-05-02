@@ -35,11 +35,13 @@ TASKS_PATH = {
     'fever': 'data/fever/fever_dev.jsonl',
     'fever_aca_test': 'data/fever/fever_dev_test_aca.jsonl',
     'fever_oral_test': 'data/fever/fever_dev_test_oral.jsonl',
-    'fever_ab_train_a': 'data/fever/fever_ab_train_A.jsonl',
-    'fever_ab_train_b': 'data/fever/fever_ab_train_B.jsonl',
-    'fever_ab_test_a': 'data/fever/fever_ab_test_A.jsonl',
-    'fever_ab_test_b': 'data/fever/fever_ab_test_B.jsonl',
+    'fever_ab_train_a': 'data/fever/fever_ab_train_A_v3.jsonl',
+    'fever_ab_train_b': 'data/fever/fever_ab_train_B_v3.jsonl',
+    'fever_ab_test_a': 'data/fever/fever_ab_test_A_v3.jsonl',
+    'fever_ab_test_b': 'data/fever/fever_ab_test_B_v3.jsonl',
     'pddl': 'data/pddl/test.jsonl',
+    'pddl_ab_train_A': 'data/pddl/pddl_ab_train_A.jsonl',
+    'pddl_ab_train_B': 'data/pddl/pddl_ab_train_B.jsonl',
     'huskyqa': 'data/HuskyQA/huskyQA.json',
     'huskyqa_aca_test': 'data/HuskyQA/huskyQA_aca_test.json',
     'medmcqa_test': 'data/medmcqa/medmcqa_test.jsonl',
@@ -347,6 +349,8 @@ TASK_DATA = {
     'fever_ab_test_a': None,
     'fever_ab_test_b': None,
     'pddl': pddl_tasks,
+    'pddl_ab_train_A': None,
+    'pddl_ab_train_B': None,
     'huskyqa': huskyqa_tasks,
     'huskyqa_aca_test': huskyqa_aca_test_tasks,
     'medmcqa_test': medmcqa_test_tasks,
@@ -377,6 +381,8 @@ ENVS = {
     'fever_ab_test_a': FeverEnv,
     'fever_ab_test_b': FeverEnv,
     'pddl': PDDLEnv,
+    'pddl_ab_train_A': PDDLEnv,
+    'pddl_ab_train_B': PDDLEnv,
     'huskyqa': HuskyQAEnv,
     'huskyqa_aca_test': HuskyQAEnv,
     'medmcqa_test': MedMCQAEnv,
@@ -407,6 +413,8 @@ RECORDERS = {
     'fever_ab_test_a': FeverRecorder,
     'fever_ab_test_b': FeverRecorder,
     'pddl': PDDLRecorder,
+    'pddl_ab_train_A': PDDLRecorder,
+    'pddl_ab_train_B': PDDLRecorder,
     'huskyqa': HuskyQARecorder,
     'huskyqa_aca_test': HuskyQARecorder,
     'medmcqa_test': MedMCQARecorder,
@@ -479,7 +487,11 @@ def get_recorder(task: str, working_dir: str, namespace: str) -> BaseRecorder:
 
 def get_task(task: str, env_config: dict | None = None) -> list[dict]:
 
-    if (task.startswith('mtmind2web_') or task.startswith('fever_ab_')) and TASK_DATA.get(task) is None:
+    if (
+        task.startswith('mtmind2web_')
+        or task.startswith('fever_ab_')
+        or task.startswith('pddl_ab_')
+    ) and TASK_DATA.get(task) is None:
         data_path = TASKS_PATH.get(task)
         if not data_path or not os.path.exists(data_path):
             raise FileNotFoundError(
@@ -499,6 +511,10 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
                     }
                 )
             TASK_DATA[task] = converted
+        elif task.startswith('pddl_ab_'):
+            # pddl env expects task dicts containing pddl fields from annotation file
+            # (goal, subgoals, difficulty, additional_info, etc.).
+            TASK_DATA[task] = loaded_rows
         else:
             TASK_DATA[task] = loaded_rows
 
