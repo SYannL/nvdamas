@@ -105,7 +105,16 @@ class AlfworldEnv(BaseEnv):
 
         action = self.process_action(action)
         action = self._adapt_action_to_admissible(action)
-        observation, reward, done, info = self.env.step([action])
+        is_think_action = action.lower().startswith("think:")
+        try:
+            observation, reward, done, info = self.env.step([action])
+        except Exception:
+            if not is_think_action:
+                raise
+            observation = ["OK."]
+            reward = [-1.0]
+            done = [bool(self.done)]
+            info = {"admissible_commands": [list(self.last_admissible_commands)], "won": [False]}
         observation = self._normalize_observation(observation[0])
 
         self.done = done[0]
@@ -116,7 +125,7 @@ class AlfworldEnv(BaseEnv):
         except Exception:
             self.won = False
 
-        if 'think:' in action:
+        if is_think_action:
             observation = 'OK.' 
             processed_reward = -1
             self.won = False
@@ -159,6 +168,8 @@ class AlfworldEnv(BaseEnv):
         action = re.sub(r'^\s*[-*]\s*', '', action)
         action = action.replace('>', '').replace('OK.', '').replace('OK', '').strip()
         action = action.rstrip(".。").strip()
+        if action.lower().startswith("think:"):
+            action = AlfworldEnv._normalize_think_action(action)
 
         return action
 
@@ -206,8 +217,34 @@ class AlfworldEnv(BaseEnv):
         # normalize it to `think:` instead of introducing a `look` action that
         # some validators/postprocessors do not expect.
         if thought:
-            return f"think: {thought}"
+            return AlfworldEnv._normalize_think_action(f"think: {thought}")
         return "think: I need to choose one valid next action."
+
+    @staticmethod
+    def _normalize_think_action(action: str, limit: int = 240) -> str:
+        """Keep ReAct thoughts useful without letting small models bloat prompts."""
+        text = str(action or "").strip()
+        text = re.sub(r"^think\s*:\s*", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r"\s+", " ", text)
+        if not text:
+            return "think: I need to choose one valid next action."
+
+        pieces = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text) if p.strip()]
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for piece in pieces:
+            key = re.sub(r"\W+", " ", piece.lower()).strip()
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            deduped.append(piece)
+            if len(" ".join(deduped)) >= limit:
+                break
+        text = " ".join(deduped) if deduped else text
+        if len(text) > limit:
+            text = text[:limit].rsplit(" ", 1)[0].rstrip(".,;:")
+        return f"think: {text}"
 
     def _adapt_action_to_admissible(self, action: str) -> str:
         """Map legacy ALFWorld placement syntax to official_042 move syntax.

@@ -184,6 +184,39 @@ def _snapshot_env_mt_metrics(env: Any) -> dict[str, float]:
     return out
 
 
+def _snapshot_env_task_metrics(env: Any) -> dict[str, float]:
+    """Capture task-level diagnostics that are useful across env families."""
+    out = _snapshot_env_mt_metrics(env)
+    steps_value: Any = getattr(env, "steps", None)
+    if steps_value is None:
+        current_history = getattr(env, "current_history", None)
+        if isinstance(current_history, list) and current_history:
+            steps_value = max(len(current_history) - 1, 0)
+    if steps_value is None:
+        history = getattr(env, "history", None)
+        if isinstance(history, list):
+            steps_value = sum(1 for item in history if isinstance(item, tuple) and item[:1] == ("action",))
+    if steps_value is None:
+        states = getattr(env, "states", None)
+        if isinstance(states, list) and states:
+            steps_value = max(len(states) - 1, 0)
+    try:
+        steps = float(steps_value)
+        if steps >= 0:
+            out["trajectory_steps"] = steps
+    except (TypeError, ValueError):
+        pass
+    try:
+        max_trials = float(getattr(env, "max_trials", 0) or 0)
+        if max_trials > 0:
+            out["max_trials"] = max_trials
+            if "trajectory_steps" in out:
+                out["step_budget_used"] = out["trajectory_steps"] / max_trials
+    except (TypeError, ValueError):
+        pass
+    return out
+
+
 def build_mas(
     task_manager: TaskManager,
     reasoning: str,
@@ -366,7 +399,7 @@ def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, re
     except Exception:
         saved_payload = None
 
-    mt_metrics = _snapshot_env_mt_metrics(task_manager.mas.env)
+    mt_metrics = _snapshot_env_task_metrics(task_manager.mas.env)
 
     with open(result_path, "w", encoding="utf-8") as f:
         json.dump(
@@ -428,6 +461,7 @@ def run_tasks(
         done: bool,
         skipped: bool,
         pddl_crash: bool,
+        task_metrics: dict[str, float] | None = None,
         error_type: str | None = None,
         error_message: str | None = None,
     ) -> None:
@@ -449,6 +483,9 @@ def run_tasks(
         for key in ("_source_index_1based", "_smoke_source_index_1based", "_regression_label"):
             if key in task_config:
                 record[key] = task_config.get(key)
+        for key in ("trajectory_steps", "max_trials", "step_budget_used"):
+            if task_metrics and key in task_metrics:
+                record[key] = float(task_metrics[key])
         try:
             os.makedirs(records_dir, exist_ok=True)
             with open(task_records_path, "a", encoding="utf-8") as fh:
@@ -559,7 +596,8 @@ def run_tasks(
                 rewards.append(float(reward))
                 dones.append(bool(done))
                 lm = res.get("latest_metrics")
-                per_task_mt.append(_mt_metrics_from_saved(lm) if isinstance(lm, dict) else {})
+                task_metrics = _mt_metrics_from_saved(lm) if isinstance(lm, dict) else {}
+                per_task_mt.append(task_metrics)
                 if last_saved is not None:
                     saved_messages.append(last_saved)
                 elapsed = time.time() - start_time
@@ -572,6 +610,7 @@ def run_tasks(
                     done=bool(done),
                     skipped=False,
                     pddl_crash=False,
+                    task_metrics=task_metrics,
                 )
                 attempted += 1
                 done_count += 1
@@ -774,7 +813,8 @@ def run_tasks(
             task_manager.recorder.task_end(reward, done)
             rewards.append(float(reward))
             dones.append(bool(done))
-            per_task_mt.append(_snapshot_env_mt_metrics(task_manager.mas.env))
+            task_metrics = _snapshot_env_task_metrics(task_manager.mas.env)
+            per_task_mt.append(task_metrics)
 
             if float(reward) > 0:
                 successes += 1
@@ -785,6 +825,7 @@ def run_tasks(
                 done=bool(done),
                 skipped=False,
                 pddl_crash=False,
+                task_metrics=task_metrics,
             )
             attempted += 1
             done_count += 1
@@ -910,7 +951,7 @@ def _mt_metrics_from_saved(d: Any) -> dict[str, float]:
     if not isinstance(d, dict):
         return {}
     out: dict[str, float] = {}
-    for k in ("ele_acc", "op_f1", "ssr", "tsr"):
+    for k in ("ele_acc", "op_f1", "ssr", "tsr", "trajectory_steps", "max_trials", "step_budget_used"):
         if k not in d:
             continue
         try:
@@ -940,6 +981,27 @@ def compute_metrics(
         for k in ("ele_acc", "op_f1", "ssr", "tsr"):
             vals = [float(row.get(k, 0.0)) for row in per_task_mt]
             out[f"avg_{k}"] = sum(vals) / len(vals) if vals else 0.0
+    if per_task_mt is not None and len(per_task_mt) == len(rewards):
+        step_vals = [
+            float(row["trajectory_steps"])
+            for row in per_task_mt
+            if isinstance(row, dict) and "trajectory_steps" in row
+        ]
+        if step_vals:
+            ranked = sorted(step_vals)
+            mid = len(ranked) // 2
+            median = ranked[mid] if len(ranked) % 2 else (ranked[mid - 1] + ranked[mid]) / 2.0
+            out["avg_trajectory_steps"] = sum(step_vals) / len(step_vals)
+            out["median_trajectory_steps"] = median
+            out["min_trajectory_steps"] = min(step_vals)
+            out["max_trajectory_steps"] = max(step_vals)
+        budget_vals = [
+            float(row["step_budget_used"])
+            for row in per_task_mt
+            if isinstance(row, dict) and "step_budget_used" in row
+        ]
+        if budget_vals:
+            out["avg_step_budget_used"] = sum(budget_vals) / len(budget_vals)
     return out
 
 

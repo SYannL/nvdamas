@@ -8,6 +8,11 @@ import os
 
 IM_SCALE = 0.25
 
+try:
+    _PIL_RESAMPLE = Image.Resampling.LANCZOS
+except AttributeError:
+    _PIL_RESAMPLE = Image.ANTIALIAS
+
 def get_asset_path(asset_name):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     asset_dir_path = os.path.join(dir_path, 'assets')
@@ -73,8 +78,7 @@ def render_from_layout(layout, get_token_images, dpi=150, grid_colors=None):
 
     im = Image.fromarray(im)
     new_width, new_height = (int(im.size[0] * IM_SCALE), int(im.size[1] * IM_SCALE))
-    # TODO : switch resize method to Image.Resampling.LANCZOS when pillow>=10 is supported
-    im = im.resize((new_width, new_height), Image.ANTIALIAS)
+    im = im.resize((new_width, new_height), _PIL_RESAMPLE)
     im = np.array(im)
 
     return im

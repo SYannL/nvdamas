@@ -310,7 +310,12 @@ def main() -> None:
         default="A_film_tv,B_music",
         help="FEVER domain（ab_domain）列表，逗号分隔。",
     )
-    parser.add_argument("--fever_train_jsonl", type=str, default="data/fever/fever_ab_train_v3.jsonl")
+    parser.add_argument(
+        "--fever_train_jsonl",
+        type=str,
+        default="data/fever/fever_ab_train_A_v3.jsonl,data/fever/fever_ab_train_B_v3.jsonl",
+        help="FEVER 训练 JSONL；可用逗号分隔多个文件。",
+    )
     parser.add_argument("--fever_test_jsonl", type=str, default="data/fever/fever_ab_test_v3.jsonl")
     parser.add_argument(
         "--pddl_domains",
@@ -437,14 +442,13 @@ def main() -> None:
         train_tasks_by_domain[domain] = rows
 
     if args.dataset_family == "fever":
-        fever_train_path = (repo_root / args.fever_train_jsonl).resolve()
-        if not fever_train_path.exists():
-            fallback_path = (repo_root / args.fever_test_jsonl).resolve()
-            if fallback_path.exists():
-                fever_train_path = fallback_path
-            else:
-                raise FileNotFoundError(f"FEVER 训练文件不存在: {repo_root / args.fever_train_jsonl}")
-        fever_train_rows = load_jsonl_rows(fever_train_path)
+        fever_train_rows: list[dict] = []
+        fever_train_paths = [(repo_root / item).resolve() for item in parse_csv(args.fever_train_jsonl)]
+        missing_paths = [str(path) for path in fever_train_paths if not path.exists()]
+        if missing_paths:
+            raise FileNotFoundError(f"FEVER 训练文件不存在: {missing_paths}")
+        for fever_train_path in fever_train_paths:
+            fever_train_rows.extend(load_jsonl_rows(fever_train_path))
         fever_by_domain = split_fever_train_by_domain(fever_train_rows, domains)
         for domain in domains:
             rows = fever_by_domain.get(domain, [])
@@ -562,11 +566,27 @@ def main() -> None:
     if bool(args.gm2_enable_overlay):
         gm2_common["gm2_enable_overlay"] = True
 
+    def apply_gm_graph_scene_config(
+        manager,
+        owner_scene: str,
+        *,
+        settings: str,
+        freeze: bool,
+    ) -> None:
+        if args.mas_memory not in _GM_GRAPH_MEMORY:
+            return
+        manager.mem_config.update(
+            gm2_owner_scene=owner_scene,
+            gm2_settings=str(settings or "local_plus_global"),
+            gm2_freeze_memory=bool(freeze),
+        )
+
     local_dirs: list[str] = []
     if args.reset_memory and args.mas_memory in _GM_GRAPH_MEMORY and args.gm2_dynamic_graph:
         reset_graph_memory2_artifacts_once(
             memory_dirs=[os.path.join(local_root, d) for d in domains] + [global_dir],
             owner_scenes=domains + ["global"],
+            memory_namespace=args.mas_memory,
         )
 
     train_results: list[dict[str, Any]] = []
@@ -595,12 +615,13 @@ def main() -> None:
             manager.tasks = copy.deepcopy(train_tasks_by_domain[domain])
             manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
             manager.mem_config.update(gm2_common)
-            if args.mas_memory in _GM_GRAPH_MEMORY:
-                manager.mem_config.update(
-                    gm2_owner_scene=domain,
-                    gm2_settings="local_only",
-                    gm2_freeze_memory=False,
-                )
+            train_gm2_settings = str(args.gm2_settings or "local_plus_global")
+            apply_gm_graph_scene_config(
+                manager,
+                domain,
+                settings=train_gm2_settings,
+                freeze=False,
+            )
             build_mas(manager, args.reasoning, args.mas_memory, args.model)
             alfworld_sp = (
                 {
@@ -624,6 +645,7 @@ def main() -> None:
             train_results.append(
                 {
                     "domain": domain,
+                    "gm2_settings": train_gm2_settings if args.mas_memory in _GM_GRAPH_MEMORY else None,
                     **compute_metrics(rewards, per_task_mt),
                     "num_tasks": len(manager.tasks),
                     "num_completed": len(rewards),
@@ -643,6 +665,7 @@ def main() -> None:
             global_dir=global_dir,
             promotion_threshold=float(args.gm2_promotion_threshold),
             gm2_repo_root=args.gm2_repo_root,
+            memory_namespace=args.mas_memory,
         )
     elif args.mas_memory == "selectivemem":
         rebuild_selectivemem_global_from_locals(
@@ -716,13 +739,14 @@ def main() -> None:
         manager.tasks = eval_tasks
         manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
         manager.mem_config.update({"freeze_memory": True, **gm2_common})
+        gm2_settings = str(args.gm2_settings or "local_plus_global")
         if args.mas_memory in _GM_GRAPH_MEMORY:
             # Keep gm2_settings configurable for eval to align with domain adaptation script.
-            gm2_settings = str(args.gm2_settings or "local_plus_global")
-            manager.mem_config.update(
-                gm2_owner_scene=owner_scene,
-                gm2_settings=gm2_settings,
-                gm2_freeze_memory=True,
+            apply_gm_graph_scene_config(
+                manager,
+                owner_scene,
+                settings=gm2_settings,
+                freeze=True,
             )
         eval_mem = build_mas(manager, args.reasoning, args.mas_memory, args.model)
         if args.mas_memory not in _GM_GRAPH_MEMORY:
@@ -770,6 +794,7 @@ def main() -> None:
             "split": split_name,
             "memory_scope": memory_scope,
             "memory_dir": memory_dir,
+            "gm2_settings": gm2_settings if args.mas_memory in _GM_GRAPH_MEMORY else None,
             **compute_metrics(rewards, per_task_mt),
             "num_tasks": len(manager.tasks),
             "num_completed": len(rewards),
@@ -820,23 +845,25 @@ def main() -> None:
     with open(md_path, "w", encoding="utf-8") as writer:
         writer.write("# ALFWorld Multi-domain Global-only Eval\n\n")
         writer.write("## Eval Results\n\n")
-        writer.write("| Split | Memory Scope | Accuracy | Avg Reward | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
-        writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|\n")
+        writer.write("| Split | Memory Scope | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
+        writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         for row in eval_results:
             writer.write(
                 f"| {row['split']} | {row['memory_scope']} | {float(row.get('accuracy', 0.0)):.4f} | "
-                f"{float(row.get('avg_reward', 0.0)):.4f} | {int(row.get('num_tasks', 0))} | "
+                f"{float(row.get('avg_reward', 0.0)):.4f} | {float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                f"{int(row.get('num_tasks', 0))} | "
                 f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
                 f"{int(row.get('num_success', 0))} | {float(row.get('wall_time_sec', 0.0)):.2f} |\n"
             )
         if train_results:
             writer.write("\n## Train Results (Per Domain Local)\n\n")
-            writer.write("| Domain | Accuracy | Avg Reward | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
-            writer.write("|---|---:|---:|---:|---:|---:|---:|---:|\n")
+            writer.write("| Domain | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
+            writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             for row in train_results:
                 writer.write(
                     f"| {row['domain']} | {float(row.get('accuracy', 0.0)):.4f} | "
-                    f"{float(row.get('avg_reward', 0.0)):.4f} | {int(row.get('num_tasks', 0))} | "
+                    f"{float(row.get('avg_reward', 0.0)):.4f} | {float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                    f"{int(row.get('num_tasks', 0))} | "
                     f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
                     f"{int(row.get('num_success', 0))} | {float(row.get('wall_time_sec', 0.0)):.2f} |\n"
                 )

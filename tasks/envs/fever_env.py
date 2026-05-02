@@ -1,6 +1,8 @@
 from typing import Any, Literal
 import re
 from dataclasses import dataclass
+import json
+import os
 
 from .base_env import BaseEnv, BaseRecorder
 from .utils import LangChainWiki, match_exactly
@@ -13,8 +15,14 @@ class FeverEnv(BaseEnv):
     ) -> None:
         
         self.env_config = env_config
+        self.gm3_domain = "fever"
         self.explorer = LangChainWiki()
         self.max_trials: int = max_trials
+        self.config: dict[str, Any] = {}
+        self.claim: str = ""
+        self.ab_domain: str = ""
+        self.current_history: list[dict[str, Any]] = []
+        self.last_admissible_commands: list[str] = []
         
         self.reset()
         
@@ -23,22 +31,49 @@ class FeverEnv(BaseEnv):
             raise ValueError('Please provide the answer for the question.')
         if configs.get('task') is None:
             raise ValueError('The configs dict should have the `task` attribute.')
-        self.config = configs
+        self.config = dict(configs or {})
+        self.claim = str(self.config.get('task') or "")
+        self.ab_domain = str(self.config.get("ab_domain", "") or "")
         
-        task_value = self.config.get('task')
+        task_value = self.claim
         task: str = f'Claim: {task_value}'
+        self.current_task = task
         return task, task
     
     def reset(self) -> None:
-        self.current_task: str = None
+        claim = str(getattr(self, "claim", "") or (getattr(self, "config", {}) or {}).get("task", "") or "")
+        self.current_task = f"Claim: {claim}" if claim else None
         self.reward: float = 0
+        self.steps: int = 0
+        self.last_admissible_commands = self._default_admissible_commands(claim)
+        self.current_history = [
+            {
+                "Step": 0,
+                "Observation": f"Claim: {claim}" if claim else "",
+                "Claim": claim,
+                "Admissible Commands": list(self.last_admissible_commands),
+                "Score": float(self.reward),
+                "Reward": 0.0,
+                "Done": False,
+            }
+        ]
     
     def step(self, action: str) -> tuple[str, float, bool]:
 
         action: str = self.process_action(action)
+        self.steps += 1
 
         if self._parse_action_type(action) == 'thought':
-            return 'OK.', 0, False
+            observation = 'OK.'
+            self._append_gm3_history(
+                action=action,
+                observation=observation,
+                reward=0,
+                done=False,
+                action_type="thought",
+                argument="",
+            )
+            return observation, 0, False
         
         action_type, argument = self._parse_action(action)
 
@@ -46,10 +81,26 @@ class FeverEnv(BaseEnv):
             if self.success_fn(argument):
                 observation = 'Answer is CORRECT'
                 self.reward = 1
+                self._append_gm3_history(
+                    action=action,
+                    observation=observation,
+                    reward=1,
+                    done=True,
+                    action_type=action_type,
+                    argument=argument,
+                )
                 return observation, 1, True
 
             else: 
                 observation = f'Answer is INCORRECT'
+                self._append_gm3_history(
+                    action=action,
+                    observation=observation,
+                    reward=0,
+                    done=True,
+                    action_type=action_type,
+                    argument=argument,
+                )
                 return observation, 0, True
 
         elif action_type == 'Search':
@@ -74,6 +125,14 @@ class FeverEnv(BaseEnv):
             processed_reward = -1
         else:
             processed_reward = 0
+        self._append_gm3_history(
+            action=action,
+            observation=observation,
+            reward=processed_reward,
+            done=False,
+            action_type=str(action_type or ""),
+            argument=str(argument or ""),
+        )
         return observation, processed_reward, False
     
     @staticmethod
@@ -117,6 +176,98 @@ class FeverEnv(BaseEnv):
         done = self.reward == 1
 
         return self.reward, done, feedback
+
+    @staticmethod
+    def _default_admissible_commands(claim: str = "") -> list[str]:
+        anchor = FeverEnv._claim_anchor(claim)
+        commands = [
+            f"Search[{anchor or '<topic>'}]",
+            f"Lookup[{anchor or '<keyword>'}]",
+            "Finish[SUPPORTS]",
+            "Finish[REFUTES]",
+            "Finish[NOT ENOUGH INFO]",
+        ]
+        return commands
+
+    @staticmethod
+    def _claim_anchor(claim: str) -> str:
+        text = str(claim or "").strip()
+        match = re.search(r"\b[A-Z][A-Za-z0-9]*(?:\s+[A-Z][A-Za-z0-9]*){0,4}", text)
+        if match:
+            return match.group(0)
+        words = [w for w in re.findall(r"[A-Za-z0-9]+", text) if len(w) > 2]
+        return words[0] if words else ""
+
+    def _append_gm3_history(
+        self,
+        *,
+        action: str,
+        observation: str,
+        reward: float,
+        done: bool,
+        action_type: str,
+        argument: str,
+    ) -> None:
+        claim = str(getattr(self, "claim", "") or (getattr(self, "config", {}) or {}).get("task", "") or "")
+        self.last_admissible_commands = self._default_admissible_commands(claim)
+        self.current_history.append(
+            {
+                "Step": int(self.steps),
+                "Action": str(action or ""),
+                "Action Type": str(action_type or ""),
+                "Argument": str(argument or ""),
+                "Observation": str(observation or ""),
+                "Claim": claim,
+                "Admissible Commands": list(self.last_admissible_commands),
+                "Score": float(self.reward),
+                "Reward": float(reward),
+                "Done": bool(done),
+            }
+        )
+
+    def has_exportable_history(self) -> bool:
+        return bool(getattr(self, "current_history", None))
+
+    def export_gm2_history(
+        self,
+        output_dir: str,
+        *,
+        model_id: str = "",
+        status_override: str | None = None,
+    ) -> str | None:
+        if not self.has_exportable_history():
+            return None
+        claim = str(getattr(self, "claim", "") or (getattr(self, "config", {}) or {}).get("task", "") or "")
+        final_done = bool(self.current_history[-1].get("Done", False)) if self.current_history else False
+        final_score = float(self.reward or 0.0)
+        status = status_override or ("success" if final_done and final_score > 0 else "fail")
+        domain = str(getattr(self, "ab_domain", "") or (getattr(self, "config", {}) or {}).get("ab_domain", "") or "default")
+        payload = {
+            "last_updated": __import__("time").strftime("%Y%m%d_%H%M%S"),
+            "game_file": "",
+            "game_name": "fever",
+            "game_index": str((getattr(self, "config", {}) or {}).get("task_id", "")),
+            "game_task": f"Claim: {claim}",
+            "claim": claim,
+            "answer": str((getattr(self, "config", {}) or {}).get("answer", "")),
+            "ab_domain": domain,
+            "status": status,
+            "step_count": max(len(self.current_history) - 1, 0),
+            "final_score": final_score,
+            "history": list(self.current_history),
+            "model_id": model_id,
+            "gm3_domain": self.gm3_domain,
+            "task_family": f"fever:{domain}",
+            "task_config": dict(getattr(self, "config", {}) or {}),
+        }
+        out_dir = os.path.abspath(output_dir)
+        os.makedirs(out_dir, exist_ok=True)
+        digest = abs(hash(claim)) % 10_000_000
+        safe_domain = domain.replace("/", "_")
+        out_path = os.path.join(out_dir, f"history_fever_{safe_domain}_{digest}_{status}.json")
+        with open(out_path, "w", encoding="utf-8") as writer:
+            json.dump(payload, writer, ensure_ascii=False, indent=2)
+        return out_path
     
 
 

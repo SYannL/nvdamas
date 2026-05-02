@@ -33,6 +33,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
     insight_bank: list[str] = field(default_factory=list, init=False)
     refresh_each_step: bool = field(default=False, init=False)
     _external_adapter: Any = field(default=None, init=False, repr=False)
+    _external_adapters: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _external_retriever: Any = field(default=None, init=False, repr=False)
     _external_local_memories: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _external_global_memory: Any = field(default=None, init=False, repr=False)
@@ -160,6 +161,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
         try:
             from .gm2_backend.alfworld_adapter import ALFWorldAdapter
+            from .gm2_backend.fever_adapter import FeverAdapter
+            from .gm2_backend.pddl_adapter import PDDLAdapter
             from .gm2_backend.build_memory_graph import _global_to_dict, _local_to_dict
             from .gm2_backend.construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
             from .gm2_backend.graph_types import CandidateType, GlobalGraphMemory, LocalGraphMemory, MemoryQuery
@@ -192,7 +195,12 @@ class GraphMemory2MASMemory(MASMemoryBase):
         else:
             self._external_retriever = QueryBasedRetriever(top_k=5)
 
-        self._external_adapter = ALFWorldAdapter()
+        self._external_adapters = {
+            "alfworld": ALFWorldAdapter(),
+            "pddl": PDDLAdapter(),
+            "fever": FeverAdapter(),
+        }
+        self._external_adapter = self._external_adapters.get(self._infer_external_domain(), self._external_adapters["alfworld"])
         self._external_empty_local = empty_local
         self._external_empty_global = empty_global
         self._external_memory_query_type = MemoryQuery
@@ -5136,13 +5144,53 @@ class GraphMemory2MASMemory(MASMemoryBase):
             self._external_global_memory = external_global
             self._external_enabled = True
 
+    def _infer_external_domain(self, task_config: dict | None = None, env_ref: Any = None) -> str:
+        task_config = task_config or {}
+        candidates = [
+            str(getattr(env_ref, "gm3_domain", "") or ""),
+            str(task_config.get("gm3_domain", "") or ""),
+            str(task_config.get("env_name", "") or ""),
+            str(self.global_config.get("task_name", "") or ""),
+            str(task_config.get("task_name", "") or ""),
+        ]
+        if getattr(env_ref, "game_name", None) or task_config.get("game_name"):
+            candidates.append("pddl")
+        for value in candidates:
+            token = value.strip().lower()
+            if not token:
+                continue
+            if token.startswith("pddl"):
+                return "pddl"
+            if token.startswith("fever"):
+                return "fever"
+            if token.startswith("alfworld"):
+                return "alfworld"
+        return "alfworld"
+
+    def _resolve_external_adapter(self, task_config: dict | None = None, env_ref: Any = None) -> Any:
+        adapters = self._external_adapters or {}
+        domain = self._infer_external_domain(task_config, env_ref)
+        return adapters.get(domain) or self._external_adapter
+
     def _build_external_query(self, **kargs):
         env_ref = kargs.get("env_ref")
         task_config = kargs.get("task_config") or {}
         if env_ref is None:
             self._external_error = "missing env_ref for external GraphMemory2 retrieval"
             return None
-        adapter = self._external_adapter
+        adapter = self._resolve_external_adapter(task_config, env_ref)
+        if adapter is not None and hasattr(adapter, "build_query"):
+            try:
+                return adapter.build_query(
+                    env_ref=env_ref,
+                    task_config=task_config,
+                    query_task=str(kargs.get("query_task") or ""),
+                    MemoryQuery=self._external_memory_query_type,
+                    CandidateType=self._external_candidate_type,
+                )
+            except Exception as exc:
+                self._external_error = f"external GraphMemory query adapter failed: {type(exc).__name__}: {exc}"
+                return None
         goal = (
             str(getattr(env_ref, "goal_instruction", "") or "").strip()
             or str(kargs.get("query_task") or "").strip()
@@ -5604,7 +5652,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             )
             if not history_path:
                 return
-            adapter = self._external_adapter
+            adapter = self._resolve_external_adapter(kargs.get("task_config"), env_ref)
             episode = adapter.episode_from_history(str(history_path), agent_id=local_memory.agent_id)
             episode_graph = self._external_builder.build(episode)
             self._external_maintainer.update(local_memory, episode_graph, episode)

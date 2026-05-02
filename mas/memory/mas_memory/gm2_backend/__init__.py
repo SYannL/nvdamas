@@ -3,6 +3,8 @@ from .overlay import GM2OnlineEpisodeBuilder
 from .retrieval import rank_messages_for_query
 from .routing import build_gm2_prompt_payload
 from .alfworld_adapter import ALFWorldAdapter
+from .fever_adapter import FeverAdapter
+from .pddl_adapter import PDDLAdapter
 from .construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
 from .retrieval_graph import QueryBasedRetriever
 from .phasee_retrieval import PhaseECompatRetriever
@@ -15,6 +17,8 @@ __all__ = [
     "rank_messages_for_query",
     "build_gm2_prompt_payload",
     "ALFWorldAdapter",
+    "FeverAdapter",
+    "PDDLAdapter",
     "EpisodeGraphBuilder",
     "GlobalPromoter",
     "LocalGraphMaintainer",

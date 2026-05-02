@@ -50,7 +50,21 @@ def _episode_success(episode: EpisodeRecord) -> bool:
     return float(episode.metadata.get("final_score", 0.0)) > 0
 
 
+def _episode_domain(episode: EpisodeRecord) -> str:
+    domain = str(episode.metadata.get("gm3_domain", "") or "").strip().lower()
+    if domain:
+        return domain
+    if episode.scene_id.startswith("pddl:"):
+        return "pddl"
+    if episode.scene_id.startswith("fever:"):
+        return "fever"
+    return "alfworld"
+
+
 def _task_family(episode: EpisodeRecord) -> str:
+    metadata_family = str(episode.metadata.get("task_family", "") or "").strip()
+    if metadata_family:
+        return metadata_family
     task_id = episode.task_id or ""
     if "-" in task_id:
         return task_id.split("-", 1)[0]
@@ -563,6 +577,25 @@ def _rule_action_patterns(rule: MemoryRule) -> tuple[str, ...]:
     return tuple(dict.fromkeys(patterns))
 
 
+def _safe_pattern_id(value: str) -> str:
+    return re.sub(r"[^a-z0-9_=-]+", "_", str(value or "").lower()).strip("_")[:160] or "unknown"
+
+
+def _generic_action_patterns(step) -> list[str]:
+    patterns = [step.action.canonical_str]
+    surface = str(getattr(step.action, "surface_form", "") or "").strip()
+    if surface:
+        patterns.append(surface)
+    return list(dict.fromkeys(patterns))
+
+
+def _generic_action_text(step, *, prefer_surface: bool = False) -> str:
+    surface = str(getattr(step.action, "surface_form", "") or "").strip()
+    if prefer_surface and surface:
+        return surface
+    return step.action.canonical_str
+
+
 class EpisodeGraphBuilder:
     def build(self, episode: EpisodeRecord) -> EpisodeGraph:
         episode_id = f"{episode.agent_id}:{episode.task_id}:{len(episode.steps)}"
@@ -842,6 +875,8 @@ class LocalGraphMaintainer:
         *,
         episode_success: bool,
     ) -> list[PromotionCandidate]:
+        if _episode_domain(episode) != "alfworld":
+            return self._induce_generic_candidates(episode_graph, episode, episode_success=episode_success)
         candidates: list[PromotionCandidate] = []
         family = _task_family(episode)
         roles = _task_roles(episode)
@@ -1031,6 +1066,148 @@ class LocalGraphMaintainer:
 
         return candidates
 
+    def _induce_generic_candidates(
+        self,
+        episode_graph: EpisodeGraph,
+        episode: EpisodeRecord,
+        *,
+        episode_success: bool,
+    ) -> list[PromotionCandidate]:
+        candidates: list[PromotionCandidate] = []
+        family = _task_family(episode)
+        domain = _episode_domain(episode)
+        stalled_steps = {
+            step.step_idx
+            for step in episode.steps
+            if not step.feedback.failure_label and not step.feedback.state_delta and not step.feedback.done
+        }
+        stages = [str(step.subgoal or step.next_state.workflow_stage or "") for step in episode.steps]
+        workflow = tuple(dict.fromkeys(stage for stage in stages if stage))
+        if len(workflow) >= 2:
+            candidate = PromotionCandidate(
+                candidate_id=f"workflow:{domain}:{family}:{'->'.join(workflow)}",
+                candidate_type=CandidateType.WORKFLOW,
+                summary=f"Workflow pattern ({domain}): {' -> '.join(workflow)}",
+                structure={
+                    "workflow": workflow,
+                    "task_family": family,
+                    "domain": domain,
+                    "pattern_kind": "workflow",
+                },
+            )
+            candidate.observe(
+                scene_id=episode.scene_id,
+                episode_id=episode_graph.episode_id,
+                positive=episode_success,
+                utility_delta=0.12 if episode_success else 0.03,
+            )
+            candidates.append(candidate)
+
+        for step in episode.steps:
+            action = _generic_action_text(step)
+            surface_action = _generic_action_text(step, prefer_surface=True)
+            progress_state = str(step.state.workflow_stage or "unknown")
+            next_state = str(step.next_state.workflow_stage or progress_state)
+            if step.feedback.success and not step.feedback.failure_label:
+                cid = f"precondition:{domain}:{family}:{progress_state}:{_safe_pattern_id(action)}"
+                candidate = PromotionCandidate(
+                    candidate_id=cid,
+                    candidate_type=CandidateType.PRECONDITION,
+                    summary=f"Within {progress_state}, action {surface_action} can advance {domain} progress.",
+                    structure={
+                        "action": action,
+                        "surface_action": surface_action,
+                        "from": progress_state,
+                        "to": next_state,
+                        "task_family": family,
+                        "domain": domain,
+                        "pattern_kind": "precondition",
+                    },
+                )
+                candidate.observe(
+                    scene_id=episode.scene_id,
+                    episode_id=episode_graph.episode_id,
+                    positive=True,
+                    stalled=step.step_idx in stalled_steps,
+                    utility_delta=0.06,
+                )
+                candidates.append(candidate)
+
+            if step.feedback.failure_label:
+                cid = f"failure:{domain}:{family}:{_safe_pattern_id(action)}:{step.feedback.failure_label}"
+                candidate = PromotionCandidate(
+                    candidate_id=cid,
+                    candidate_type=CandidateType.FAILURE,
+                    summary=f"Failure pattern ({domain}): avoid {surface_action} under {step.feedback.failure_label}.",
+                    structure={
+                        "action": action,
+                        "surface_action": surface_action,
+                        "failure_label": step.feedback.failure_label,
+                        "task_family": family,
+                        "domain": domain,
+                        "pattern_kind": "failure",
+                    },
+                )
+                candidate.observe(
+                    scene_id=episode.scene_id,
+                    episode_id=episode_graph.episode_id,
+                    positive=True,
+                    stalled=step.step_idx in stalled_steps,
+                    utility_delta=0.04,
+                )
+                candidates.append(candidate)
+
+        for prev_step, next_step in zip(episode.steps, episode.steps[1:]):
+            if prev_step.feedback.failure_label and next_step.feedback.success:
+                repair = _generic_action_text(next_step)
+                surface_repair = _generic_action_text(next_step, prefer_surface=True)
+                candidate = PromotionCandidate(
+                    candidate_id=f"repair:{domain}:{family}:{prev_step.feedback.failure_label}:{_safe_pattern_id(repair)}",
+                    candidate_type=CandidateType.REPAIR,
+                    summary=f"Repair pattern ({domain}): after {prev_step.feedback.failure_label}, try {surface_repair}.",
+                    structure={
+                        "failure_label": prev_step.feedback.failure_label,
+                        "repair_action": repair,
+                        "surface_repair_action": surface_repair,
+                        "task_family": family,
+                        "domain": domain,
+                        "pattern_kind": "repair",
+                    },
+                )
+                candidate.observe(
+                    scene_id=episode.scene_id,
+                    episode_id=episode_graph.episode_id,
+                    positive=True,
+                    utility_delta=0.08,
+                )
+                candidates.append(candidate)
+
+        if episode_success and len(episode.steps) >= 2:
+            suffix = [step for step in episode.steps[-min(4, len(episode.steps)) :] if step.feedback.success]
+            closure = tuple(_generic_action_text(step) for step in suffix)
+            surface_closure = tuple(_generic_action_text(step, prefer_surface=True) for step in suffix)
+            if len(closure) >= 2:
+                candidate = PromotionCandidate(
+                    candidate_id=f"closure:{domain}:{family}:{'->'.join(_safe_pattern_id(x) for x in closure)}",
+                    candidate_type=CandidateType.WORKFLOW,
+                    summary=f"Closure pattern ({domain}): {' -> '.join(surface_closure)}",
+                    structure={
+                        "workflow": closure,
+                        "surface_workflow": surface_closure,
+                        "task_family": family,
+                        "domain": domain,
+                        "pattern_kind": "closure",
+                    },
+                )
+                candidate.observe(
+                    scene_id=episode.scene_id,
+                    episode_id=episode_graph.episode_id,
+                    positive=True,
+                    utility_delta=0.16,
+                )
+                candidates.append(candidate)
+        return candidates
+
     def _induce_rules(
         self,
         episode_graph: EpisodeGraph,
@@ -1038,6 +1215,8 @@ class LocalGraphMaintainer:
         *,
         episode_success: bool,
     ) -> list[MemoryRule]:
+        if _episode_domain(episode) != "alfworld":
+            return self._induce_generic_rules(episode_graph, episode, episode_success=episode_success)
         adapter = ALFWorldAdapter(scene_label=episode.scene_id)
         family = adapter.infer_task_family(episode.goal)
         goal_roles = adapter.goal_slots(episode.goal)
@@ -1254,6 +1433,134 @@ class LocalGraphMaintainer:
 
         return list(rules.values())
 
+    def _induce_generic_rules(
+        self,
+        episode_graph: EpisodeGraph,
+        episode: EpisodeRecord,
+        *,
+        episode_success: bool,
+    ) -> list[MemoryRule]:
+        family = _task_family(episode)
+        domain = _episode_domain(episode)
+        goal_arity = 1
+        rules: dict[str, MemoryRule] = {}
+        stalled_steps = {
+            step.step_idx
+            for step in episode.steps
+            if not step.feedback.failure_label and not step.feedback.state_delta and not step.feedback.done
+        }
+
+        def upsert_rule(
+            *,
+            rule_type: RuleType,
+            summary: str,
+            progress_state: str,
+            condition: dict,
+            effect: dict,
+            success: bool,
+            stalled: bool = False,
+            utility_delta: float = 0.0,
+        ) -> None:
+            rid = f"{rule_type.value}:{domain}:{family}:{progress_state}:{_condition_signature(condition)}:{_condition_signature(effect)}"
+            rule = rules.get(rid)
+            if rule is None:
+                rule = MemoryRule(
+                    rule_id=rid,
+                    rule_type=rule_type,
+                    summary=summary,
+                    task_family=family,
+                    goal_arity=goal_arity,
+                    progress_state=progress_state,
+                    goal_roles={"object": domain},
+                    condition=dict(condition),
+                    effect=dict(effect),
+                )
+                rules[rid] = rule
+            rule.observe(
+                scene_id=episode.scene_id,
+                episode_id=episode_graph.episode_id,
+                success=success,
+                stalled=stalled,
+                utility_delta=utility_delta,
+            )
+
+        for idx, step in enumerate(episode.steps):
+            progress_state = str(step.state.workflow_stage or "unknown")
+            next_progress_state = str(step.next_state.workflow_stage or progress_state)
+            action = _generic_action_text(step)
+            surface_action = _generic_action_text(step, prefer_surface=True)
+            condition = {
+                "domain": domain,
+                "action_family": step.action.family.value,
+                "progress_state": progress_state,
+                "verb": step.action.verb,
+            }
+            if step.feedback.success and not step.feedback.failure_label:
+                upsert_rule(
+                    rule_type=RuleType.PRECONDITION,
+                    summary=f"Precondition ({domain}): during {progress_state}, prefer {surface_action}.",
+                    progress_state=progress_state,
+                    condition=condition,
+                    effect={
+                        "prefer_action": action,
+                        "surface_action": surface_action,
+                        "to": next_progress_state,
+                    },
+                    success=True,
+                    stalled=step.step_idx in stalled_steps,
+                    utility_delta=0.07,
+                )
+                if next_progress_state != progress_state or step.feedback.done or step.feedback.state_delta:
+                    upsert_rule(
+                        rule_type=RuleType.WORKFLOW,
+                        summary=f"Workflow ({domain}): {progress_state} -> {next_progress_state} via {surface_action}.",
+                        progress_state=progress_state,
+                        condition={"domain": domain, "from": progress_state, "verb": step.action.verb},
+                        effect={
+                            "to": next_progress_state,
+                            "via": step.action.verb,
+                            "prefer_action": action,
+                            "surface_action": surface_action,
+                        },
+                        success=True,
+                        utility_delta=0.12,
+                    )
+                if step.feedback.done:
+                    upsert_rule(
+                        rule_type=RuleType.CLOSURE,
+                        summary=f"Closure ({domain}): {surface_action} finishes the current trajectory.",
+                        progress_state=progress_state,
+                        condition={"domain": domain, "from": progress_state},
+                        effect={"prefer_action": action, "surface_action": surface_action, "to": "done"},
+                        success=True,
+                        utility_delta=0.16,
+                    )
+            else:
+                failure = step.feedback.failure_label or "no_progress"
+                upsert_rule(
+                    rule_type=RuleType.BLOCKED,
+                    summary=f"Blocked ({domain}): avoid {surface_action} under {failure}.",
+                    progress_state=progress_state,
+                    condition={"domain": domain, "failure_label": failure, "from": progress_state},
+                    effect={"block_action": action, "surface_action": surface_action},
+                    success=False,
+                    stalled=step.step_idx in stalled_steps,
+                )
+
+            if idx > 0:
+                prev_step = episode.steps[idx - 1]
+                if prev_step.feedback.failure_label and step.feedback.success:
+                    upsert_rule(
+                        rule_type=RuleType.REPAIR,
+                        summary=f"Repair ({domain}): after {prev_step.feedback.failure_label}, try {surface_action}.",
+                        progress_state=str(prev_step.state.workflow_stage or "unknown"),
+                        condition={"domain": domain, "failure_label": prev_step.feedback.failure_label},
+                        effect={"prefer_action": action, "surface_action": surface_action},
+                        success=True,
+                        utility_delta=0.1,
+                    )
+        return list(rules.values())
+
     def _induce_artifacts(
         self,
         episode_graph: EpisodeGraph,
@@ -1263,6 +1570,14 @@ class LocalGraphMaintainer:
         rules: list[MemoryRule],
         episode_success: bool,
     ) -> list[MemoryArtifact]:
+        if _episode_domain(episode) != "alfworld":
+            return self._induce_generic_artifacts(
+                episode_graph,
+                episode,
+                candidates=candidates,
+                rules=rules,
+                episode_success=episode_success,
+            )
         adapter = ALFWorldAdapter(scene_label=episode.scene_id)
         family = adapter.infer_task_family(episode.goal)
         goal_roles = adapter.goal_slots(episode.goal)
@@ -1651,6 +1966,184 @@ class LocalGraphMaintainer:
                             utility_delta=0.02,
                         )
 
+        return list(artifacts.values())
+
+    def _induce_generic_artifacts(
+        self,
+        episode_graph: EpisodeGraph,
+        episode: EpisodeRecord,
+        *,
+        candidates: list[PromotionCandidate],
+        rules: list[MemoryRule],
+        episode_success: bool,
+    ) -> list[MemoryArtifact]:
+        family = _task_family(episode)
+        domain = _episode_domain(episode)
+        artifacts: dict[str, MemoryArtifact] = {}
+        node_ids_by_signature = {node.signature: node.node_id for node in episode_graph.nodes.values()}
+        edge_refs = {edge.signature for edge in episode_graph.edges}
+        stalled_steps = {
+            step.step_idx
+            for step in episode.steps
+            if not step.feedback.failure_label and not step.feedback.state_delta and not step.feedback.done
+        }
+
+        def upsert_artifact(
+            *,
+            kind: ArtifactKind,
+            summary: str,
+            anchor: dict,
+            payload: dict,
+            success: bool,
+            stalled: bool = False,
+            utility_delta: float = 0.0,
+        ) -> None:
+            aid = f"{kind.value}:{_condition_signature(anchor)}:{_condition_signature(payload)}"
+            artifact = artifacts.get(aid)
+            if artifact is None:
+                artifact = MemoryArtifact(
+                    artifact_id=aid,
+                    kind=kind,
+                    summary=summary,
+                    anchor=dict(anchor),
+                    payload=dict(payload),
+                )
+                artifacts[aid] = artifact
+            artifact.observe(
+                scene_id=episode.scene_id,
+                episode_id=episode_graph.episode_id,
+                success=success,
+                stalled=stalled,
+                utility_delta=utility_delta,
+            )
+
+        for candidate in candidates:
+            pattern_kind = str(candidate.structure.get("pattern_kind", candidate.candidate_type.value))
+            action_patterns = list(_candidate_action_patterns(candidate))
+            for key in ("surface_action", "surface_repair_action"):
+                value = str(candidate.structure.get(key, "") or "").strip()
+                if value:
+                    action_patterns.append(value)
+            for value in candidate.structure.get("surface_workflow", ()) or ():
+                if str(value).strip():
+                    action_patterns.append(str(value).strip())
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=f"Prototype ({domain}): {candidate.summary}",
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "pattern_kind": pattern_kind,
+                    "domain": domain,
+                },
+                payload={
+                    "source": "generic_candidate",
+                    "pattern_kind": pattern_kind,
+                    "structure": dict(candidate.structure),
+                    "action_patterns": list(dict.fromkeys(action_patterns)),
+                },
+                success=candidate.positive >= max(1, candidate.negative),
+                stalled=candidate.stalled > 0,
+                utility_delta=max(candidate.utility, 0.02),
+            )
+
+        for rule in rules:
+            patterns = list(_rule_action_patterns(rule))
+            surface = str(rule.effect.get("surface_action", "") or "").strip()
+            if surface:
+                patterns.append(surface)
+            upsert_artifact(
+                kind=ArtifactKind.RULE,
+                summary=rule.summary,
+                anchor={
+                    "task_family": rule.task_family,
+                    "goal_arity": rule.goal_arity,
+                    "progress_state": rule.progress_state,
+                    "rule_type": rule.rule_type.value,
+                    "domain": domain,
+                },
+                payload={
+                    "source": "generic_rule",
+                    "pattern_kind": rule.rule_type.value,
+                    "rule_type": rule.rule_type.value,
+                    "condition": dict(rule.condition),
+                    "effect": dict(rule.effect),
+                    "action_patterns": list(dict.fromkeys(patterns)),
+                },
+                success=rule.stats.success >= rule.stats.failure,
+                stalled=rule.stats.stalled > 0,
+                utility_delta=max(rule.stats.utility_avg, 0.0),
+            )
+
+        for idx, step in enumerate(episode.steps):
+            progress_state = str(step.state.workflow_stage or "unknown")
+            next_progress_state = str(step.next_state.workflow_stage or progress_state)
+            action = _generic_action_text(step)
+            surface_action = _generic_action_text(step, prefer_surface=True)
+            graph_refs = [
+                signature
+                for signature in (
+                    f"state:{step.state.signature}|temporal|action:{step.action.canonical_str}",
+                    f"action:{step.action.canonical_str}|temporal|state:{step.next_state.signature}",
+                )
+                if signature in edge_refs
+            ]
+            if step.feedback.success and not step.feedback.failure_label:
+                upsert_artifact(
+                    kind=ArtifactKind.PROTOTYPE,
+                    summary=f"Workflow ({domain}): {progress_state} -> {next_progress_state} via {surface_action}.",
+                    anchor={
+                        "task_family": family,
+                        "goal_arity": 1,
+                        "progress_state": progress_state,
+                        "artifact_role": "workflow",
+                        "domain": domain,
+                    },
+                    payload={
+                        "source": "generic_episode_graph",
+                        "pattern_kind": "workflow",
+                        "transition": {"from": progress_state, "to": next_progress_state, "via": step.action.verb},
+                        "action_patterns": list(dict.fromkeys([action, surface_action])),
+                        "graph_refs": graph_refs,
+                        "state_ref": node_ids_by_signature.get(step.state.signature, ""),
+                        "next_state_ref": node_ids_by_signature.get(step.next_state.signature, ""),
+                    },
+                    success=True,
+                    stalled=step.step_idx in stalled_steps,
+                    utility_delta=0.10 if next_progress_state == progress_state else 0.14,
+                )
+
+            diagnosis = step.feedback.failure_label or ("no_progress" if step.step_idx in stalled_steps else "")
+            if not diagnosis:
+                continue
+            repair_patterns: list[str] = []
+            for future_step in episode.steps[idx + 1 : idx + 5]:
+                if future_step.feedback.success:
+                    repair_patterns.extend(_generic_action_patterns(future_step))
+                    break
+            upsert_artifact(
+                kind=ArtifactKind.REFLECTION,
+                summary=f"Reflection ({domain}): during {progress_state}, {diagnosis.replace('_', ' ')} can derail progress.",
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": progress_state,
+                    "failure_signature": diagnosis,
+                    "domain": domain,
+                },
+                payload={
+                    "source": "generic_episode_graph",
+                    "pattern_kind": "failure",
+                    "diagnosis": diagnosis,
+                    "trigger_action": action,
+                    "avoid_patterns": list(dict.fromkeys([action, surface_action])),
+                    "repair_patterns": repair_patterns,
+                    "graph_refs": graph_refs,
+                },
+                success=False,
+                stalled=step.step_idx in stalled_steps,
+                utility_delta=0.10 if repair_patterns else 0.04,
+            )
         return list(artifacts.values())
 
 

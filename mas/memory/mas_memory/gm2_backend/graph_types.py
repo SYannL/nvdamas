@@ -7,6 +7,8 @@ from typing import Any
 
 class Domain(str, Enum):
     ALFWORLD = "alfworld"
+    PDDL = "pddl"
+    FEVER = "fever"
     WEB = "web"
     SCIENCEWORLD = "scienceworld"
 

@@ -58,22 +58,34 @@ class PDDLEnv(BaseEnv):
         env_config: dict[str, Any], 
         max_trials: int = 50
     ):     
+        self.env_config = env_config
+        self.gm3_domain = "pddl"
         self.max_trials = max_trials
         self.last_obs = None
+        self.config: dict[str, Any] = {}
+        self.game_name: str = ""
+        self.problem_index: int | None = None
+        self.difficulty: str = ""
+        self.current_history: list[dict[str, Any]] = []
+        self.last_admissible_commands: list[str] = []
 
     def set_env(self, configs: dict) -> tuple[str, str]: 
         nltk.download('punkt')
         
+        self.config = dict(configs or {})
         self.game_name: str = configs.get('game_name')
         problem_index: int = configs.get('problem_index')
         if self.game_name is None or problem_index is None:
             raise ValueError('Missing attributes in configs.')
+        self.problem_index = int(problem_index)
+        self.difficulty = str(configs.get("difficulty", "") or "")
         
         self.env = pddlgym.make("PDDLEnv{}-v0".format(self.game_name.capitalize()))
         self.env.fix_problem_index(problem_index)
 
         self.reset()
         task_main: str = self._get_goal()
+        self.goal_instruction = task_main
         task_description: str = f'Here is your initial observation: {self._get_obs()}\n**Here is your task: {self._get_goal()}'
         return task_main, task_description  
 
@@ -96,22 +108,49 @@ class PDDLEnv(BaseEnv):
         self.reward = 0
         self.done = False
         self.won = False
+        self.goal_literals_text = [self._literal_to_text(literal) for literal in self.goal_literals]
+        self.current_literals_text = [self._literal_to_text(literal) for literal in self.last_obs.literals]
+        self.last_admissible_commands = self._get_action_space()
+        self.current_history = [
+            {
+                "Step": 0,
+                "Observation": self.init_obs,
+                "Goal": self.goal,
+                "Goal Literals": list(self.goal_literals_text),
+                "Current Literals": list(self.current_literals_text),
+                "Admissible Commands": list(self.last_admissible_commands),
+                "Score": float(self.reward),
+                "Reward": 0.0,
+                "Done": bool(self.done),
+                "Valid": True,
+            }
+        ]
     
     def step(self, action: str):
 
         if 'think' in action:
+            self.steps += 1
+            obs = 'Ok. But you should not think too much!'
+            self.history.append(("action", action))
+            self.history.append(("reward", -1))
+            self.history.append(("state", obs))
+            self.states.append(obs)
+            self.infos["history"] = self.history
+            self.infos["steps"] = self.steps
+            self.infos["state"] = self.states[-1]
+            self._append_gm3_history(action=action, observation=obs, reward=-1, valid=False)
             return 'Ok. But you should not think too much!', -1, self.done
 
         if "check" in action.lower():
             obs = "Valid actions are: " + ", ".join(self._get_action_space())
-            self._update_info(action, obs)
+            self._update_info(action, obs, valid=True)
             self.infos["action_is_valid"] = True
             return self._get_obs(), self.reward, self.done
         
         if "look around" in action.lower():
             obs = [self._literal_to_text(literal).capitalize() for literal in self.last_obs.literals]
             obs = " ".join(obs)
-            self._update_info(action, obs)
+            self._update_info(action, obs, valid=True)
             self.infos["action_is_valid"] = True
             return self._get_obs(), self.reward, self.done
                 
@@ -134,7 +173,7 @@ class PDDLEnv(BaseEnv):
             
             if obs_temp == self.last_obs: 
                 obs = "The action is not valid and therefore takes no effect. You should use `check valid actions.` command to get some clues!"
-                self._update_info(action, obs)
+                self._update_info(action, obs, valid=False)
                 self.infos["action_is_valid"] = False
                 return self._get_obs(), -1, self.done
             else:
@@ -145,7 +184,7 @@ class PDDLEnv(BaseEnv):
                 return self._get_obs(), 1 if self.done else 0, self.done
         else:
             obs = "The action is not valid and therefore takes no effect. You should use `check valid actions.` command to get some clues!"
-            self._update_info(action, obs)
+            self._update_info(action, obs, valid=False)
             self.infos["action_is_valid"] = False
             return self._get_obs(), -1, self.done
 
@@ -202,14 +241,17 @@ class PDDLEnv(BaseEnv):
         self.history.append(("reward", reward))
         self.history.append(("state", obs))
         self.states.append(obs)
+        self.current_literals_text = [self._literal_to_text(literal) for literal in self.last_obs.literals]
+        self.last_admissible_commands = self._get_action_space()
         
         self.infos["goal"] = self.goal
         self.infos["states"] = self.states
         self.infos["history"] = self.history
         self.infos["steps"] = self.steps
         self.infos["state"] = self.states[-1]
+        self._append_gm3_history(action=action, observation=obs, reward=1 if self.done else 0, valid=True)
         
-    def _update_info(self, action, info):
+    def _update_info(self, action, info, *, valid: bool = True):
         self.history.append(("action", action))
         self.history.append(("reward", self.reward))
         self.history.append(("state", info))
@@ -221,6 +263,67 @@ class PDDLEnv(BaseEnv):
         self.infos["history"] = self.history
         self.infos["steps"] = self.steps
         self.infos["state"] = self.states[-1]
+        self.current_literals_text = [self._literal_to_text(literal) for literal in self.last_obs.literals]
+        self.last_admissible_commands = self._get_action_space()
+        self._append_gm3_history(action=action, observation=info, reward=self.reward, valid=valid)
+
+    def _append_gm3_history(self, *, action: str, observation: str, reward: float, valid: bool) -> None:
+        self.current_history.append(
+            {
+                "Step": int(self.steps),
+                "Action": str(action or ""),
+                "Observation": str(observation or ""),
+                "Goal": self.goal,
+                "Goal Literals": list(getattr(self, "goal_literals_text", []) or []),
+                "Current Literals": list(getattr(self, "current_literals_text", []) or []),
+                "Admissible Commands": list(getattr(self, "last_admissible_commands", []) or []),
+                "Score": float(self.reward),
+                "Reward": float(reward),
+                "Done": bool(self.done),
+                "Valid": bool(valid),
+            }
+        )
+
+    def has_exportable_history(self) -> bool:
+        return bool(getattr(self, "current_history", None))
+
+    def export_gm2_history(
+        self,
+        output_dir: str,
+        *,
+        model_id: str = "",
+        status_override: str | None = None,
+    ) -> str | None:
+        if not self.has_exportable_history():
+            return None
+        final_done = bool(self.current_history[-1].get("Done", False)) if self.current_history else False
+        final_score = float(self.reward or 0.0)
+        status = status_override or ("success" if final_done else "fail")
+        payload = {
+            "last_updated": __import__("time").strftime("%Y%m%d_%H%M%S"),
+            "game_file": "",
+            "game_name": str(getattr(self, "game_name", "") or "pddl"),
+            "game_index": str(getattr(self, "problem_index", "unknown")),
+            "difficulty": str(getattr(self, "difficulty", "") or ""),
+            "game_task": str(getattr(self, "goal", "") or ""),
+            "goal_literals": list(getattr(self, "goal_literals_text", []) or []),
+            "status": status,
+            "step_count": max(len(self.current_history) - 1, 0),
+            "final_score": final_score,
+            "history": list(self.current_history),
+            "model_id": model_id,
+            "gm3_domain": self.gm3_domain,
+            "task_family": f"pddl:{getattr(self, 'game_name', 'unknown')}",
+            "task_config": dict(getattr(self, "config", {}) or {}),
+        }
+        out_dir = os.path.abspath(output_dir)
+        os.makedirs(out_dir, exist_ok=True)
+        safe_game = str(getattr(self, "game_name", "pddl") or "pddl").replace("/", "_")
+        safe_index = str(getattr(self, "problem_index", "unknown")).replace("/", "_")
+        out_path = os.path.join(out_dir, f"history_{safe_game}_{safe_index}_{status}.json")
+        with open(out_path, "w", encoding="utf-8") as writer:
+            json.dump(payload, writer, ensure_ascii=False, indent=2)
+        return out_path
     
     def _constraint_satisfaction_metric(self, obs_literals, goal_literals):
         satisfied = 0

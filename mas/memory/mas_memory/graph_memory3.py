@@ -158,6 +158,21 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             for cmd in (getattr(env_ref, "last_admissible_commands", []) or [])
             if str(cmd).strip()
         ]
+        domain = self._infer_external_domain(task_config or {}, env_ref)
+        if domain != "alfworld":
+            self._gm3_debug_append(
+                "action_hook_observe",
+                step_index=step_index,
+                payload={
+                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "processed_action": str(processed_action or ""),
+                    "final_action": str(processed_action or ""),
+                    "changed": False,
+                    "reason": f"gm3_prompt_only_for_{domain}",
+                    "admissible_sample": admissible[:20],
+                },
+            )
+            return str(processed_action or "")
         query = self._build_external_query(
             env_ref=env_ref,
             task_config=task_config,
@@ -671,6 +686,11 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
 
     def _gm3_phase_items(self, *, query: Any, target: str, tool: str, destination: str) -> list[str]:
         progress = str(getattr(query, "progress_state", "") or "")
+        scene_id = str(getattr(query, "scene_id", "") or "")
+        if scene_id.startswith("pddl:"):
+            return [f"PDDL graph stage={progress or 'unknown'}; prefer current valid actions that previous local/global traces linked to goal-literal progress."]
+        if scene_id.startswith("fever:"):
+            return [f"FEVER graph stage={progress or 'unknown'}; use remembered Search -> Lookup -> Finish workflow/failure evidence as prompt guidance only."]
         held = int(getattr(query, "held_relevant_count", 0) or 0)
         visible = bool(getattr(query, "goal_object_matches_visible", False))
         items: list[str] = []
@@ -766,6 +786,43 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 if actions:
                     queue = " -> ".join(f"`{action}`" for action in actions)
                     rendered.append(f"local graph links target_object={target} to source type `{source_base_norm}`; current admissible queue: {queue}.")
+        for artifact in (artifacts.values() if isinstance(artifacts, dict) else artifacts):
+            payload = getattr(artifact, "payload", {}) or {}
+            anchor = getattr(artifact, "anchor", {}) or {}
+            domain = self._gm3_norm(str(anchor.get("domain", "") or payload.get("domain", "") or ""))
+            if domain not in {"pddl", "fever"} and not task_family.startswith(("pddl_", "fever_")):
+                continue
+            artifact_family = self._gm3_norm(str(anchor.get("task_family", "") or ""))
+            if task_family and artifact_family and artifact_family != task_family:
+                continue
+            pattern_kind = self._gm3_norm(str(payload.get("pattern_kind", "") or anchor.get("pattern_kind", "") or ""))
+            if pattern_kind in {"scene_relation", "source_type_prior"}:
+                continue
+            action_patterns = [
+                str(item).strip()
+                for item in (
+                    list(payload.get("action_patterns", []) or [])
+                    + list(payload.get("repair_patterns", []) or [])
+                    + list(payload.get("avoid_patterns", []) or [])
+                )
+                if str(item).strip()
+            ]
+            mapped = ""
+            for pattern in action_patterns:
+                mapped = self._gm3_first_admissible_action_in_text(pattern, admissible)
+                if mapped:
+                    break
+                pattern_norm = self._gm3_norm(pattern)
+                mapped = next((cmd for cmd in admissible if self._gm3_norm(cmd) == pattern_norm), "")
+                if mapped:
+                    break
+            text = self._gm3_clean(str(getattr(artifact, "summary", "") or ""))
+            if not text:
+                continue
+            if mapped:
+                rendered.append(f"{text} Current admissible grounding: `{mapped}`.")
+            elif pattern_kind in {"workflow", "closure", "rule", "precondition"}:
+                rendered.append(text)
         return self._gm3_dedupe(rendered, 5)
 
     def _gm3_source_role_items(
