@@ -9,6 +9,7 @@ from .gmemory_graph import GMemoryGraphMASMemory
 from .GMemory import GMemory
 from .selectivemem import SelectiveMemMASMemory
 from .graph_memory2 import GraphMemory2MASMemory
+from .graph_memory3 import GraphMemory3MASMemory
 
 __all__ = [
     'MASMemoryBase',
@@ -22,4 +23,5 @@ __all__ = [
     'GMemory',
     'SelectiveMemMASMemory',
     'GraphMemory2MASMemory',
+    'GraphMemory3MASMemory',
 ]

@@ -421,9 +421,9 @@ if __name__ == '__main__':
             'hybrid_repair',
             'lightweight_repair',
             'graph_policy',
+            'graph_policy_rerank',
             'graph_policy_feedback',
-            'graph_policy_sourcehint',
-            'graph_policy_sourcehint_feedback',
+            'graph_policy_candidate',
             'graph_policy_quality',
         ],
         help='GraphMemory2 only: retrieval mode for external graph memory artifacts.',
@@ -456,6 +456,17 @@ if __name__ == '__main__':
         type=float,
         default=0.35,
         help='GraphMemory2 only: placeholder threshold for local-to-global promotion logic.',
+    )
+    parser.add_argument(
+        '--gm3_use_textgrad',
+        action='store_true',
+        help='GraphMemory3 only: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.',
+    )
+    parser.add_argument(
+        '--gm3_textgrad_engine',
+        type=str,
+        default='',
+        help='GraphMemory3 only: TextGrad engine name, e.g. experimental:openai/qwen32b-api.',
     )
 
     args = parser.parse_args()
@@ -533,7 +544,7 @@ if __name__ == '__main__':
         hop=args.hop,
         task_name=_mem_task_name,
     )
-    if mas_memory_type == "graph_memory2":
+    if mas_memory_type in {"graph_memory2", "graph_memory3"}:
         task_configs.mem_config.update(
             gm2_memory_dir=str(args.gm2_memory_dir or "").strip(),
             gm2_repo_root=str(args.gm2_repo_root or "").strip(),
@@ -544,6 +555,11 @@ if __name__ == '__main__':
             gm2_freeze_memory=bool(args.gm2_freeze_memory),
             gm2_promotion_threshold=float(args.gm2_promotion_threshold),
         )
+        if mas_memory_type == "graph_memory3":
+            task_configs.mem_config.update(
+                gm3_use_textgrad=bool(args.gm3_use_textgrad),
+                gm3_textgrad_engine=str(args.gm3_textgrad_engine or "").strip(),
+            )
         if args.gm2_enable_overlay:
             task_configs.mem_config["gm2_enable_overlay"] = True
     if task == "alfworld":

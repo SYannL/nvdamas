@@ -461,6 +461,51 @@ def _artifact_specificity(artifact: MemoryArtifact) -> float:
     return min(score, 0.35)
 
 
+def _is_low_information_global_rule(rule: MemoryRule) -> bool:
+    """Filter rules that are true but too generic to transfer usefully.
+
+    For ALFWorld, rules such as "within search, open advances the search" are
+    often correct but not discriminative. They crowd out the more useful global
+    memories: workflow skeletons, source-type priors, and concrete phase
+    transitions. Keep this filter conservative so local memory remains intact.
+    """
+    summary = str(rule.summary or "").lower()
+    progress = str(rule.progress_state or "").lower()
+    effect = rule.effect or {}
+    prefer_action = str(effect.get("prefer_action", "") or "").lower()
+    via = str(effect.get("via", "") or "").lower()
+    action_role = str(effect.get("action_role", "") or "").lower()
+
+    if "within search" in summary and via in {"open", "go", "look", "examine"}:
+        return True
+    if progress.startswith("search") and via in {"open", "go", "look", "examine"}:
+        return True
+    if progress.startswith("search") and prefer_action.startswith(("open(", "go(", "look(", "examine(")):
+        return True
+    if progress.startswith("search") and action_role in {"container", "support_surface", "unknown"}:
+        return True
+    return False
+
+
+def _is_low_information_global_artifact(artifact: MemoryArtifact) -> bool:
+    summary = str(artifact.summary or "").lower()
+    payload = artifact.payload or {}
+    pattern_kind = str(payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
+    source_base = str(payload.get("source_base", "") or "")
+    source_role = str(payload.get("source_role", "") or "")
+
+    if pattern_kind == "source_type_prior":
+        return not bool(source_base or source_role)
+    if "within search" in summary and "open" in summary and "advances" in summary:
+        return True
+    if summary.strip() in {
+        "prototype: workflow: within search, open supports progress.",
+        "prototype: within search, open supports progress.",
+    }:
+        return True
+    return False
+
+
 def _candidate_action_patterns(candidate: PromotionCandidate) -> tuple[str, ...]:
     patterns: list[str] = []
     for key in ("action", "repair_action"):
@@ -733,6 +778,61 @@ class LocalGraphMaintainer:
             if _keep_candidate(candidate):
                 refined_candidates[candidate_id] = candidate
         memory.candidates = refined_candidates
+        # additional refinement for artifacts: unify object_location_prior entries and remove low-support noise
+        import os
+        try:
+            gm3_min_support = int(os.getenv("NV_GM3_MIN_ARTIFACT_SUPPORT", "2"))
+        except Exception:
+            gm3_min_support = 2
+        try:
+            gm3_min_confidence = float(os.getenv("NV_GM3_MIN_ARTIFACT_CONFIDENCE", "0.4"))
+        except Exception:
+            gm3_min_confidence = 0.4
+        unified: dict = {}
+        to_remove: set[str] = set()
+        for aid, artifact in list(memory.artifacts_by_id.items()):
+            try:
+                payload = artifact.payload or {}
+                pattern_kind = str(payload.get("pattern_kind", "") or "")
+                relation_kind = str(payload.get("relation_kind", "") or "")
+                object_role = str(payload.get("object_role", "") or "")
+                # unify only object_location_prior; skip others
+                if pattern_kind == "scene_relation" and relation_kind == "object_location_prior":
+                    base = str(payload.get("source_base", "") or "")
+                    inst = str(payload.get("source_instance", "") or "")
+                    # filter low-support noisy artifacts
+                    support = artifact.stats.support
+                    conf = artifact.stats.confidence
+                    if support < gm3_min_support and conf < gm3_min_confidence:
+                        to_remove.add(aid)
+                        continue
+                    # Local graph should preserve exact source instances when
+                    # available. Cross-scene abstraction happens later during
+                    # global promotion through source_type_prior artifacts.
+                    key = (pattern_kind, relation_kind, object_role, base, inst or base)
+                    existing = unified.get(key)
+                    if existing is None:
+                        unified[key] = artifact
+                    else:
+                        # prefer artifact with higher support and confidence
+                        if (artifact.stats.support > existing.stats.support) or (
+                            artifact.stats.support == existing.stats.support
+                            and artifact.stats.confidence > existing.stats.confidence
+                        ):
+                            to_remove.add(existing.artifact_id)
+                            unified[key] = artifact
+                        else:
+                            to_remove.add(aid)
+                else:
+                    # optionally filter general low-support/low-confidence artifacts
+                    support = artifact.stats.support
+                    conf = artifact.stats.confidence
+                    if support < gm3_min_support and conf < gm3_min_confidence:
+                        to_remove.add(aid)
+            except Exception:
+                continue
+        for aid in to_remove:
+            memory.artifacts_by_id.pop(aid, None)
         return memory
 
     def _induce_candidates(
@@ -1753,6 +1853,8 @@ class GlobalPromoter:
                 merged.conflict = max(merged.conflict, rule.conflict)
 
         for rule in aggregated_rules.values():
+            if _is_low_information_global_rule(rule):
+                continue
             min_scene_coverage = self._rule_min_scene_coverage(rule)
             if (
                 rule.support >= 3
@@ -1786,6 +1888,8 @@ class GlobalPromoter:
                 merged.conflict = max(merged.conflict, artifact.conflict)
 
         for artifact in aggregated_artifacts.values():
+            if _is_low_information_global_artifact(artifact):
+                continue
             min_scene_coverage = self._artifact_min_scene_coverage(artifact)
             pattern_kind = str(artifact.payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
             if pattern_kind == "source_type_prior":

@@ -488,14 +488,18 @@ def run_tasks(
                 task_path = f.name
             with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
                 result_path = f.name
+            stdout_path = result_path + ".stdout"
+            stderr_path = result_path + ".stderr"
             try:
                 t_sub0 = time.perf_counter()
-                proc = subprocess.run(
-                    [sys.executable, script_path, "--alfworld-worker", args_path, task_path, result_path],
-                    capture_output=True,
-                    timeout=600,
-                    cwd=os.path.dirname(os.path.dirname(os.path.dirname(script_path))),
-                )
+                with open(stdout_path, "wb") as stdout_fh, open(stderr_path, "wb") as stderr_fh:
+                    proc = subprocess.run(
+                        [sys.executable, script_path, "--alfworld-worker", args_path, task_path, result_path],
+                        stdout=stdout_fh,
+                        stderr=stderr_fh,
+                        timeout=600,
+                        cwd=os.path.dirname(os.path.dirname(os.path.dirname(script_path))),
+                    )
                 sub_wall_s = time.perf_counter() - t_sub0
                 if timing_profile_enabled(global_config=task_manager.mem_config):
                     _plog = getattr(task_manager.recorder, "working_dir", None) or task_manager.mem_config.get(
@@ -514,8 +518,16 @@ def run_tasks(
                         },
                     )
                 if proc.returncode != 0:
-                    stderr_text = (proc.stderr or b"").decode(errors="replace")
-                    stdout_text = (proc.stdout or b"").decode(errors="replace")
+                    try:
+                        with open(stderr_path, "rb") as f:
+                            stderr_text = f.read().decode(errors="replace")
+                    except Exception:
+                        stderr_text = ""
+                    try:
+                        with open(stdout_path, "rb") as f:
+                            stdout_text = f.read().decode(errors="replace")
+                    except Exception:
+                        stdout_text = ""
                     # Prefer tail: real traceback usually appears at the end.
                     tail = (stderr_text or stdout_text)[-4000:]
                     # Also persist full stderr/stdout for inspection.
@@ -574,6 +586,31 @@ def run_tasks(
                         )
                 # Worker already logged task_begin/task_end to same log_dir
             except subprocess.TimeoutExpired as exc:
+                try:
+                    with open(stderr_path, "rb") as f:
+                        stderr_text = f.read().decode(errors="replace")
+                except Exception:
+                    stderr_text = ""
+                try:
+                    with open(stdout_path, "rb") as f:
+                        stdout_text = f.read().decode(errors="replace")
+                except Exception:
+                    stdout_text = ""
+                try:
+                    log_dir = getattr(task_manager.recorder, "working_dir", None) or task_manager.mem_config.get("working_dir")  # type: ignore[assignment]
+                    if log_dir:
+                        os.makedirs(log_dir, exist_ok=True)
+                        crash_path = os.path.join(
+                            log_dir,
+                            f"subprocess_timeout_task{task_id+1:04d}.log",
+                        )
+                        with open(crash_path, "w", encoding="utf-8") as f:
+                            f.write("=== STDERR ===\n")
+                            f.write(stderr_text)
+                            f.write("\n\n=== STDOUT ===\n")
+                            f.write(stdout_text)
+                except Exception:
+                    pass
                 # subprocess.run 超时：此前未写入父进程计时，这里补一条，保证每个 task 都有墙钟记录
                 sub_wall_s = time.perf_counter() - t_sub0
                 if timing_profile_enabled(global_config=task_manager.mem_config):
@@ -1293,8 +1330,9 @@ def rebuild_graph_memory2_global_from_locals(
     global_dir: str,
     promotion_threshold: float,
     gm2_repo_root: str = "",
+    memory_namespace: str = "graph_memory2",
 ) -> None:
-    """Rebuild shared GM2 global memory from dynamic local graph_memory2 artifacts."""
+    """Rebuild shared GM2/GM3 global memory from dynamic local graph artifacts."""
     try:
         from mas.memory.mas_memory.gm2_backend.build_memory_graph import _global_to_dict
         from mas.memory.mas_memory.gm2_backend.construction_graph import GlobalPromoter
@@ -1307,10 +1345,10 @@ def rebuild_graph_memory2_global_from_locals(
 
     locals_loaded = []
     for local_root in local_dirs:
-        pdir = Path(local_root) / "graph_memory2"
+        pdir = Path(local_root) / memory_namespace
         for path in sorted(pdir.glob("local_*.json")):
             locals_loaded.append(load_local_memory(str(path)))
-    out_dir = Path(global_dir) / "graph_memory2"
+    out_dir = Path(global_dir) / memory_namespace
     out_dir.mkdir(parents=True, exist_ok=True)
     promoter = GlobalPromoter(score_threshold=float(promotion_threshold))
     global_memory = promoter.promote(
@@ -1335,8 +1373,8 @@ def rebuild_graph_memory2_global_from_locals(
         json.dump(summary, writer, ensure_ascii=False, indent=2)
 
 
-def reset_graph_memory2_artifacts_once(memory_dirs: list[str], owner_scenes: list[str]) -> None:
-    """Start GM2 from empty known artifacts without deleting run/log directories."""
+def reset_graph_memory2_artifacts_once(memory_dirs: list[str], owner_scenes: list[str], memory_namespace: str = "graph_memory2") -> None:
+    """Start GM2/GM3 from empty known artifacts without deleting run/log directories."""
     try:
         from mas.memory.mas_memory.gm2_backend.build_memory_graph import _global_to_dict, _local_to_dict
         from mas.memory.mas_memory.gm2_backend.graph_types import GlobalGraphMemory, LocalGraphMemory
@@ -1344,7 +1382,7 @@ def reset_graph_memory2_artifacts_once(memory_dirs: list[str], owner_scenes: lis
         raise RuntimeError("GraphMemory2 reset needs vendored gm2_backend graph modules.") from exc
 
     for memory_dir, scene in zip(memory_dirs, owner_scenes):
-        pdir = Path(memory_dir) / "graph_memory2"
+        pdir = Path(memory_dir) / memory_namespace
         pdir.mkdir(parents=True, exist_ok=True)
         with (pdir / "episodes.jsonl").open("w", encoding="utf-8"):
             pass
@@ -1587,8 +1625,7 @@ def main() -> None:
             "graph_policy",
             "graph_policy_rerank",
             "graph_policy_feedback",
-            "graph_policy_sourcehint",
-            "graph_policy_sourcehint_feedback",
+            "graph_policy_candidate",
             "graph_policy_quality",
         ],
         help="GraphMemory2 retrieval mode.",
@@ -1602,6 +1639,8 @@ def main() -> None:
     )
     parser.add_argument("--gm2_enable_overlay", action="store_true", help="GraphMemory2: include per-episode overlay notes.")
     parser.add_argument("--gm2_promotion_threshold", type=float, default=0.35, help="GraphMemory2 global promotion threshold.")
+    parser.add_argument("--gm3_use_textgrad", action="store_true", help="GraphMemory3: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.")
+    parser.add_argument("--gm3_textgrad_engine", type=str, default="", help="GraphMemory3: TextGrad engine name, e.g. experimental:openai/qwen32b-api.")
     parser.add_argument(
         "--mt_task_a_train_jsonl",
         type=str,
@@ -1778,10 +1817,12 @@ def main() -> None:
     local_b_dir = os.path.join(local_dir, task_b_label)
     ensure_dir(local_a_dir)
     ensure_dir(local_b_dir)
-    if args.reset_memory and args.mas_memory == "graph_memory2" and args.gm2_dynamic_graph:
+    gm_graph_memory_names = {"graph_memory2", "graph_memory3"}
+    if args.reset_memory and args.mas_memory in gm_graph_memory_names and args.gm2_dynamic_graph:
         reset_graph_memory2_artifacts_once(
             memory_dirs=[local_a_dir, local_b_dir, global_dir],
             owner_scenes=[task_a_label, task_b_label, "global"],
+            memory_namespace=args.mas_memory,
         )
 
     def build_manager(task_name: str, working_dir: str, log_dir: str, tasks_override: list[dict] | None = None) -> TaskManager:
@@ -1808,7 +1849,7 @@ def main() -> None:
     alfworld_mem_overrides = {"entity_graph_persist_every": 3} if args.dataset_family == "alfworld" else {}
     alfworld_mas_overrides = {"insights_topk": 1} if args.dataset_family == "alfworld" else {}
     gm2_common_extras: dict[str, Any] = {}
-    if args.mas_memory == "graph_memory2":
+    if args.mas_memory in gm_graph_memory_names:
         gm2_common_extras.update(
             gm2_dynamic_graph=bool(args.gm2_dynamic_graph),
             gm2_repo_root=str(args.gm2_repo_root or "").strip(),
@@ -1816,12 +1857,17 @@ def main() -> None:
             gm2_promotion_threshold=float(args.gm2_promotion_threshold),
             gm2_shared_global_dir=global_dir,
         )
+        if args.mas_memory == "graph_memory3":
+            gm2_common_extras.update(
+                gm3_use_textgrad=bool(args.gm3_use_textgrad),
+                gm3_textgrad_engine=str(args.gm3_textgrad_engine or "").strip(),
+            )
         if args.gm2_enable_overlay:
             gm2_common_extras["gm2_enable_overlay"] = True
     train_mem_extras = {**alfworld_mem_overrides, **mem_profile_extras, **gm2_common_extras}
 
     def apply_gm2_scene_config(mgr: TaskManager, scene: str, *, settings: str = "local_only", freeze: bool = False) -> None:
-        if args.mas_memory != "graph_memory2":
+        if args.mas_memory not in gm_graph_memory_names:
             return
         mgr.mem_config.update(
             gm2_owner_scene=scene,
@@ -2638,12 +2684,13 @@ def main() -> None:
             model_name=args.model,
             snapshot_tag=None,
         )
-    elif args.mas_memory == "graph_memory2" and args.gm2_dynamic_graph:
+    elif args.mas_memory in gm_graph_memory_names and args.gm2_dynamic_graph:
         rebuild_graph_memory2_global_from_locals(
             local_dirs=[local_a_dir, local_b_dir],
             global_dir=global_dir,
             promotion_threshold=float(args.gm2_promotion_threshold),
             gm2_repo_root=args.gm2_repo_root,
+            memory_namespace=args.mas_memory,
         )
     elif args.mas_memory == "empty":
         # Empty is the no-memory baseline. There is no global memory to build

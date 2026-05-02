@@ -325,6 +325,8 @@ class AutoGen(MetaMAS):
                     parts=_ma_parts,
                 )
             tries = 0
+            action_raw = ""
+            action = ""
             self.notify_observers(f"[detail][step {i + 1}] solver.input:\n{user_prompt}")
             
             t0 = time.perf_counter()
@@ -334,6 +336,8 @@ class AutoGen(MetaMAS):
                     self.notify_observers(f"[detail][step {i + 1}] solver.output.raw.try_{tries + 1}: {action_raw}")
                     action: str = action_raw
                     if action == '':
+                        self.notify_observers(f"[detail][step {i + 1}] solver.empty_output.try_{tries + 1}")
+                        tries += 1
                         continue
                     action = env.process_action(action)
                     self.notify_observers(f"[detail][step {i + 1}] solver.output.processed.try_{tries + 1}: {action}")
@@ -343,6 +347,8 @@ class AutoGen(MetaMAS):
                     if not self._quiet:
                         print(f'Error during execution of solver agent: {e}')
                 tries += 1
+            if not action:
+                raise RuntimeError(f"solver failed to produce an action after {tries} tries at step {i + 1}")
             if prof:
                 row["solver_try_loop_s"] = time.perf_counter() - t0
 
@@ -383,8 +389,10 @@ class AutoGen(MetaMAS):
                         ),
                         prompt_role="ground_truth",
                         parts=_ma_parts_gt,
-                    )
+                )
                 tries = 0
+                action_raw = ""
+                action = ""
                 self.notify_observers(f"[detail][step {i + 1}] ground_truth.input:\n{user_prompt}")
                 t0_gt = time.perf_counter()
                 while tries < 3:
@@ -393,6 +401,8 @@ class AutoGen(MetaMAS):
                         self.notify_observers(f"[detail][step {i + 1}] ground_truth.output.raw.try_{tries + 1}: {action_raw}")
                         action: str = action_raw
                         if action == '':
+                            self.notify_observers(f"[detail][step {i + 1}] ground_truth.empty_output.try_{tries + 1}")
+                            tries += 1
                             continue
                         action = env.process_action(action)
                         self.notify_observers(f"[detail][step {i + 1}] ground_truth.output.processed.try_{tries + 1}: {action}")
@@ -404,6 +414,8 @@ class AutoGen(MetaMAS):
                         if not self._quiet:
                             print(f'Error during execution of ground truth agent: {e}')
                     tries += 1
+                if not action:
+                    raise RuntimeError(f"ground_truth failed to produce an action after {tries} tries at step {i + 1}")
                 if prof:
                     row["ground_truth_try_loop_s"] = time.perf_counter() - t0_gt
                 name: str = ground_truth.name

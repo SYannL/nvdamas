@@ -2,6 +2,7 @@ def get_model_type(model_name: str) -> str:
     
     valid_model_types: list[str] = [
         'gpt-4o-mini', 
+        'qwen4b-api',
         'qwen32b-api',
         'qwen2.5-7b', 
         'qwen2.5-14b',

@@ -10,6 +10,18 @@ def _tokenize(text: str) -> set[str]:
 
 
 def _score_query_overlap(query: str, message: MASMessage) -> float:
+    """
+    Compute a similarity score between the query and a memory message.
+
+    Instead of a simple intersection ratio, this uses a weighted F1‑like measure:
+
+    - The numerator is twice the number of overlapping tokens.
+    - The denominator is the total number of tokens in the query plus the number of
+      unique tokens in the memory message. This penalizes messages that contain
+      many unrelated tokens and rewards those with concise overlap.
+
+    If either side has no tokens, returns 0.0.
+    """
     query_tokens = _tokenize(query)
     if not query_tokens:
         return 0.0
@@ -24,7 +36,8 @@ def _score_query_overlap(query: str, message: MASMessage) -> float:
     if not hay_tokens:
         return 0.0
     overlap = len(query_tokens & hay_tokens)
-    return overlap / max(len(query_tokens), 1)
+    # Weighted F1: 2 * |intersection| / (|query| + |message|)
+    return (2.0 * overlap) / (len(query_tokens) + len(hay_tokens))
 
 
 def rank_messages_for_query(

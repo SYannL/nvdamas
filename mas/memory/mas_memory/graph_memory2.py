@@ -58,6 +58,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
     _gm2_feedback_stats: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _gm2_episode_feedback_items: dict[str, dict[str, Any]] = field(default_factory=dict, init=False, repr=False)
     _gm2_quality_last_action_candidates: list[str] = field(default_factory=list, init=False, repr=False)
+    _gm2_quality_source_prior_candidates: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
     _gm2_graph_policy_source_key: str = field(default="", init=False, repr=False)
     _gm2_graph_policy_source_queue: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
     _gm2_graph_policy_next_source_action: str = field(default="", init=False, repr=False)
@@ -93,6 +94,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         self._gm2_graph_policy_source_key = ""
         self._gm2_graph_policy_source_queue = []
         self._gm2_graph_policy_next_source_action = ""
+        self._gm2_quality_source_prior_candidates = []
         self._gm2_debug_current_task = str(task_main or "")
         self._gm2_debug_last_step = 0
         self._gm2_debug_env_step = 0
@@ -207,8 +209,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
         shared_global_dir = str(self.global_config.get("gm2_shared_global_dir", "") or "").strip()
         if shared_global_dir:
             shared_path = Path(shared_global_dir).expanduser()
-            if shared_path.name != "graph_memory2":
-                shared_path = shared_path / "graph_memory2"
+            if shared_path.name != self.namespace:
+                shared_path = shared_path / self.namespace
             shared_path.mkdir(parents=True, exist_ok=True)
             self._external_shared_global_dir = shared_path
 
@@ -221,7 +223,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
             add(path)
             for candidate in (path, *path.parents):
-                if candidate.name == "graph_memory2":
+                if candidate.name == self.namespace:
                     add(candidate)
                     # Full nvdamas runs store GM2 artifacts as:
                     #   .../memory/graph_memory2/local/<scene>/graph_memory2/local_<scene>.json
@@ -235,7 +237,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             for root in _memory_search_roots(path):
                 for local_file in sorted(root.glob("local_*.json")):
                     files.setdefault(str(local_file), local_file)
-                for local_file in sorted(root.glob("local/*/graph_memory2/local_*.json")):
+                for local_file in sorted(root.glob(f"local/*/{self.namespace}/local_*.json")):
                     files.setdefault(str(local_file), local_file)
             return list(files.values())
 
@@ -244,7 +246,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 direct = root / "global_memory.json"
                 if direct.exists():
                     return direct
-                nested = root / "global" / "graph_memory2" / "global_memory.json"
+                nested = root / "global" / self.namespace / "global_memory.json"
                 if nested.exists():
                     return nested
             return None
@@ -297,19 +299,18 @@ class GraphMemory2MASMemory(MASMemoryBase):
         self._external_enabled = True
         self.refresh_each_step = True
 
-    @staticmethod
-    def _gm2_local_artifact_scene(path: Path) -> str:
+    def _gm2_local_artifact_scene(self, path: Path) -> str:
         """Return the scene owned by a local GM2 artifact directory.
 
         Full collab runs store per-scene memory under:
-            .../graph_memory2/local/<scene>/graph_memory2/
+            .../<memory_name>/local/<scene>/<memory_name>/
 
         Workers should not load or persist other scenes' local_*.json files inside
         this directory. Older runs may contain such stale cross-scene copies, and
         loading them by scene name can overwrite the real local graph.
         """
         try:
-            if path.name == "graph_memory2" and path.parent.parent.name == "local":
+            if path.name == self.namespace and path.parent.parent.name == "local":
                 return path.parent.name
         except Exception:
             return ""
@@ -379,8 +380,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 "graph_policy",
                 "graph_policy_rerank",
                 "graph_policy_feedback",
-                "graph_policy_sourcehint",
-                "graph_policy_sourcehint_feedback",
+                "graph_policy_candidate",
                 "graph_policy_quality",
             }
         )
@@ -637,12 +637,13 @@ class GraphMemory2MASMemory(MASMemoryBase):
             # static memory evidence together below. Keeping support_text empty
             # avoids duplicating routed evidence in the final prompt.
             support_text = ""
-        elif self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_feedback"}:
+        elif self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_feedback", "graph_policy_candidate"}:
             support_text = self._render_graph_policy_evidence(
                 query=query,
                 bundle=bundle,
                 env_ref=kargs.get("env_ref"),
                 local_memory=local_memory,
+                global_memory=global_memory,
             ).strip()
         else:
             support_text = bundle.to_planner_text(
@@ -684,6 +685,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
                     "bundle": self._gm2_debug_bundle_snapshot(bundle),
                     "rendered_prompt_sections": {},
+                    "source_priority_candidates": self._gm2_debug_jsonable(self._gm2_quality_source_prior_candidates),
                     "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
                     "next_source_action": self._gm2_graph_policy_next_source_action,
                 },
@@ -744,6 +746,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         "insights": len(insights),
                     },
                 },
+                "source_priority_candidates": self._gm2_debug_jsonable(self._gm2_quality_source_prior_candidates),
                 "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
                 "next_source_action": self._gm2_graph_policy_next_source_action,
             },
@@ -952,6 +955,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             "graph_policy",
             "graph_policy_rerank",
             "graph_policy_feedback",
+            "graph_policy_candidate",
             "graph_policy_quality",
         }
         if self._external_retrieval_mode not in action_modes or not self._external_enabled:
@@ -1000,7 +1004,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             )
             return _debug_return(delivery_repair, "delivery_repair")
 
-        if self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_feedback", "graph_policy_quality"} and self._is_concrete_alfworld_action(
+        if self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_feedback", "graph_policy_candidate", "graph_policy_quality"} and self._is_concrete_alfworld_action(
             processed_action
         ):
             object_guard = self._deterministic_object_guard_repair(
@@ -1087,10 +1091,23 @@ class GraphMemory2MASMemory(MASMemoryBase):
             self._external_error = "last lightweight_repair=no_deterministic_repair"
             return processed_action
 
-        if self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank"}:
+        if self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_candidate"}:
             if processed_admissible:
                 self._external_error = f"last {self._external_retrieval_mode}=already_admissible"
                 return _debug_return(processed_admissible, "already_admissible")
+            if self._external_retrieval_mode == "graph_policy":
+                phase_action = self._gm2_graph_policy_phase_fallback_action(
+                    env_ref=env_ref,
+                    task_config=task_config or {},
+                    step_index=step_index,
+                    admissible_actions=admissible,
+                )
+                if phase_action:
+                    self._external_error = (
+                        "last graph_policy=phase_fallback_action; "
+                        f"selected={phase_action}"
+                    )
+                    return _debug_return(phase_action, "phase_fallback_action")
             freeform_text = self._normalize_search_text_for_projection(
                 " ".join(str(part or "") for part in (raw_response, processed_action))
             )
@@ -1681,80 +1698,6 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
         return f"think: I should not use {obj_base} because the target object is {target}; continue searching for an exact {target}."
 
-    def _gm2_graph_policy_source_queue_repair(
-        self,
-        *,
-        processed_action: str,
-        admissible_actions: list[str],
-        env_ref: Any,
-    ) -> str | None:
-        """Narrowly redirect broad source sweeps to the graph-policy source queue.
-
-        The prompt renderer maintains a per-episode queue of target-source
-        candidates that are both local-graph supported and currently
-        admissible. If the solver starts a broad cabinet/drawer sweep while a
-        non-container queued action is still available, use that queued action.
-        This is intentionally limited to search/navigation actions and only
-        affects graph_policy modes.
-        """
-        queued = str(self._gm2_graph_policy_next_source_action or "").strip()
-        if not queued:
-            return None
-        normalized = {self._normalize_action_text(cmd): cmd for cmd in admissible_actions}
-        queued_admissible = normalized.get(self._normalize_action_text(queued))
-        if not queued_admissible:
-            return None
-
-        processed_norm = self._normalize_action_text(processed_action).replace("_", " ")
-        queued_norm = self._normalize_action_text(queued_admissible).replace("_", " ")
-        if processed_norm == queued_norm:
-            return None
-
-        def _action_target_base(action: str) -> tuple[str, str]:
-            text = self._normalize_action_text(action).replace("_", " ")
-            match = re.match(r"^(go to|open|examine)\s+(.+)$", text)
-            if not match:
-                return "", ""
-            target = match.group(2).strip()
-            base = re.sub(r"\s+\d+$", "", target).strip()
-            return match.group(1), base
-
-        verb, base = _action_target_base(processed_norm)
-        queued_verb, queued_base = _action_target_base(queued_norm)
-        if not verb or not queued_verb:
-            return None
-        if base not in {"cabinet", "drawer"}:
-            return None
-        if queued_base in {"", "cabinet", "drawer"}:
-            return None
-
-        # Do not redirect once the target is visible or held; at that point
-        # take/process/deliver actions should dominate search priors.
-        history = list(getattr(env_ref, "current_history", []) or [])
-        latest_obs = ""
-        if history:
-            latest_obs = str(history[-1].get("Observation") or "")
-        if not latest_obs:
-            latest_obs = str(getattr(env_ref, "initial_observation", "") or "")
-        goal_object = ""
-        try:
-            query = self._build_external_query(env_ref=env_ref, task_config={}, step_index=0)
-            if query is not None:
-                goal_object = self._normalize_action_text(str((getattr(query, "goal_roles", {}) or {}).get("object", "") or ""))
-                dynamic = getattr(query, "dynamic_context", {}) or {}
-                held = " ".join(str(item) for item in dynamic.get("held_objects", ()) or ())
-                visible = " ".join(str(item) for item in dynamic.get("visible_objects", ()) or ())
-                if goal_object and (
-                    goal_object in self._normalize_action_text(held)
-                    or goal_object in self._normalize_action_text(visible)
-                ):
-                    return None
-        except Exception:
-            if goal_object and goal_object in self._normalize_action_text(latest_obs):
-                return None
-
-        return queued_admissible
-
     def _gm2_graph_policy_direct_scene_source_action(
         self,
         *,
@@ -2040,6 +1983,67 @@ class GraphMemory2MASMemory(MASMemoryBase):
         if any(marker in text for marker in ("take ", "clean ", "heat ", "cool ", "move ", "put ")):
             return None
         return queued_admissible
+
+    def _gm2_graph_policy_phase_fallback_action(
+        self,
+        *,
+        env_ref: Any,
+        task_config: dict,
+        step_index: int,
+        admissible_actions: list[str],
+    ) -> str | None:
+        """Map free-form graph_policy output to the current task phase.
+
+        This is deliberately narrower than source reranking. It only fires
+        after the solver produced no concrete admissible action. If the target
+        is held, the next useful phase is process/tool or delivery, not another
+        source search. This protects graph_policy from the common failure where
+        memory source priors keep pushing search after acquisition.
+        """
+        query = self._build_external_query(
+            env_ref=env_ref,
+            task_config=task_config,
+            step_index=step_index,
+        )
+        if query is None or int(getattr(query, "held_relevant_count", 0) or 0) <= 0:
+            return None
+
+        goal_roles = getattr(query, "goal_roles", {}) or {}
+        target = self._gm2_base_token(str(goal_roles.get("object", "") or ""))
+        destination = self._gm2_base_token(str(goal_roles.get("destination", "") or ""))
+        tool = self._gm2_base_token(str(goal_roles.get("tool", "") or ""))
+        current_location = self._gm2_base_token(str(getattr(query, "location", "") or ""))
+        process_pending = self._gm2_process_requirement_pending(query=query, env_ref=env_ref)
+
+        def _norm(value: str) -> str:
+            return self._normalize_action_text(value).replace("_", " ")
+
+        def _mentions_target(command_norm: str) -> bool:
+            if target and target in self._gm2_base_token(command_norm):
+                return True
+            held = (getattr(query, "dynamic_context", {}) or {}).get("held_objects", []) or []
+            return any(self._gm2_base_token(str(item)) in self._gm2_base_token(command_norm) for item in held)
+
+        if process_pending:
+            for command in admissible_actions:
+                command_norm = _norm(command)
+                if not command_norm.startswith(("heat ", "cool ", "clean ")):
+                    continue
+                if _mentions_target(command_norm):
+                    return command
+            if tool and tool not in current_location:
+                for command in admissible_actions:
+                    command_norm = _norm(command)
+                    if command_norm.startswith("go to ") and tool in self._gm2_base_token(command_norm):
+                        return command
+            return None
+
+        if destination and destination not in current_location:
+            for command in admissible_actions:
+                command_norm = _norm(command)
+                if command_norm.startswith("go to ") and destination in self._gm2_base_token(command_norm):
+                    return command
+        return None
 
     def _gm2_process_requirement_pending(self, *, query: Any, env_ref: Any) -> bool:
         """Return True when heat/cool/clean must still happen before delivery."""
@@ -2558,331 +2562,15 @@ class GraphMemory2MASMemory(MASMemoryBase):
             )
         return "\n".join(lines)
 
-    def _render_stable_graph_policy_evidence(self, *, query: Any, bundle: Any, env_ref: Any) -> str:
-        """Render the conservative graph_policy path used for stable evals.
-
-        This is intentionally narrower than the experimental policy renderer:
-        it does not cache persistent global plans, does not emit concrete source
-        priors, does not consume feedback statistics, and does not create action
-        candidates. The action hook remains limited to deterministic syntax /
-        object / delivery repairs.
-        """
-        dynamic = getattr(query, "dynamic_context", {}) or {}
-        visible = tuple(str(item) for item in dynamic.get("visible_objects", ()) or () if str(item).strip())
-        held = tuple(str(item) for item in dynamic.get("held_objects", ()) or () if str(item).strip())
-        exhausted = tuple(str(item) for item in dynamic.get("exhausted_locations", ()) or () if str(item).strip())
-        goal_roles = getattr(query, "goal_roles", {}) or {}
-
-        def _clean(summary: str) -> str:
-            cleaned = str(summary or "").strip()
-            for prefix in (
-                "Scene relation: ",
-                "Plan: ",
-                "Workflow pattern: ",
-                "Workflow: ",
-                "Reflection: ",
-                "Closure: ",
-                "Local state fact: ",
-                "Prototype: ",
-                "Precondition: ",
-                "Blocked: ",
-            ):
-                if cleaned.startswith(prefix):
-                    cleaned = cleaned[len(prefix) :].strip()
-            return cleaned
-
-        def _norm(value: str) -> str:
-            return " ".join(str(value or "").replace("_", " ").replace("-", " ").lower().split())
-
-        def _dedupe(items: list[str], limit: int) -> list[str]:
-            seen: set[str] = set()
-            result: list[str] = []
-            for item in items:
-                text = str(item or "").strip()
-                key = text.lower()
-                if not text or key in seen:
-                    continue
-                seen.add(key)
-                result.append(text)
-                if len(result) >= limit:
-                    break
-            return result
-
-        def _is_concrete_scene_hint(text: str) -> bool:
-            lowered = _norm(text)
-            raw = str(text or "").lower()
-            return bool(
-                any(marker in lowered for marker in ("found at", "was found at", "located at", "in this layout", "scene relation"))
-                or re.search(r"\b[a-z]+_\d+\b", raw)
-                or re.search(r"\b[a-z]+\s+\d+\b", lowered)
-            )
-
-        def _contains_think(text: str) -> bool:
-            lowered = str(text or "").lower()
-            normed = _norm(text)
-            return bool(
-                lowered.startswith("think:")
-                or "-> think:" in lowered
-                or "think: ->" in lowered
-                or normed.startswith("think ")
-                or " think ->" in normed
-            )
-
-        def _is_failure_like(text: str) -> bool:
-            lowered = _norm(text)
-            return any(marker in lowered for marker in ("wrong target object", "blocked", "failure", "fails under", "avoid ", "derail"))
-
-        def _is_global_skeleton(text: str) -> bool:
-            lowered = _norm(text)
-            if not lowered or _is_failure_like(text) or _contains_think(text) or _is_concrete_scene_hint(text):
-                return False
-            if any(
-                marker in lowered
-                for marker in (
-                    "within search",
-                    "open advances",
-                    "open supports",
-                    "examine advances",
-                    "examine supports",
-                    "wrong target object tends to derail",
-                    "container=container",
-                )
-            ):
-                return False
-            return any(
-                marker in lowered
-                for marker in ("workflow", "closure pattern", "plan", "->", "take(", "go(", "move(", "clean(", "cool(", "heat(", "repeat acquire")
-            )
-
-        target_terms = {
-            _norm(str(value or ""))
-            for value in (
-                goal_roles.get("object", ""),
-                goal_roles.get("destination", ""),
-                goal_roles.get("tool", ""),
-                getattr(query, "task_family", ""),
-                getattr(query, "progress_state", ""),
-                getattr(query, "current_stage", ""),
-            )
-            if _norm(str(value or ""))
-        }
-        visible_terms = {_norm(item) for item in visible}
-        held_terms = {_norm(item) for item in held}
-        exhausted_terms = {_norm(item) for item in exhausted}
-        admissible = [
-            str(cmd).strip()
-            for cmd in (getattr(env_ref, "last_admissible_commands", []) or [])
-            if str(cmd).strip()
-        ]
-        admissible_blob = _norm(" ".join(admissible[:30]))
-
-        def _item_text(item: Any) -> str:
-            return _clean(str(getattr(item, "summary", "") or ""))
-
-        def _source_is_global(item: Any) -> bool:
-            return str(getattr(item, "source", "") or "").startswith("global")
-
-        def _source_is_local(item: Any) -> bool:
-            source = str(getattr(item, "source", "") or "")
-            return source.startswith("local") or source == "local_graph"
-
-        def _rank_key(item: Any, text: str) -> tuple[float, float, float, float]:
-            return (
-                _task_relevance(text) + self._gm2_feedback_adjustment(item),
-                float(getattr(item, "task_relevance", 0.0) or 0.0),
-                float(getattr(item, "goal_relevance", 0.0) or 0.0),
-                float(getattr(item, "score", 0.0) or 0.0),
-            )
-
-        def _task_relevance(text: str) -> float:
-            lowered = _norm(text)
-            if not lowered:
-                return 0.0
-            score = 0.0
-            for term in target_terms:
-                if term and term in lowered:
-                    score += 0.28
-            for term in visible_terms:
-                if term and term in lowered:
-                    score += 0.16
-            for term in held_terms:
-                if term and term in lowered:
-                    score += 0.2
-            if admissible_blob and any(token and token in lowered for token in admissible_blob.split()[:40]):
-                score += 0.12
-            if any(term and term in lowered for term in exhausted_terms) and any(
-                marker in lowered for marker in ("found at", "located at", "near ", "in ", "on ")
-            ):
-                score -= 0.45
-            if _is_concrete_scene_hint(text):
-                score -= 0.35
-            return score
-
-        def _select_items(
-            items: list[Any],
-            *,
-            limit: int,
-            allow_concrete: bool,
-            require_relevance: bool,
-            allow_failure: bool = False,
-            skeleton_only: bool = False,
-            slot: str = "stable_graph_policy",
-        ) -> tuple[list[str], int]:
-            ranked = sorted(items, key=lambda item: _rank_key(item, _item_text(item)), reverse=True)
-            selected: list[str] = []
-            suppressed = 0
-            for item in ranked:
-                text = _item_text(item)
-                if not text:
-                    continue
-                if self._gm2_feedback_item_state(item) == "quarantined":
-                    suppressed += 1
-                    continue
-                if not allow_failure and _is_failure_like(text):
-                    suppressed += 1
-                    continue
-                if _contains_think(text):
-                    suppressed += 1
-                    continue
-                if skeleton_only and not _is_global_skeleton(text):
-                    suppressed += 1
-                    continue
-                if not allow_concrete and _is_concrete_scene_hint(text):
-                    suppressed += 1
-                    continue
-                if require_relevance and _task_relevance(text) <= 0.0:
-                    suppressed += 1
-                    continue
-                if text not in selected:
-                    selected.append(text)
-                    self._gm2_record_feedback_item(item, slot=slot, rendered_text=text)
-                if len(selected) >= limit:
-                    break
-            return selected, suppressed
-
-        local_graph_sources = [
-            item
-            for item in (
-                list(getattr(bundle, "fact_items", []) or [])
-                + list(getattr(bundle, "relation_items", []) or [])
-                + list(getattr(bundle, "local_graph_contribution", []) or [])
-            )
-            if _source_is_local(item) or str(getattr(item, "source", "") or "") == ""
-        ]
-        local_domain_sources = [
-            item
-            for item in (
-                list(getattr(bundle, "local_promoted_contribution", []) or [])
-                + list(getattr(bundle, "plan_items", []) or [])
-                + list(getattr(bundle, "workflow_items", []) or [])
-                + list(getattr(bundle, "precondition_items", []) or [])
-                + list(getattr(bundle, "closure_items", []) or [])
-            )
-            if not _source_is_global(item)
-        ]
-        global_sources = (
-            list(getattr(bundle, "global_task_plan_items", []) or [])
-            + [item for item in (getattr(bundle, "workflow_items", []) or []) if _source_is_global(item)]
-            + [item for item in (getattr(bundle, "precondition_items", []) or []) if _source_is_global(item)]
-            + list(getattr(bundle, "global_promoted_contribution", []) or [])
-            + list(getattr(bundle, "global_items", []) or [])
-        )
-        warning_sources = list(getattr(bundle, "repair_items", []) or []) + list(getattr(bundle, "reflection_items", []) or [])
-
-        # Train should still expose a tiny global signal so quality routing can
-        # receive online outcome feedback. Keep the noisy transfer sections
-        # (local domain guidance, warnings, arbitration) for frozen eval only.
-        render_extra_transfer_sections = bool(self.freeze_memory)
-
-        global_skeleton, suppressed_global = _select_items(
-            global_sources,
-            limit=1,
-            allow_concrete=False,
-            require_relevance=False,
-            skeleton_only=True,
-            slot="stable_global_skeleton",
-        )
-        local_grounding, suppressed_local = _select_items(
-            local_graph_sources,
-            limit=2,
-            allow_concrete=False,
-            require_relevance=True,
-            slot="stable_local_grounding",
-        )
-        if render_extra_transfer_sections:
-            local_domain, suppressed_local_domain = _select_items(
-                local_domain_sources,
-                limit=1,
-                allow_concrete=False,
-                require_relevance=False,
-                slot="stable_local_domain",
-            )
-            local_warnings, _suppressed_warnings = _select_items(
-                warning_sources,
-                limit=1,
-                allow_concrete=True,
-                require_relevance=False,
-                allow_failure=True,
-                slot="stable_local_warning",
-            )
-        else:
-            local_domain, suppressed_local_domain = [], 0
-            local_warnings = []
-
-        lines = [
-            "Graph policy memory routing.",
-            "Use global memory only as an abstract task-order hint; use local graph memory only when it matches the current observation/action state.",
-        ]
-        query_parts = [
-            f"progress={getattr(query, 'progress_state', '') or 'unknown'}",
-            f"stage={getattr(query, 'current_stage', '') or 'unknown'}",
-            f"location={getattr(query, 'location', '') or 'unknown'}",
-        ]
-        for key in ("object", "destination", "tool"):
-            value = goal_roles.get(key)
-            if value:
-                query_parts.append(f"{key}={value}")
-        lines.append("Current graph query: " + "; ".join(query_parts) + ".")
-
-        if self._gm2_is_two_object_second_search(query):
-            lines.append(
-                "Two-object state: one required object has already been delivered; continue only with actions that help obtain another required object."
-            )
-        if visible or held or exhausted:
-            context_parts: list[str] = []
-            if held:
-                context_parts.append("held=" + ", ".join(held[:3]))
-            if visible:
-                context_parts.append("visible=" + ", ".join(visible[:5]))
-            if exhausted:
-                context_parts.append("already_checked=" + ", ".join(exhausted[:5]))
-            lines.append("Current graph state: " + "; ".join(context_parts) + ".")
-        if local_grounding:
-            lines.append("Local graph grounding:")
-            lines.extend(f"- {item}" for item in _dedupe(local_grounding, 2))
-        if global_skeleton:
-            lines.append("Global task skeleton (abstract only):")
-            lines.extend(f"- {item}" for item in _dedupe(global_skeleton, 1))
-        if local_domain:
-            lines.append("Local domain guidance:")
-            lines.extend(f"- {item}" for item in _dedupe(local_domain, 1))
-        if local_warnings:
-            lines.append("Local cautions:")
-            lines.extend(f"- {item}" for item in _dedupe(local_warnings, 1))
-
-        arbitration: list[str] = []
-        if suppressed_global:
-            arbitration.append("Ignored global scene-specific/location hints.")
-        if suppressed_local or suppressed_local_domain:
-            arbitration.append("Ignored weak or scene-specific local hints unless aligned with current state.")
-        if render_extra_transfer_sections and arbitration:
-            lines.append("Memory arbitration:")
-            lines.extend(f"- {item}" for item in _dedupe(arbitration, 2))
-        elif len(lines) <= 3:
-            return ""
-        return "\n".join(lines)
-
-    def _render_graph_policy_evidence(self, *, query: Any, bundle: Any, env_ref: Any, local_memory: Any = None) -> str:
+    def _render_graph_policy_evidence(
+        self,
+        *,
+        query: Any,
+        bundle: Any,
+        env_ref: Any,
+        local_memory: Any = None,
+        global_memory: Any = None,
+    ) -> str:
         """Render GM2 graph_policy through the graph bundle's routed support.
 
         Graph policy has two different time scales:
@@ -3123,19 +2811,21 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 "you see" in observation_text or "on the" in observation_text or "in it" in observation_text
             ):
                 checked_source_terms.add(target_text)
-        sourcehint_enabled = self._external_retrieval_mode in {"graph_policy_feedback", "graph_policy_sourcehint"}
+        sourcehint_enabled = self._external_retrieval_mode == "graph_policy_feedback"
         # GraphPolicy should translate local graph source evidence into
         # current-state action priority, while still leaving the solver/env
         # workflow untouched. This is prompt routing only; repair_action remains
         # exact-admissible and deterministic for all graph_policy modes.
+        candidate_mode = self._external_retrieval_mode == "graph_policy_candidate"
         quality_enabled = self._external_retrieval_mode in {
             "graph_policy",
             "graph_policy_rerank",
             "graph_policy_feedback",
+            "graph_policy_candidate",
             "graph_policy_quality",
         }
-        sourcebase_ranking_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank"}
-        searched_source_rerank_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank"}
+        sourcebase_ranking_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_candidate"}
+        searched_source_rerank_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_candidate"}
         if quality_enabled:
             self._gm2_quality_last_action_candidates = []
         admissible = [
@@ -3569,16 +3259,48 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     return "role_global" if scope == "global" else "role_local"
                 return "fallback"
 
+            def _is_strong_exact(entry: dict[str, Any]) -> bool:
+                if _entry_kind(entry) == "previous":
+                    return True
+                if _entry_kind(entry) != "exact":
+                    return False
+                try:
+                    score = float(entry.get("score", 0.0) or 0.0)
+                except Exception:
+                    score = 0.0
+                try:
+                    confidence = float(entry.get("confidence", 0.0) or 0.0)
+                except Exception:
+                    confidence = 0.0
+                try:
+                    support = int(float(entry.get("support", 0) or 0))
+                except Exception:
+                    support = 0
+                scope = str(entry.get("source_scope", "") or "")
+                base = _base_location(str(entry.get("base", "") or entry.get("instance", "") or ""))
+                if (
+                    self._external_retrieval_mode == "graph_policy"
+                    and base in {"drawer", "cabinet", "shelf"}
+                    and _searched_source_type_count(base) >= 2
+                ):
+                    return False
+                if scope in {"local_scene_relation", "previous_success_source"}:
+                    return score >= 0.72 or confidence >= 0.62 or support >= 1
+                if scope == "local":
+                    return score >= 0.82 or (confidence >= 0.62 and support >= 2)
+                return score >= 0.9 and confidence >= 0.62 and support >= 2
+
             ordered = sorted(candidates, key=_entry_score, reverse=True)
             previous = [entry for entry in ordered if _entry_kind(entry) == "previous"]
             exact = [entry for entry in ordered if _entry_kind(entry) == "exact"]
+            strong_exact = [entry for entry in exact if _is_strong_exact(entry)]
             role_local = [entry for entry in ordered if _entry_kind(entry) == "role_local"]
             role_global = [entry for entry in ordered if _entry_kind(entry) == "role_global"]
             fallback = [entry for entry in ordered if _entry_kind(entry) == "fallback"]
 
             gated: list[dict[str, Any]] = []
 
-            def _add(entries: list[dict[str, Any]], max_new: int | None = None) -> None:
+            def _add(entries: list[dict[str, Any]], max_new: int | None = None, reason: str = "") -> None:
                 added = 0
                 seen = {
                     str(entry.get("signature", "") or _source_queue_signature(entry.get("base", ""), entry.get("instance", "")))
@@ -3588,7 +3310,10 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     sig = str(entry.get("signature", "") or _source_queue_signature(entry.get("base", ""), entry.get("instance", "")))
                     if sig in seen:
                         continue
-                    gated.append(entry)
+                    enriched = dict(entry)
+                    if reason and not enriched.get("selected_reason"):
+                        enriched["selected_reason"] = reason
+                    gated.append(enriched)
                     seen.add(sig)
                     added += 1
                     if max_new is not None and added >= max_new:
@@ -3597,29 +3322,41 @@ class GraphMemory2MASMemory(MASMemoryBase):
             # In two-object tasks the source that yielded the first target is
             # the strongest local clue for finding the second one. Keep it in
             # front of broader source-type transfer.
-            _add(previous[:1])
-            _add(exact)
+            if candidate_mode:
+                _add(previous[:1], reason="episode-local previous target source")
+                _add(strong_exact, reason="strong current-state graph candidate")
+                if len(gated) < 2:
+                    weak_exact = [entry for entry in exact if entry not in strong_exact]
+                    _add(weak_exact, max_new=1, reason="weak exact local candidate retained as context")
+                _add(role_local, max_new=1, reason="local role-level candidate frontier")
+                _add(role_global, max_new=2, reason="global phase-conditioned candidate frontier")
+                _add(fallback, max_new=2, reason="source-base backoff frontier")
+                return gated
 
+            _add(previous[:1], reason="episode-local previous target source")
+            _add(exact, reason="exact current-state source candidate")
+
+            strong_exact_count = len(previous[:1]) + len(strong_exact)
             exact_count = len(gated)
-            if exact_count >= 2:
+            if strong_exact_count >= 2:
                 return gated
 
             # Role-level priors are useful for unseen/cross-domain transfer,
             # but only as backoff when exact target-object source evidence is
-            # missing or very sparse.
-            if exact_count == 1:
-                _add(role_local, max_new=1)
+            # missing, sparse, or too weak to confidently suppress transfer.
+            if strong_exact_count == 1:
+                _add(role_local, max_new=1, reason="local role-level backoff after sparse exact evidence")
                 if len(gated) < 2:
-                    _add(role_global, max_new=1)
+                    _add(role_global, max_new=1, reason="global role-level frontier after sparse exact evidence")
                 if len(gated) < 2:
-                    _add(fallback, max_new=1)
+                    _add(fallback, max_new=1, reason="source-base fallback after sparse exact evidence")
                 return gated
 
-            _add(role_local, max_new=2)
+            _add(role_local, max_new=2, reason="local role-level frontier")
             if len(gated) < 2:
-                _add(role_global, max_new=1)
+                _add(role_global, max_new=1, reason="global role-level frontier")
             if len(gated) < 2:
-                _add(fallback, max_new=2)
+                _add(fallback, max_new=2, reason="source-base fallback frontier")
             return gated
 
         def _reset_source_queue_if_needed() -> None:
@@ -3707,12 +3444,16 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 support = positive + negative
                 score = float(getattr(item, "score", 0.0) or 0.0)
                 goal_match = _quality_goal_match(item, text)
+                search_phase = str(getattr(query, "progress_state", "") or "").startswith("search")
                 if _source_is_global(item):
                     # Routing weights should control how much global transfer
                     # can shape source search. Global source-type priors help
                     # unseen transfer, but only when the current route assigns
                     # real weight to global evidence.
-                    source_weight = 0.35 + 0.65 * max(0.0, min(global_transfer_weight, 1.0))
+                    source_weight = (
+                        (0.45 if search_phase else 0.35)
+                        + (0.55 if search_phase else 0.65) * max(0.0, min(global_transfer_weight, 1.0))
+                    )
                 else:
                     source_weight = 0.55 + 0.45 * max(
                         0.0,
@@ -3856,6 +3597,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         "route_scale": max(0.0, min(local_graph_weight, 1.0)),
                         "transfer_level": "exact",
                         "source_scope": "local_scene_relation",
+                        "pattern_kind": "scene_relation",
                         "strength": (
                             "direct local graph relation for current target_object "
                             f"(goal_signature={goal_signature}, support={support:.0f}, confidence={confidence:.2f})"
@@ -3932,6 +3674,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         "route_scale": 1.0,
                         "transfer_level": "exact",
                         "source_scope": "previous_success_source",
+                        "pattern_kind": "previous_success_source",
                         "allow_checked_source": True,
                         "strength": (
                             "two-object search_second: previous successful target source "
@@ -3943,18 +3686,41 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         candidates[sig] = candidate
             return list(candidates.values())
 
+        def _graph_policy_global_backoff_allowed() -> bool:
+            if self._external_retrieval_mode != "graph_policy":
+                return False
+            progress = str(getattr(query, "progress_state", "") or "")
+            if not progress.startswith("search"):
+                return False
+            if getattr(query, "held_relevant_count", 0) > 0:
+                return False
+            if bool(getattr(query, "goal_object_matches_visible", False)):
+                return False
+            searched_bases = [
+                _base_location(item)
+                for item in tuple(exhausted_terms) + tuple(checked_source_terms)
+                if _base_location(item)
+            ]
+            if len(set(searched_bases)) >= 3:
+                return True
+            return any(searched_bases.count(base) >= 3 for base in {"drawer", "cabinet", "shelf"})
+
         def _select_quality_source_priors(items: list[Any], *, limit: int = 2) -> list[str]:
             if not quality_enabled:
+                self._gm2_graph_policy_source_queue = []
                 self._gm2_graph_policy_next_source_action = ""
                 return []
             if getattr(query, "held_relevant_count", 0) > 0:
+                self._gm2_graph_policy_source_queue = []
                 self._gm2_graph_policy_next_source_action = ""
                 return []
             progress = str(getattr(query, "progress_state", "") or "")
             if progress and not progress.startswith("search") and progress not in {"locate_target", "inspect_container"}:
+                self._gm2_graph_policy_source_queue = []
                 self._gm2_graph_policy_next_source_action = ""
                 return []
             if bool(getattr(query, "goal_object_matches_visible", False)):
+                self._gm2_graph_policy_source_queue = []
                 self._gm2_graph_policy_next_source_action = ""
                 return []
 
@@ -3970,6 +3736,22 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     if not (sourcebase_ranking_enabled and _target_take_source_from_item(item)):
                         continue
                 if self._gm2_feedback_item_state(item) == "quarantined":
+                    continue
+                graph_policy_global_backoff = (
+                    self._external_retrieval_mode == "graph_policy"
+                    and is_source_type_prior
+                    and _source_is_global(item)
+                    and _graph_policy_global_backoff_allowed()
+                )
+                if (
+                    self._external_retrieval_mode == "graph_policy"
+                    and is_source_type_prior
+                    and _source_is_global(item)
+                    and not graph_policy_global_backoff
+                ):
+                    # Keep global abstract during early search. Once local
+                    # source evidence has repeatedly missed, allow it back only
+                    # as a weak source-role backoff.
                     continue
                 if sourcebase_ranking_enabled and not _source_evidence_targets_goal_object(item, text):
                     continue
@@ -4004,16 +3786,18 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 destination_penalty = _goal_destination_source_penalty(base, instance) if sourcebase_ranking_enabled else 0.0
                 base_rank_bonus = _source_base_rank(base, base_stats)
                 type_prior_bonus = 0.14 if is_source_type_prior else 0.0
-                global_prior_penalty = 0.06 if is_source_type_prior and _source_is_global(item) else 0.0
+                global_prior_penalty = 0.03 if is_source_type_prior and _source_is_global(item) else 0.0
                 transfer_level = _source_type_prior_transfer_level(item) if sourcebase_ranking_enabled and is_source_type_prior else "exact"
+                if graph_policy_global_backoff:
+                    transfer_level = "role"
                 role_level_penalty = 0.0
                 if transfer_level == "role":
-                    role_level_penalty = 0.24 if _source_is_global(item) else 0.32
+                    role_level_penalty = 0.18 if _source_is_global(item) else 0.28
                 if searched_source_rerank_enabled and is_source_type_prior and _source_is_global(item):
                     # In rerank mode, global source-type memory is a weak
                     # transfer prior. It can break ties, but local episode
                     # evidence and already-searched sources should dominate.
-                    global_prior_penalty += 0.08
+                    global_prior_penalty += 0.12 if self._external_retrieval_mode == "graph_policy" else 0.05
                 route_scale = (
                     0.7 + 0.3 * max(0.0, min(global_transfer_weight, 1.0))
                     if _source_is_global(item)
@@ -4071,6 +3855,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                         "route_scale": route_scale,
                         "transfer_level": transfer_level,
                         "source_scope": "global" if _source_is_global(item) else "local",
+                        "pattern_kind": "source_type_prior" if is_source_type_prior else "scene_relation",
                         "strength": evidence_strength
                         if exact_bonus
                         else f"source-base distribution from `{_display_location(base)}` ({evidence_strength})",
@@ -4128,16 +3913,17 @@ class GraphMemory2MASMemory(MASMemoryBase):
                             "instance": action_instance,
                             "action": action,
                             "score": score,
-                            "confidence": 0.5 + min(max(base_rank, 0.0), 0.5),
-                            "support": int(float(stat.get("support", 0.0) or 0.0)),
-                            "route_scale": max(0.0, min(max(local_graph_weight, global_transfer_weight), 1.0)),
-                            "transfer_level": "fallback",
-                            "source_scope": "source_base_rank",
-                            "strength": (
-                                f"source-base rank for `{_display_location(base)}` "
-                                f"(success={stat.get('success', 0.0):.1f}, failure={stat.get('failure', 0.0):.1f})"
-                            ),
-                        }
+                        "confidence": 0.5 + min(max(base_rank, 0.0), 0.5),
+                        "support": int(float(stat.get("support", 0.0) or 0.0)),
+                        "route_scale": max(0.0, min(max(local_graph_weight, global_transfer_weight), 1.0)),
+                        "transfer_level": "fallback",
+                        "source_scope": "source_base_rank",
+                        "pattern_kind": "source_base_rank",
+                        "strength": (
+                            f"source-base rank for `{_display_location(base)}` "
+                            f"(success={stat.get('success', 0.0):.1f}, failure={stat.get('failure', 0.0):.1f})"
+                        ),
+                    }
                         current = ranked.get(sig)
                         if current is None or score > float(current.get("score", 0.0) or 0.0):
                             ranked[sig] = candidate
@@ -4146,6 +3932,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 key=lambda entry: float(entry.get("score", 0.0) or 0.0),
                 reverse=True,
             )
+            self._gm2_quality_source_prior_candidates = [dict(entry) for entry in selected_candidates[:6]]
             queue = _merge_source_queue(selected_candidates)
             if not queue:
                 self._gm2_quality_last_action_candidates = []
@@ -4162,7 +3949,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                     "next graph-supported source action: "
                     f"`{next_entry.get('action')}` for source `{_display_location(str(next_entry.get('instance', '') or ''))}`; "
                     "take it before continuing broad cabinet/drawer sweeps unless the latest observation contradicts it "
-                    f"({next_entry.get('strength')})"
+                    f"({next_entry.get('strength')}; selected_reason={next_entry.get('selected_reason', 'score_rank')})"
                 )
             ]
             if searched_source_rerank_enabled:
@@ -4684,10 +4471,10 @@ class GraphMemory2MASMemory(MASMemoryBase):
             if sourcebase_ranking_enabled and local_memory is not None
             else []
         )
-        if sourcebase_ranking_enabled and getattr(self, "_external_global_memory", None) is not None:
+        if sourcebase_ranking_enabled and global_memory is not None:
             memory_source_type_sources.extend(
                 _memory_artifact_support_items(
-                    self._external_global_memory,
+                    global_memory,
                     source_label="global_artifact",
                     include_scene_relations=False,
                 )
@@ -4754,9 +4541,54 @@ class GraphMemory2MASMemory(MASMemoryBase):
         quality_success_routes = _select_quality_matched_routes(quality_route_sources, want_failure=False, limit=2)
         quality_failure_avoids = _select_quality_matched_routes(quality_route_sources, want_failure=True, limit=2)
         quality_source_priors = _select_quality_source_priors(quality_source_sources, limit=2)
+
+        def _summarize_source_type_priors(candidates: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+            """Split source-type priors into global backoff vs local episode priors.
+
+            The prompt should expose global source-type transfer only as a weak
+            backoff, while local exact/source relations stay in the current-state
+            section below.
+            """
+            if not candidates:
+                return [], []
+            global_by_base: dict[str, dict[str, Any]] = {}
+            local_by_base: dict[str, dict[str, Any]] = {}
+            for entry in candidates:
+                if str(entry.get("pattern_kind", "") or "") != "source_type_prior":
+                    continue
+                base = _base_location(str(entry.get("base", "") or ""))
+                if not base:
+                    continue
+                try:
+                    score = float(entry.get("score", 0.0) or 0.0)
+                except Exception:
+                    score = 0.0
+                bucket = global_by_base if str(entry.get("source_scope", "") or "") == "global" else local_by_base
+                previous = bucket.get(base)
+                if previous is None or score > float(previous.get("score", 0.0) or 0.0):
+                    bucket[base] = dict(entry)
+
+            def _render(entry: dict[str, Any]) -> str:
+                base = _display_location(str(entry.get("base", "") or ""))
+                support = int(float(entry.get("support", 0.0) or 0.0))
+                confidence = float(entry.get("confidence", 0.0) or 0.0)
+                scope = str(entry.get("source_scope", "") or "local")
+                transfer_level = str(entry.get("transfer_level", "") or "exact")
+                suffix = "global backoff" if scope == "global" else "local prior"
+                if transfer_level == "role":
+                    suffix = f"{suffix}, role-level"
+                return f"{base} ({suffix}; support={support}, confidence={confidence:.2f})"
+
+            global_lines = [_render(entry) for entry in sorted(global_by_base.values(), key=lambda x: float(x.get("score", 0.0) or 0.0), reverse=True)]
+            local_lines = [_render(entry) for entry in sorted(local_by_base.values(), key=lambda x: float(x.get("score", 0.0) or 0.0), reverse=True)]
+            return global_lines[:3], local_lines[:3]
+
         quality_search_cautions = _select_quality_search_cautions(quality_source_priors)
         quality_slot_constraints = _select_quality_slot_constraints(quality_source_priors)
         quality_slot_binding = _quality_slot_binding_line()
+        global_source_type_priors, local_source_type_priors = _summarize_source_type_priors(
+            getattr(self, "_gm2_quality_source_prior_candidates", []) or []
+        )
 
         if persistent_skeleton:
             global_skeleton = _dedupe(list(persistent_skeleton[:2]) + global_skeleton, global_limit)
@@ -4803,7 +4635,12 @@ class GraphMemory2MASMemory(MASMemoryBase):
             if value:
                 query_parts.append(f"{key}={value}")
 
-        if quality_enabled:
+        if candidate_mode:
+            routing_intro = (
+                "Use graph memory as phase-conditioned candidate context: global graph patterns propose transferable candidate roles, "
+                "and local graph/current admissible actions ground them into executable next-step options."
+            )
+        elif quality_enabled:
             routing_intro = (
                 "Use local graph grounding for current-state consistency; use global transfer as an abstract task skeleton; "
                 "convert target-matching local graph source priors into current-state admissible action priorities."
@@ -4873,8 +4710,23 @@ class GraphMemory2MASMemory(MASMemoryBase):
         if local_domain:
             lines.append("Local domain guidance:")
             lines.extend(f"- {item}" for item in local_domain)
+        if global_source_type_priors:
+            if candidate_mode:
+                lines.append("Global phase-conditioned candidate prior (transfer source roles; no exact locations):")
+            else:
+                lines.append("Global source-type transfer prior (weak backoff; no exact locations):")
+            lines.extend(f"- {item}" for item in global_source_type_priors)
+        if local_source_type_priors:
+            if candidate_mode:
+                lines.append("Local phase-conditioned candidate prior (episode-local grounding):")
+            else:
+                lines.append("Local source-type prior (episode-local):")
+            lines.extend(f"- {item}" for item in local_source_type_priors)
         if quality_source_priors:
-            lines.append("Current-state graph priority (admissible source actions from local graph):")
+            if candidate_mode:
+                lines.append("Current executable candidate priority (global/local graph mapped to admissible actions):")
+            else:
+                lines.append("Current-state graph priority (admissible source actions from local graph):")
             lines.extend(f"- {item}" for item in quality_source_priors)
         if quality_search_cautions:
             lines.append("Search caution (from local graph failure/search statistics):")
