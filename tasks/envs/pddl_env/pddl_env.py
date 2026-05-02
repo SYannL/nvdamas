@@ -16,6 +16,25 @@ from pddlgym.structs import Literal, Predicate
 
 from ..base_env import BaseEnv, BaseRecorder
 
+
+def _ensure_nltk_tokenizers() -> None:
+    """word_tokenize needs punkt; NLTK 3.9+ also requires punkt_tab (split from punkt)."""
+    def _download_punkt_packages(*, quiet: bool) -> None:
+        nltk.download("punkt", quiet=quiet)
+        try:
+            nltk.download("punkt_tab", quiet=quiet)
+        except Exception:
+            pass
+
+    _download_punkt_packages(quiet=True)
+    try:
+        nltk.word_tokenize("ping")
+        return
+    except LookupError:
+        pass
+    _download_punkt_packages(quiet=False)
+
+
 def get_all_environment_configs(game_names: list[str], label_path: str):
     def load_annotation(path):
         all_annotations = None  
@@ -70,7 +89,7 @@ class PDDLEnv(BaseEnv):
         self.last_admissible_commands: list[str] = []
 
     def set_env(self, configs: dict) -> tuple[str, str]: 
-        nltk.download('punkt')
+        _ensure_nltk_tokenizers()
         
         self.config = dict(configs or {})
         self.game_name: str = configs.get('game_name')
@@ -374,6 +393,7 @@ class PDDLEnv(BaseEnv):
         all_valid_objects_name = [str(obj) for obj in all_valid_objects] 
         all_valid_objects_id = [obj.name for obj in all_valid_objects] 
 
+        _ensure_nltk_tokenizers()
         tokens = nltk.word_tokenize(text)
         
         predicate_name = None   
