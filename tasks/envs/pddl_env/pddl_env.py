@@ -4,8 +4,12 @@ import nltk
 import json
 import sys
 import os
-sys.path.append(os.path.join(os.getcwd(), 'tasks', 'envs', 'pddl_env')) 
-sys.path.append(os.path.join(os.getcwd(), 'envs', 'pddl_env')) 
+_vendored_pddl = os.path.join(os.getcwd(), "tasks", "envs", "pddl_env")
+if _vendored_pddl not in sys.path:
+    sys.path.insert(0, _vendored_pddl)
+_legacy_envs = os.path.join(os.getcwd(), "envs", "pddl_env")
+if os.path.isdir(_legacy_envs) and _legacy_envs not in sys.path:
+    sys.path.insert(0, _legacy_envs)
 
 import pddlgym
 from pddlgym.structs import Literal, Predicate
@@ -114,7 +118,17 @@ class PDDLEnv(BaseEnv):
         action_literal = self._text_to_action(action)
         
         if action_literal is not None:
-            obs_temp, reward, done, infos = self.env.step(action_literal)
+            step_out = self.env.step(action_literal)
+            # Gym API compatibility:
+            # - old: obs, reward, done, info
+            # - new: obs, reward, terminated, truncated, info
+            if isinstance(step_out, tuple) and len(step_out) == 5:
+                obs_temp, reward, terminated, truncated, infos = step_out
+                done = bool(terminated) or bool(truncated)
+            elif isinstance(step_out, tuple) and len(step_out) == 4:
+                obs_temp, reward, done, infos = step_out
+            else:
+                raise ValueError(f"Unexpected env.step return format: {type(step_out)} len={len(step_out) if isinstance(step_out, tuple) else 'n/a'}")
             print(reward)
             reward = max(self.reward, self._constraint_satisfaction_metric(obs_temp.literals, self.goal_literals))
             
