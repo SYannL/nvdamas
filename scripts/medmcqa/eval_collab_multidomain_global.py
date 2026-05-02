@@ -29,6 +29,14 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     run_tasks,
 )
 
+try:
+    from tasks.envs.pddl_env.pddl_env import get_all_environment_configs as pddl_get_all_environment_configs
+except ImportError:
+    pddl_get_all_environment_configs = None
+
+# GraphMemory3 reuses GM2 persistence / shared global layout; treat like GM2 in this script.
+_GM_GRAPH_MEMORY = frozenset({"graph_memory2", "graph_memory3"})
+
 
 def parse_csv(value: str) -> list[str]:
     rows = [item.strip() for item in str(value or "").split(",") if item.strip()]
@@ -48,6 +56,46 @@ def parse_eval_splits(value: str) -> list[str]:
     if invalid:
         raise ValueError(f"不支持的 split: {invalid}，仅支持 {sorted(allowed)}")
     return splits
+
+
+def load_jsonl_rows(path: Path) -> list[dict]:
+    rows: list[dict] = []
+    with path.open("r", encoding="utf-8") as reader:
+        for line in reader:
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(json.loads(line))
+    return rows
+
+
+def build_fever_task(row: dict) -> dict:
+    claim = str(row.get("claim", "")).strip()
+    label = str(row.get("label", "")).strip()
+    if not claim or not label:
+        return {}
+    task = {
+        "task": claim,
+        "answer": label,
+        "env_name": "fever",
+    }
+    domain = str(row.get("ab_domain", "")).strip()
+    if domain:
+        task["ab_domain"] = domain
+    return task
+
+
+def split_fever_train_by_domain(rows: list[dict], domains: list[str]) -> dict[str, list[dict]]:
+    grouped: dict[str, list[dict]] = {domain: [] for domain in domains}
+    domain_set = set(domains)
+    for row in rows:
+        domain = str(row.get("ab_domain", "")).strip()
+        if domain not in domain_set:
+            continue
+        task = build_fever_task(row)
+        if task:
+            grouped[domain].append(task)
+    return grouped
 
 
 def load_subset_file(subset_dir: Path, domain: str, split_name: str) -> list[dict]:
@@ -214,9 +262,14 @@ def merge_eval_split(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="ALFWorld 多 domain 协作训练（local）+ global-only 评测（seen/unseen）。"
+        description="多 domain 协作训练（local）+ global 评测：ALFWorld / AmaBench / FEVER / PDDL。"
     )
-    parser.add_argument("--dataset_family", type=str, choices=["alfworld", "amabench"], default="alfworld")
+    parser.add_argument(
+        "--dataset_family",
+        type=str,
+        choices=["alfworld", "amabench", "fever", "pddl"],
+        default="alfworld",
+    )
     parser.add_argument(
         "--alfworld_domains",
         type=str,
@@ -252,6 +305,34 @@ def main() -> None:
         help="AmaBench 仅支持 test split（作为 unseen）。",
     )
     parser.add_argument(
+        "--fever_domains",
+        type=str,
+        default="A_film_tv,B_music",
+        help="FEVER domain（ab_domain）列表，逗号分隔。",
+    )
+    parser.add_argument("--fever_train_jsonl", type=str, default="data/fever/fever_ab_train_v3.jsonl")
+    parser.add_argument("--fever_test_jsonl", type=str, default="data/fever/fever_ab_test_v3.jsonl")
+    parser.add_argument(
+        "--pddl_domains",
+        type=str,
+        default="pddl_A,pddl_B",
+        help="PDDL：恰好 2 个 local 分区名（第 1 个用 train_A jsonl，第 2 个用 train_B）。",
+    )
+    parser.add_argument("--pddl_train_a_jsonl", type=str, default="data/pddl/pddl_ab_train_A.jsonl")
+    parser.add_argument("--pddl_train_b_jsonl", type=str, default="data/pddl/pddl_ab_train_B.jsonl")
+    parser.add_argument(
+        "--pddl_test_jsonl",
+        type=str,
+        default="data/pddl/test.jsonl",
+        help="与 tasks/envs 中 pddl 任务一致：按行提供 difficulty，展开为四领域固定题量 episode。",
+    )
+    parser.add_argument(
+        "--pddl_game_names",
+        type=str,
+        default="barman,blockworld,gripper,tyreworld",
+        help="评测展开顺序与题量，逗号分隔，须与 test.jsonl 行数一致（默认 60）。",
+    )
+    parser.add_argument(
         "--amabench_max_traj_turns",
         type=int,
         default=0,
@@ -264,6 +345,7 @@ def main() -> None:
     parser.add_argument("--reasoning", type=str, default="io")
     parser.add_argument("--model", type=str, default="gpt-4o-mini")
     parser.add_argument("--max_trials", type=int, default=30)
+    parser.add_argument("--batch_size", type=int, default=10)
     parser.add_argument("--tool_mode", choices=["search"], default="search")
     parser.add_argument("--run_id", type=str, default=None)
     parser.add_argument("--eval_only", action="store_true")
@@ -281,6 +363,7 @@ def main() -> None:
         default="local_plus_global",
         choices=["base", "local_only", "global_only", "local_plus_global"],
     )
+    parser.add_argument("--gm2_enable_overlay", action="store_true")
     parser.add_argument("--gm2_promotion_threshold", type=float, default=0.35)
     args = parser.parse_args()
 
@@ -293,11 +376,27 @@ def main() -> None:
         domains = parse_domains(args.alfworld_domains)
         eval_splits = parse_eval_splits(args.alfworld_eval_split)
         train_task_name = "alfworld"
-    else:
+        eval_task_name = "alfworld"
+    elif args.dataset_family == "amabench":
         subset_dir = (repo_root / args.amabench_subset_dir).resolve()
         domains = parse_domains(args.amabench_domains)
         eval_splits = [args.amabench_eval_split]
         train_task_name = "huskyqa"
+        eval_task_name = "huskyqa"
+    elif args.dataset_family == "pddl":
+        subset_dir = (repo_root / "data" / "pddl").resolve()
+        domains = parse_domains(args.pddl_domains)
+        if len(domains) != 2:
+            raise ValueError("dataset_family=pddl 需要 --pddl_domains 恰好 2 项（AB 两分区）。")
+        eval_splits = ["test"]
+        train_task_name = "pddl_ab_train_A"
+        eval_task_name = "pddl"
+    else:
+        subset_dir = repo_root / "data" / "fever"
+        domains = parse_domains(args.fever_domains)
+        eval_splits = ["test"]
+        train_task_name = "fever"
+        eval_task_name = "fever"
     merged_eval_dir = (
         Path(args.alfworld_merged_eval_dir).expanduser().resolve()
         if args.alfworld_merged_eval_dir
@@ -325,22 +424,54 @@ def main() -> None:
     for domain in domains:
         if args.dataset_family == "alfworld":
             rows = load_subset_file(subset_dir, domain, "train")
-        else:
+        elif args.dataset_family == "amabench":
             episodes = load_amabench_subset_file(subset_dir, domain, "train")
             rows = flatten_amabench_episodes_to_tasks(
                 episodes,
                 max_turns=int(args.amabench_max_traj_turns or 0),
             )
-        if args.max_train is not None:
+        else:
+            rows = []
+        if args.dataset_family not in ("fever", "pddl") and args.max_train is not None:
             rows = rows[: int(args.max_train)]
         train_tasks_by_domain[domain] = rows
+
+    if args.dataset_family == "fever":
+        fever_train_path = (repo_root / args.fever_train_jsonl).resolve()
+        if not fever_train_path.exists():
+            fallback_path = (repo_root / args.fever_test_jsonl).resolve()
+            if fallback_path.exists():
+                fever_train_path = fallback_path
+            else:
+                raise FileNotFoundError(f"FEVER 训练文件不存在: {repo_root / args.fever_train_jsonl}")
+        fever_train_rows = load_jsonl_rows(fever_train_path)
+        fever_by_domain = split_fever_train_by_domain(fever_train_rows, domains)
+        for domain in domains:
+            rows = fever_by_domain.get(domain, [])
+            if args.max_train is not None:
+                rows = rows[: int(args.max_train)]
+            train_tasks_by_domain[domain] = rows
+
+    if args.dataset_family == "pddl":
+        pddl_train_paths = [
+            (repo_root / args.pddl_train_a_jsonl).resolve(),
+            (repo_root / args.pddl_train_b_jsonl).resolve(),
+        ]
+        for i, domain in enumerate(domains):
+            path = pddl_train_paths[i]
+            if not path.exists():
+                raise FileNotFoundError(f"PDDL 训练文件不存在: {path}")
+            rows = [copy.deepcopy(r) for r in load_jsonl_rows(path)]
+            if args.max_train is not None:
+                rows = rows[: int(args.max_train)]
+            train_tasks_by_domain[domain] = rows
 
     merged_eval_tasks: dict[str, list[dict]] = {}
     merge_manifest_rows: list[dict[str, Any]] = []
     for split_name in eval_splits:
         if args.dataset_family == "alfworld":
             _path, rows, meta = merge_eval_split(subset_dir, merged_eval_dir, domains, split_name)
-        else:
+        elif args.dataset_family == "amabench":
             merged_rows: list[dict] = []
             source_files: list[str] = []
             for domain in domains:
@@ -363,6 +494,47 @@ def main() -> None:
                 "num_tasks_raw": len(merged_rows),
                 "num_tasks_dedup": len(rows),
                 "source_files": source_files,
+            }
+        elif args.dataset_family == "pddl":
+            if pddl_get_all_environment_configs is None:
+                raise ImportError(
+                    "PDDL 环境不可用（import pddlgym 失败）。请安装 gym、numpy、nltk 等依赖后重试。"
+                )
+            pddl_test_path = (repo_root / args.pddl_test_jsonl).resolve()
+            if not pddl_test_path.exists():
+                raise FileNotFoundError(f"PDDL 评测标注文件不存在: {pddl_test_path}")
+            game_names = parse_domains(args.pddl_game_names)
+            rows = list(pddl_get_all_environment_configs(game_names, str(pddl_test_path)))
+            rows = dedupe_tasks(rows)
+            merged_eval_dir.mkdir(parents=True, exist_ok=True)
+            out_path = merged_eval_dir / "merged__test.json"
+            with out_path.open("w", encoding="utf-8") as writer:
+                json.dump(rows, writer, ensure_ascii=False, indent=2)
+            meta = {
+                "split": split_name,
+                "output_file": str(out_path),
+                "num_tasks_raw": len(rows),
+                "num_tasks_dedup": len(rows),
+                "source_files": [str(pddl_test_path)],
+                "pddl_game_names": game_names,
+            }
+        else:
+            eval_path = (repo_root / args.fever_test_jsonl).resolve()
+            if not eval_path.exists():
+                raise FileNotFoundError(f"FEVER 测试文件不存在: {eval_path}")
+            eval_rows_raw = load_jsonl_rows(eval_path)
+            rows = [task for task in (build_fever_task(x) for x in eval_rows_raw) if task]
+            rows = dedupe_tasks(rows)
+            merged_eval_dir.mkdir(parents=True, exist_ok=True)
+            out_path = merged_eval_dir / "merged__test.json"
+            with out_path.open("w", encoding="utf-8") as writer:
+                json.dump(rows, writer, ensure_ascii=False, indent=2)
+            meta = {
+                "split": split_name,
+                "output_file": str(out_path),
+                "num_tasks_raw": len(eval_rows_raw),
+                "num_tasks_dedup": len(rows),
+                "source_files": [str(eval_path)],
             }
         if args.max_eval is not None:
             rows = rows[: int(args.max_eval)]
@@ -387,9 +559,11 @@ def main() -> None:
         "gm2_promotion_threshold": float(args.gm2_promotion_threshold),
         "gm2_shared_global_dir": global_dir,
     }
+    if bool(args.gm2_enable_overlay):
+        gm2_common["gm2_enable_overlay"] = True
 
     local_dirs: list[str] = []
-    if args.reset_memory and args.mas_memory == "graph_memory2" and args.gm2_dynamic_graph:
+    if args.reset_memory and args.mas_memory in _GM_GRAPH_MEMORY and args.gm2_dynamic_graph:
         reset_graph_memory2_artifacts_once(
             memory_dirs=[os.path.join(local_root, d) for d in domains] + [global_dir],
             owner_scenes=domains + ["global"],
@@ -398,8 +572,11 @@ def main() -> None:
     train_results: list[dict[str, Any]] = []
     saved_messages_by_domain: dict[str, list[Any]] = {}
     if not args.eval_only:
-        for domain in domains:
-            task_name = train_task_name
+        for domain_idx, domain in enumerate(domains):
+            if args.dataset_family == "pddl":
+                task_name = "pddl_ab_train_A" if domain_idx == 0 else "pddl_ab_train_B"
+            else:
+                task_name = train_task_name
             local_dir = os.path.join(local_root, domain)
             local_dirs.append(local_dir)
             ensure_dir(local_dir)
@@ -418,7 +595,7 @@ def main() -> None:
             manager.tasks = copy.deepcopy(train_tasks_by_domain[domain])
             manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
             manager.mem_config.update(gm2_common)
-            if args.mas_memory == "graph_memory2":
+            if args.mas_memory in _GM_GRAPH_MEMORY:
                 manager.mem_config.update(
                     gm2_owner_scene=domain,
                     gm2_settings="local_only",
@@ -458,7 +635,7 @@ def main() -> None:
     else:
         local_dirs = [os.path.join(local_root, d) for d in domains]
 
-    if args.mas_memory == "graph_memory2":
+    if args.mas_memory in _GM_GRAPH_MEMORY:
         if not args.gm2_dynamic_graph:
             raise ValueError("多 domain global 构建目前要求 --gm2_dynamic_graph。")
         rebuild_graph_memory2_global_from_locals(
@@ -515,7 +692,6 @@ def main() -> None:
                 persist_fn()
 
     eval_results: list[dict[str, Any]] = []
-
     amabench_episode_outputs: list[dict[str, Any]] = []
 
     def eval_one(
@@ -529,7 +705,7 @@ def main() -> None:
         log_eval = os.path.join(log_base, "eval", memory_scope, split_name)
         ensure_dir(log_eval)
         manager = build_task_manager(
-            train_task_name,
+            eval_task_name,
             args.mas_type,
             args.mas_memory,
             args.max_trials,
@@ -540,14 +716,30 @@ def main() -> None:
         manager.tasks = eval_tasks
         manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
         manager.mem_config.update({"freeze_memory": True, **gm2_common})
-        if args.mas_memory == "graph_memory2":
-            gm2_settings = "global_only" if memory_scope == "global" else "local_only"
+        if args.mas_memory in _GM_GRAPH_MEMORY:
+            # Keep gm2_settings configurable for eval to align with domain adaptation script.
+            gm2_settings = str(args.gm2_settings or "local_plus_global")
             manager.mem_config.update(
                 gm2_owner_scene=owner_scene,
                 gm2_settings=gm2_settings,
                 gm2_freeze_memory=True,
             )
-        build_mas(manager, args.reasoning, args.mas_memory, args.model)
+        eval_mem = build_mas(manager, args.reasoning, args.mas_memory, args.model)
+        if args.mas_memory not in _GM_GRAPH_MEMORY:
+            # Non-GM2 memories use local memory as base and explicitly attach global retriever.
+            _reasoning_cls, global_mem_cls = module_map(args.reasoning, args.mas_memory)
+            global_retriever = global_mem_cls(
+                namespace=args.mas_memory,
+                global_config={
+                    "working_dir": global_dir,
+                    "freeze_memory": True,
+                },
+                llm_model=GPTChat(model_name=args.model),
+                embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
+            )
+            set_global = getattr(eval_mem, "set_global_retriever", None)
+            if callable(set_global):
+                set_global(global_retriever)
         alfworld_sp = (
             {
                 "reasoning": args.reasoning,
@@ -592,26 +784,20 @@ def main() -> None:
             eval_results.append(
                 eval_one(
                     split_name=split_name,
-                    memory_scope=f"local:{domain}",
+                    memory_scope=f"local+global:{domain}",
                     memory_dir=local_dir,
                     owner_scene=domain,
                 )
             )
-        eval_results.append(
-            eval_one(
-                split_name=split_name,
-                memory_scope="global",
-                memory_dir=global_dir,
-                owner_scene="global",
-            )
-        )
 
     output = {
         "dataset_family": args.dataset_family,
         "run_id": run_id,
+        "batch_size": int(args.batch_size),
         "domains": domains,
         "global_only_eval": False,
-        "expected_eval_result_count": len(eval_splits) * (len(domains) + 1),
+        "eval_injection_mode": "local_plus_global_per_domain",
+        "expected_eval_result_count": len(eval_splits) * len(domains),
         "memory_type": args.mas_memory,
         "merged_eval_manifest_path": merge_manifest_path,
         "train_results": train_results,
