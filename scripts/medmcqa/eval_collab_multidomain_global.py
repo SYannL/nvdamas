@@ -21,6 +21,7 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     build_isolated_subprocess_args,
     build_mas,
     build_task_manager,
+    collab_report_run_dir,
     compute_metrics,
     ensure_dir,
     module_map,
@@ -469,7 +470,12 @@ def main() -> None:
     local_root = os.path.join(base_dir, "local")
     global_dir = os.path.join(base_dir, "global")
     log_base = os.path.join("./logs", eval_namespace, run_id, args.mas_type, "memory", args.mas_memory, model_type)
-    report_base = os.path.join("./reports", "collab", time.strftime("%Y%m%d_%H%M%S"))
+    report_ts = time.strftime("%Y%m%d_%H%M%S")
+    report_base = collab_report_run_dir(
+        dataset_family=args.dataset_family,
+        mas_memory=args.mas_memory,
+        report_ts=report_ts,
+    )
     ensure_dir(local_root)
     ensure_dir(global_dir)
     ensure_dir(log_base)

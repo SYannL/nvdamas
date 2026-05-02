@@ -1036,6 +1036,19 @@ def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
+def collab_report_run_dir(*, dataset_family: str, mas_memory: str, report_ts: str, root: str = "Report") -> str:
+    """``./Report/<dataset_family>/<mas_memory>/<timestamp>/`` (relative to cwd)."""
+
+    def _safe_seg(s: str) -> str:
+        t = str(s or "").strip().replace(os.sep, "_")
+        if os.altsep:
+            t = t.replace(os.altsep, "_")
+        t = t.replace("/", "_")
+        return t or "unknown"
+
+    return os.path.join(".", root, _safe_seg(dataset_family), _safe_seg(mas_memory), _safe_seg(report_ts))
+
+
 def load_jsonl_rows(path: str) -> list[dict]:
     rows: list[dict] = []
     with open(path, "r", encoding="utf-8") as f:
@@ -1798,7 +1811,6 @@ def main() -> None:
     local_dir = os.path.join(base_dir, "local")
     dual_local_dir = os.path.join(base_dir, "dual_local")
     global_dir = os.path.join(base_dir, "global")
-    report_dir = os.path.join("./reports")
 
     log_base = os.path.join("./logs", eval_namespace, run_id, args.mas_type, "memory", args.mas_memory, model_type)
 
@@ -1808,7 +1820,6 @@ def main() -> None:
     ensure_dir(local_dir)
     ensure_dir(dual_local_dir)
     ensure_dir(global_dir)
-    ensure_dir(report_dir)
 
     alfworld_eval_splits = parse_alfworld_eval_splits(args.alfworld_eval_split) if args.dataset_family == "alfworld" else []
     alfworld_eval_task_sets: dict[str, tuple[list[dict], list[dict]]] = {}
@@ -3096,9 +3107,13 @@ def main() -> None:
                 }
             )
 
-    # Always save results to a new timestamped folder under reports/collab
+    # ./Report/<dataset_family>/<mas_memory>/<timestamp>/
     report_ts = time.strftime("%Y%m%d_%H%M%S")
-    collab_dir = os.path.join(report_dir, "collab", report_ts)
+    collab_dir = collab_report_run_dir(
+        dataset_family=args.dataset_family,
+        mas_memory=args.mas_memory,
+        report_ts=report_ts,
+    )
     ensure_dir(collab_dir)
 
     output_json = os.path.join(collab_dir, f"{args.dataset_family}_collab_domain_eval.json")
