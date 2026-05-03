@@ -20,6 +20,20 @@ SECTION_HOW_TO_USE_SEARCH = """## How to Use Your Intermediate Findings
 - When you identify a plausible next step, execute it and re-check the new observation to stay aligned with the current episode.
 
 """
+SECTION_HOW_TO_USE_FEVER = """## How to Use Your Intermediate Findings
+- Use retrieved memories as evidence-search guidance, not as label priors.
+- Prefer a focused Search[...] from the claim, then Lookup[...] key entities or relations in the returned evidence.
+- Finish[SUPPORTS], Finish[REFUTES], or Finish[NOT ENOUGH INFO] only after the observation evidence justifies that label.
+- If a lookup returns No Results, reformulate the evidence query instead of repeating the same lookup.
+
+"""
+SECTION_HOW_TO_USE_PDDL = """## How to Use Your Intermediate Findings
+- Treat retrieved memories as planning hints over predicates, operators, and goal progress.
+- Prefer currently valid actions that move unsatisfied goal literals closer to completion.
+- Do not copy object names, operator arguments, or actions that are not available in the current problem.
+- If an action fails or stalls, choose a different valid operator rather than repeating the same step.
+
+"""
 SECTION_HOW_TO_USE_MTMIND2WEB = """## How to Use Your Intermediate Findings
 - Treat retrieved trajectories as reusable interaction patterns on websites (search → filter → sort → open detail → add to cart / book / submit), not as exact HTML.
 - Prefer reusing successful action order and control types (textbox vs button vs select) over copying unrelated site-specific wording.
@@ -114,11 +128,15 @@ def format_task_prompt_with_insights(
     else:
         body = ""
 
-    how_section = (
-        SECTION_HOW_TO_USE_MTMIND2WEB
-        if (intermediate_findings_env or "").strip().lower() == "mtmind2web"
-        else SECTION_HOW_TO_USE_SEARCH
-    )
+    env_name = (intermediate_findings_env or "").strip().lower()
+    if env_name == "mtmind2web":
+        how_section = SECTION_HOW_TO_USE_MTMIND2WEB
+    elif env_name == "fever":
+        how_section = SECTION_HOW_TO_USE_FEVER
+    elif env_name.startswith("pddl"):
+        how_section = SECTION_HOW_TO_USE_PDDL
+    else:
+        how_section = SECTION_HOW_TO_USE_SEARCH
     user_prompt = (
         body
         + how_section

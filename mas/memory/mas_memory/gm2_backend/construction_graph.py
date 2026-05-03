@@ -596,6 +596,93 @@ def _generic_action_text(step, *, prefer_surface: bool = False) -> str:
     return step.action.canonical_str
 
 
+_FEVER_LABELS = {
+    "supports",
+    "refutes",
+    "not enough info",
+    "not_enough_info",
+}
+
+
+def _fever_claim_text(episode: EpisodeRecord) -> str:
+    return re.sub(r"^\s*verify claim:\s*", "", str(episode.goal or ""), flags=re.IGNORECASE).strip()
+
+
+def _fever_action_arg(step) -> str:
+    surface = str(getattr(step.action, "surface_form", "") or "").strip()
+    match = re.match(r"^\s*[A-Za-z_]+\[(.*)\]\s*$", surface)
+    if match:
+        return match.group(1).strip()
+    for key in ("query", "keyword", "label"):
+        value = str(getattr(step.action, "slots", {}).get(key, "") or "").strip()
+        if value:
+            return value.replace("_", " ")
+    return ""
+
+
+def _fever_is_finish(step) -> bool:
+    return str(getattr(step.action, "verb", "") or "").lower() == "finish"
+
+
+def _fever_is_search(step) -> bool:
+    return str(getattr(step.action, "verb", "") or "").lower() == "search"
+
+
+def _fever_is_lookup(step) -> bool:
+    return str(getattr(step.action, "verb", "") or "").lower() == "lookup"
+
+
+def _fever_no_results(step) -> bool:
+    text = " ".join(
+        str(value or "")
+        for value in (
+            getattr(step.state, "raw_observation", ""),
+            getattr(step.next_state, "raw_observation", ""),
+            getattr(step.feedback, "failure_label", ""),
+        )
+    ).lower()
+    return any(marker in text for marker in ("no results", "cannot find", "not found", "lookup_without_page"))
+
+
+def _fever_relation_keyword_hint(claim: str, *, search_arg: str = "", lookup_arg: str = "") -> str:
+    """Return a short relation/attribute phrase type without turning labels into priors."""
+    if lookup_arg:
+        normalized_lookup = re.sub(r"[_\s]+", " ", lookup_arg).strip().lower()
+        if normalized_lookup and normalized_lookup not in _FEVER_LABELS:
+            return "claim_relation_keyword"
+    text = re.sub(r"[^a-z0-9\s]+", " ", str(claim or "").lower())
+    if search_arg:
+        search_tokens = set(re.findall(r"[a-z0-9]+", search_arg.lower()))
+    else:
+        search_tokens = set()
+    stop = {
+        "claim",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "of",
+        "in",
+        "on",
+        "and",
+        "or",
+        "to",
+        "by",
+        "for",
+        "with",
+        "has",
+        "have",
+        "had",
+        "not",
+        "no",
+    }
+    words = [word for word in text.split() if len(word) > 2 and word not in stop and word not in search_tokens]
+    return "claim_relation_keyword" if words else "claim_keyword"
+
+
 class EpisodeGraphBuilder:
     def build(self, episode: EpisodeRecord) -> EpisodeGraph:
         episode_id = f"{episode.agent_id}:{episode.task_id}:{len(episode.steps)}"
@@ -1979,6 +2066,12 @@ class LocalGraphMaintainer:
     ) -> list[MemoryArtifact]:
         family = _task_family(episode)
         domain = _episode_domain(episode)
+        if domain == "fever":
+            return self._induce_fever_artifacts(
+                episode_graph,
+                episode,
+                episode_success=episode_success,
+            )
         artifacts: dict[str, MemoryArtifact] = {}
         node_ids_by_signature = {node.signature: node.node_id for node in episode_graph.nodes.values()}
         edge_refs = {edge.signature for edge in episode_graph.edges}
@@ -2144,6 +2237,193 @@ class LocalGraphMaintainer:
                 stalled=step.step_idx in stalled_steps,
                 utility_delta=0.10 if repair_patterns else 0.04,
             )
+        return list(artifacts.values())
+
+    def _induce_fever_artifacts(
+        self,
+        episode_graph: EpisodeGraph,
+        episode: EpisodeRecord,
+        *,
+        episode_success: bool,
+    ) -> list[MemoryArtifact]:
+        """Build FEVER memories around evidence acquisition, not answer labels.
+
+        FEVER transfer is different from ALFWorld object grounding: concrete
+        entities and final labels rarely transfer, but the evidence protocol does.
+        These artifacts are deliberately abstract so multiple FEVER domains can
+        merge into the same shared global memory without leaking task answers.
+        """
+        domain = "fever"
+        family = "fever:claim_verification"
+        claim = _fever_claim_text(episode)
+        artifacts: dict[str, MemoryArtifact] = {}
+
+        def upsert_artifact(
+            *,
+            kind: ArtifactKind,
+            summary: str,
+            anchor: dict,
+            payload: dict,
+            success: bool,
+            stalled: bool = False,
+            utility_delta: float = 0.0,
+        ) -> None:
+            aid = f"{kind.value}:{_condition_signature(anchor)}:{_condition_signature(payload)}"
+            artifact = artifacts.get(aid)
+            if artifact is None:
+                artifact = MemoryArtifact(
+                    artifact_id=aid,
+                    kind=kind,
+                    summary=summary,
+                    anchor=dict(anchor),
+                    payload=dict(payload),
+                )
+                artifacts[aid] = artifact
+            artifact.observe(
+                scene_id=episode.scene_id,
+                episode_id=episode_graph.episode_id,
+                success=success,
+                stalled=stalled,
+                utility_delta=utility_delta,
+            )
+
+        search_steps = [step for step in episode.steps if _fever_is_search(step)]
+        lookup_steps = [step for step in episode.steps if _fever_is_lookup(step)]
+        finish_steps = [step for step in episode.steps if _fever_is_finish(step)]
+        first_search_arg = _fever_action_arg(search_steps[0]) if search_steps else ""
+        first_lookup_arg = _fever_action_arg(lookup_steps[0]) if lookup_steps else ""
+        relation_hint = _fever_relation_keyword_hint(
+            claim,
+            search_arg=first_search_arg,
+            lookup_arg=first_lookup_arg,
+        )
+        has_successful_search = any(step.feedback.success and not step.feedback.failure_label for step in search_steps)
+        has_successful_lookup = any(step.feedback.success and not step.feedback.failure_label for step in lookup_steps)
+
+        if search_steps or episode_success:
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER evidence workflow: start with Search on the claim's primary entity "
+                    "before any Finish label."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "need_search",
+                    "artifact_role": "fever_evidence_search",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "evidence_search",
+                    "claim_role": "primary_entity",
+                    "action_patterns": [
+                        "Search[claim primary entity]",
+                        "search(query=claim_primary_entity)",
+                    ],
+                },
+                success=bool(episode_success or has_successful_search),
+                utility_delta=0.20 if episode_success else 0.08,
+            )
+
+        if lookup_steps:
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER lookup workflow: after Search retrieves a page, use Lookup on a "
+                    "relation or attribute keyword from the claim before Finish."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "need_lookup_or_finish",
+                    "artifact_role": "fever_lookup_strategy",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "lookup_relation_keyword",
+                    "keyword_role": relation_hint,
+                    "action_patterns": [
+                        "Lookup[claim relation keyword]",
+                        "lookup(keyword=claim_relation_keyword)",
+                    ],
+                },
+                success=bool(episode_success or has_successful_lookup),
+                utility_delta=0.22 if episode_success else 0.09,
+            )
+
+        if any(_fever_no_results(step) for step in episode.steps):
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER recovery workflow: if Search or Lookup returns No Results, reformulate "
+                    "to a shorter entity/relation keyword before giving a final label."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "search_failed",
+                    "artifact_role": "fever_no_results_recovery",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "no_results_recovery",
+                    "repair_patterns": [
+                        "Search[shorter claim entity]",
+                        "Lookup[shorter claim relation keyword]",
+                    ],
+                },
+                success=True,
+                utility_delta=0.14,
+            )
+
+        first_finish_idx = finish_steps[0].step_idx if finish_steps else None
+        first_search_idx = search_steps[0].step_idx if search_steps else None
+        first_lookup_idx = lookup_steps[0].step_idx if lookup_steps else None
+        premature_finish = (
+            first_finish_idx is not None
+            and (
+                first_search_idx is None
+                or first_finish_idx < first_search_idx
+                or first_lookup_idx is None
+            )
+            and not episode_success
+        )
+        wrong_finish = any(step.feedback.failure_label == "wrong_finish_label" for step in finish_steps)
+        if premature_finish or wrong_finish:
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER failure avoidance: avoid Finish[...] before Search/Lookup evidence "
+                    "settles the claim; early label guesses often fail."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "ready_finish",
+                    "artifact_role": "fever_premature_finish_failure",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "premature_finish_failure",
+                    "avoid_patterns": ["Finish[unsupported label]"],
+                    "repair_patterns": [
+                        "Search[claim primary entity]",
+                        "Lookup[claim relation keyword]",
+                    ],
+                },
+                success=True,
+                utility_delta=0.12,
+            )
+
         return list(artifacts.values())
 
 

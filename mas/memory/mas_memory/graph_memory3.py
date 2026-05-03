@@ -9,19 +9,21 @@ from pathlib import Path
 from typing import Any
 
 from .graph_memory2 import GraphMemory2MASMemory
+from .gm3_backend.prompt_styles import prompt_style_for_query
 
 
 @dataclass
 class GraphMemory3MASMemory(GraphMemory2MASMemory):
     """GraphMemory3: prompt-only local/global graph routing with text-loss pruning.
 
-    GM3 intentionally reuses GraphMemory2's graph construction and persistence
-    stack. The difference is the routing layer:
+    GM3 reuses the shared graph construction/persistence backend, but keeps its
+    prompt routing and dataset-facing language independent from GraphMemory2:
 
     - local graph grounds current state and admissible actions;
     - global graph contributes transferable workflow/phase knowledge;
     - source priors remain weak search context;
     - a small text-loss router prunes noisy memory before prompt injection.
+    - dataset styles render ALFWorld/PDDL/FEVER memory without cross-task wording.
 
     The class is prompt-only by default. It does not override concrete actions
     through the GM2 action hook, so the non-memory nvdamas workflow remains
@@ -692,25 +694,16 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         return sections
 
     def _gm3_phase_items(self, *, query: Any, target: str, tool: str, destination: str) -> list[str]:
-        progress = str(getattr(query, "progress_state", "") or "")
-        scene_id = str(getattr(query, "scene_id", "") or "")
-        if scene_id.startswith("pddl:"):
-            return [f"PDDL graph stage={progress or 'unknown'}; prefer current valid actions that previous local/global traces linked to goal-literal progress."]
-        if scene_id.startswith("fever:"):
-            return [f"FEVER graph stage={progress or 'unknown'}; use remembered Search -> Lookup -> Finish workflow/failure evidence as prompt guidance only."]
-        held = int(getattr(query, "held_relevant_count", 0) or 0)
-        visible = bool(getattr(query, "goal_object_matches_visible", False))
-        items: list[str] = []
-        if held > 0:
-            if tool and progress in {"carry_target", "process_target"}:
-                items.append(f"held target_object={target}; next phase is process with tool={tool} if not already processed, otherwise deliver to destination={destination}.")
-            else:
-                items.append(f"held target_object={target}; next phase is delivery to destination={destination}, not more source search.")
-        elif visible:
-            items.append(f"target_object={target} is visible; take the matching target before broad search.")
-        elif progress.startswith("search"):
-            items.append(f"search target_object={target}; if graph priority gives an admissible queue, execute the next queued action.")
-        return items
+        return self._gm3_prompt_style(query=query).phase_items(
+            self,
+            query=query,
+            target=target,
+            tool=tool,
+            destination=destination,
+        )
+
+    def _gm3_prompt_style(self, *, query: Any = None, task_family: str = ""):
+        return prompt_style_for_query(query, task_family=task_family)
 
     def _gm3_global_workflow_items(
         self,
@@ -736,7 +729,33 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if not text or self._gm3_is_concrete_location_text(text) or self._gm3_is_failure_text(text):
                 continue
             norm = self._gm3_norm(text)
-            if not any(marker in norm for marker in ("workflow", "plan", "->", "take(", "heat(", "cool(", "clean(", "move(", "repeat acquire")):
+            if not self._gm3_prompt_style(query=None, task_family=task_family).keep_global_text(
+                self,
+                text=text,
+                norm_text=norm,
+                task_family=task_family,
+            ):
+                continue
+            marker_ok = any(
+                marker in norm
+                for marker in (
+                    "workflow",
+                    "plan",
+                    "->",
+                    "take(",
+                    "heat(",
+                    "cool(",
+                    "clean(",
+                    "move(",
+                    "repeat acquire",
+                )
+            )
+            if not marker_ok:
+                style = self._gm3_prompt_style(query=None, task_family=task_family)
+                marker_ok = style.name == "fever" and any(
+                    marker in norm for marker in ("fever evidence", "fever lookup", "fever recovery", "failure avoidance")
+                )
+            if not marker_ok:
                 continue
             rendered.append(self._gm3_bind_slots(text, target=target, tool=tool, destination=destination))
         return self._gm3_dedupe(rendered, 4)
@@ -800,7 +819,15 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if domain not in {"pddl", "fever"} and not task_family.startswith(("pddl_", "fever_")):
                 continue
             artifact_family = self._gm3_norm(str(anchor.get("task_family", "") or ""))
-            if task_family and artifact_family and artifact_family != task_family:
+            family_matches = not task_family or not artifact_family or artifact_family == task_family
+            if (
+                not family_matches
+                and domain == "fever"
+                and task_family.startswith("fever")
+                and artifact_family in {"fever", "fever_claim_verification"}
+            ):
+                family_matches = True
+            if not family_matches:
                 continue
             pattern_kind = self._gm3_norm(str(payload.get("pattern_kind", "") or anchor.get("pattern_kind", "") or ""))
             if pattern_kind in {"scene_relation", "source_type_prior"}:
@@ -826,9 +853,38 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             text = self._gm3_clean(str(getattr(artifact, "summary", "") or ""))
             if not text:
                 continue
+            if not self._gm3_prompt_style(query=None, task_family=task_family or domain).keep_local_artifact_text(
+                self,
+                domain=domain,
+                task_family=task_family,
+                text=text,
+                norm_text=self._gm3_norm(text),
+            ):
+                continue
             if mapped:
                 rendered.append(f"{text} Current admissible grounding: `{mapped}`.")
             elif pattern_kind in {"workflow", "closure", "rule", "precondition"}:
+                rendered.append(text)
+        if task_family.startswith("fever"):
+            style = self._gm3_prompt_style(query=None, task_family=task_family)
+            for item in (
+                list(getattr(bundle, "local_items", []) or [])
+                + list(getattr(bundle, "workflow_items", []) or [])
+                + list(getattr(bundle, "repair_items", []) or [])
+            ):
+                if not str(getattr(item, "source", "") or "").startswith("local"):
+                    continue
+                text = self._gm3_clean(str(getattr(item, "summary", "") or ""))
+                if not text:
+                    continue
+                if not style.keep_local_artifact_text(
+                    self,
+                    domain="fever",
+                    task_family=task_family,
+                    text=text,
+                    norm_text=self._gm3_norm(text),
+                ):
+                    continue
                 rendered.append(text)
         return self._gm3_dedupe(rendered, 5)
 
@@ -1505,6 +1561,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         target = self._gm3_base(str(goal_roles.get("object", "") or ""))
         tool = self._gm3_base(str(goal_roles.get("tool", "") or ""))
         destination = self._gm3_base(str(goal_roles.get("destination", "") or ""))
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        style = self._gm3_prompt_style(query=query, task_family=task_family)
         local_line = self._gm3_summary_slot(selected, "local_grounding", default="none.")
         global_line = self._gm3_summary_slot(selected, "global_workflow", default="none.")
         failure_line = self._gm3_summary_slot(selected, "failure_avoidance", default="none.")
@@ -1523,6 +1581,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             admissible=admissible,
         )
         state_line = self._gm3_state_summary(
+            query=query,
             target=target,
             tool=tool,
             destination=destination,
@@ -1530,6 +1589,21 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             visible=visible,
             exhausted=exhausted,
         )
+        if local_line != "none." and not style.keep_local_artifact_text(
+            self,
+            domain=style.name,
+            task_family=task_family,
+            text=local_line,
+            norm_text=self._gm3_norm(local_line),
+        ):
+            local_line = "none."
+        if global_line != "none." and not style.keep_global_text(
+            self,
+            text=global_line,
+            norm_text=self._gm3_norm(global_line),
+            task_family=task_family,
+        ):
+            global_line = "none."
         lines = [
             f"Current phase: {self._gm3_phase_label(query)}.",
             f"Current state: {state_line}",
@@ -1553,19 +1627,12 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
 
     def _gm3_phase_label(self, query: Any) -> str:
         macro = self._gm3_textgrad_macro_phase(query=query)
-        labels = {
-            "process_held_target": "process held target",
-            "deliver_held_target": "deliver held target",
-            "acquire_visible_target": "acquire visible target",
-            "search_additional_target": "search additional target",
-            "search_target": "search target",
-            "continue_task": "continue task",
-        }
-        return labels.get(macro, macro.replace("_", " "))
+        return self._gm3_prompt_style(query=query).phase_label(self, query=query, macro=macro)
 
     def _gm3_state_summary(
         self,
         *,
+        query: Any,
         target: str,
         tool: str,
         destination: str,
@@ -1573,23 +1640,16 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         visible: list[str],
         exhausted: list[str],
     ) -> str:
-        parts = [
-            f"target={target or 'unknown'}",
-            f"tool={tool or 'none'}",
-            f"destination={destination or 'unknown'}",
-        ]
-        if held:
-            parts.append("held=" + ", ".join(self._gm3_base(x) for x in held[:2] if str(x).strip()))
-        elif visible:
-            visible_bases = [self._gm3_base(x) for x in visible[:3] if str(x).strip()]
-            if visible_bases:
-                parts.append("visible=" + ", ".join(visible_bases))
-        if exhausted:
-            counts = self._gm3_exhausted_base_counts(exhausted)
-            if counts:
-                top = ", ".join(f"{base}x{count}" for base, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:2])
-                parts.append("searched=" + top)
-        return "; ".join(part for part in parts if part)
+        return self._gm3_prompt_style(query=query).state_summary(
+            self,
+            query=query,
+            target=target,
+            tool=tool,
+            destination=destination,
+            held=held,
+            visible=visible,
+            exhausted=exhausted,
+        )
 
     def _gm3_next_priority_line(
         self,
@@ -1598,37 +1658,12 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         priority_items: list[str],
         admissible: list[str],
     ) -> str:
-        goal_roles = getattr(query, "goal_roles", {}) or {}
-        target = self._gm3_base(str(goal_roles.get("object", "") or ""))
-        tool = self._gm3_base(str(goal_roles.get("tool", "") or ""))
-        destination = self._gm3_base(str(goal_roles.get("destination", "") or ""))
-        progress = str(getattr(query, "progress_state", "") or "")
-        held_count = int(getattr(query, "held_relevant_count", 0) or 0)
-        visible_match = bool(getattr(query, "goal_object_matches_visible", False))
-
-        if held_count > 0:
-            actions: list[str] = []
-            if tool and progress in {"carry_target", "process_target"}:
-                actions = self._gm3_tool_priority_actions(target=target, tool=tool, admissible=admissible)
-            if not actions and destination:
-                actions = self._gm3_destination_priority_actions(target=target, destination=destination, admissible=admissible)
-            if actions:
-                return actions[0]
-            return "use the admissible process or delivery action for the held target; ignore source search."
-
-        if visible_match:
-            actions = self._gm3_take_priority_actions(target=target, admissible=admissible)
-            if actions:
-                return actions[0]
-            return "take the visible matching target before broad search."
-
-        for item in priority_items[:2]:
-            text = str(item or "").strip()
-            if text:
-                return text
-        if progress.startswith("search"):
-            return "search for the target using current admissible actions; avoid repeating exhausted source types."
-        return "follow the current observation and admissible actions."
+        return self._gm3_prompt_style(query=query).next_priority_line(
+            self,
+            query=query,
+            priority_items=priority_items,
+            admissible=admissible,
+        )
 
     def _gm3_confidence_caveat(self, *, selected: list[dict[str, Any]], next_line: str, admissible: list[str]) -> str:
         slots = {str(item.get("slot", "") or "") for item in selected}
