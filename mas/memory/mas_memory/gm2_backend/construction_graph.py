@@ -683,6 +683,92 @@ def _fever_relation_keyword_hint(claim: str, *, search_arg: str = "", lookup_arg
     return "claim_relation_keyword" if words else "claim_keyword"
 
 
+def _fever_claim_profile(claim: str) -> dict[str, Any]:
+    text = str(claim or "").strip()
+    norm = re.sub(r"[^a-z0-9\s]+", " ", text.lower())
+    primary = _fever_claim_anchor(text)
+    claim_type = "general_fact"
+    lookup_keywords: list[str] = []
+    search_role = "primary entity"
+
+    if any(marker in norm for marker in (" soundtrack", " track", " song ", " album", " single")):
+        claim_type = "album_track_membership"
+        search_role = "song or album title"
+        lookup_keywords = ["soundtrack", "track listing", "album", "song"]
+    elif any(marker in norm for marker in (" cast", " stars ", " starring", " starred", " appeared in", " actor", " actress", " played ")):
+        claim_type = "cast_membership"
+        search_role = "film, show, or person title"
+        lookup_keywords = ["cast", "starring", "appeared", "played by"]
+    elif any(marker in norm for marker in (" directed", " director", " created", " creator", " producer", " wrote", " written")):
+        claim_type = "creative_role"
+        search_role = "work or creator title"
+        lookup_keywords = ["director", "creator", "producer", "writer"]
+    elif any(marker in norm for marker in (" released", " release date", " premiered", " publication", " published")):
+        claim_type = "release_date"
+        search_role = "claimed work or artist title"
+        lookup_keywords = ["release date", "released", "premiered", "published"]
+    elif any(marker in norm for marker in (" genre", " style", " type of music", " rock", " pop", " hip hop", " jazz")):
+        claim_type = "genre"
+        search_role = "artist, work, or album title"
+        lookup_keywords = ["genre", "style", "music genre"]
+    elif any(marker in norm for marker in (" award", " won", " nominated", " grammy", " oscar", " emmy")):
+        claim_type = "award"
+        search_role = "person or work title"
+        lookup_keywords = ["awards", "nominations", "won"]
+    elif any(marker in norm for marker in (" singer", " musician", " band", " guitarist", " vocalist", " rapper", " composer")):
+        claim_type = "music_role"
+        search_role = "artist or band name"
+        lookup_keywords = ["occupation", "members", "associated acts", "music career"]
+    elif any(marker in norm for marker in (" born", " nationality", " country", " city", " located", " from ")):
+        claim_type = "nationality_location"
+        search_role = "person or place name"
+        lookup_keywords = ["born", "nationality", "origin", "location"]
+    elif any(marker in norm for marker in (" occupation", " profession", " known for", " worked as")):
+        claim_type = "profession"
+        search_role = "person name"
+        lookup_keywords = ["occupation", "known for", "career"]
+    elif any(marker in norm for marker in (" spouse", " married", " member of", " part of", " belongs to")):
+        claim_type = "identity_relation"
+        search_role = "person or group name"
+        lookup_keywords = ["relationship", "member", "spouse"]
+
+    if not lookup_keywords:
+        relation = _fever_relation_keyword_hint(claim, search_arg=primary)
+        lookup_keywords = [relation.replace("_", " ")]
+    return {
+        "claim_type": claim_type,
+        "primary_entity": primary,
+        "search_role": search_role,
+        "lookup_keywords": lookup_keywords[:5],
+    }
+
+
+def _fever_claim_anchor(claim: str) -> str:
+    text = str(claim or "").strip()
+    called = re.search(r"\bthere\s+(?:is|are|was|were)\b.*?\bcalled\s+(.+?)(?:[.;]|$)", text, flags=re.I)
+    if called:
+        candidate = called.group(1).strip(" .,:;\"'")
+        if candidate:
+            return re.sub(r"[^a-z0-9_]+", "_", candidate.strip().lower()).strip("_")
+    predicate = re.search(
+        r"\b(?:is|are|was|were|has|have|had|does|do|did|worked|appeared|released|formed|created|directed|stars|starred|starring|features|featured|includes|included)\b",
+        text,
+        flags=re.I,
+    )
+    if predicate:
+        subject = text[: predicate.start()].strip(" .,:;\"'")
+        subject = re.sub(r"\b(?:only|also|just)\s*$", "", subject, flags=re.I).strip(" .,:;\"'")
+        if 1 <= len(re.findall(r"[A-Za-z0-9]+", subject)) <= 8:
+            return re.sub(r"[^a-z0-9_]+", "_", subject.strip().lower()).strip("_")
+    candidates = re.findall(
+        r"\b(?:[A-Z][A-Za-z0-9]*|[A-Z]\.)(?:\s+(?:(?:the|of|and|in|on|for|to|a|an)\b|[A-Z][A-Za-z0-9]*|[A-Z]\.)){0,5}",
+        text,
+    )
+    if candidates:
+        return re.sub(r"[^a-z0-9_]+", "_", candidates[0].strip().lower()).strip("_")
+    return ""
+
+
 class EpisodeGraphBuilder:
     def build(self, episode: EpisodeRecord) -> EpisodeGraph:
         episode_id = f"{episode.agent_id}:{episode.task_id}:{len(episode.steps)}"
@@ -2255,13 +2341,20 @@ class LocalGraphMaintainer:
         """Build FEVER memories around evidence acquisition, not answer labels.
 
         FEVER transfer is different from ALFWorld object grounding: concrete
-        entities and final labels rarely transfer, but the evidence protocol does.
-        These artifacts are deliberately abstract so multiple FEVER domains can
-        merge into the same shared global memory without leaking task answers.
+        entities and final labels rarely transfer, but claim-type evidence
+        workflows do.  These artifacts avoid old labels/entities while keeping
+        the reusable search/lookup strategy specific enough to route.
         """
         domain = "fever"
-        family = "fever:claim_verification"
         claim = _fever_claim_text(episode)
+        claim_profile = _fever_claim_profile(claim)
+        claim_type = str(claim_profile.get("claim_type", "") or "general_fact")
+        lookup_keywords = [
+            str(keyword).strip()
+            for keyword in (claim_profile.get("lookup_keywords", []) or [])
+            if str(keyword).strip()
+        ][:5]
+        family = f"fever:{claim_type}"
         artifacts: dict[str, MemoryArtifact] = {}
 
         def upsert_artifact(
@@ -2296,78 +2389,40 @@ class LocalGraphMaintainer:
         search_steps = [step for step in episode.steps if _fever_is_search(step)]
         lookup_steps = [step for step in episode.steps if _fever_is_lookup(step)]
         finish_steps = [step for step in episode.steps if _fever_is_finish(step)]
-        first_search_arg = _fever_action_arg(search_steps[0]) if search_steps else ""
-        first_lookup_arg = _fever_action_arg(lookup_steps[0]) if lookup_steps else ""
-        relation_hint = _fever_relation_keyword_hint(
-            claim,
-            search_arg=first_search_arg,
-            lookup_arg=first_lookup_arg,
-        )
-        has_successful_search = any(step.feedback.success and not step.feedback.failure_label for step in search_steps)
-        has_successful_lookup = any(step.feedback.success and not step.feedback.failure_label for step in lookup_steps)
-
-        if search_steps or episode_success:
+        if episode_success and search_steps and finish_steps and not lookup_steps:
             upsert_artifact(
                 kind=ArtifactKind.PROTOTYPE,
                 summary=(
-                    "FEVER evidence workflow: start with Search on the claim's primary entity "
-                    "before any Finish label."
-                ),
-                anchor={
-                    "task_family": family,
-                    "goal_arity": 1,
-                    "progress_state": "need_search",
-                    "artifact_role": "fever_evidence_search",
-                    "domain": domain,
-                },
-                payload={
-                    "source": "fever_episode_graph",
-                    "pattern_kind": "workflow",
-                    "fever_pattern": "evidence_search",
-                    "claim_role": "primary_entity",
-                    "action_patterns": [
-                        "Search[claim primary entity]",
-                        "search(query=claim_primary_entity)",
-                    ],
-                },
-                success=bool(episode_success or has_successful_search),
-                utility_delta=0.20 if episode_success else 0.08,
-            )
-
-        if lookup_steps:
-            upsert_artifact(
-                kind=ArtifactKind.PROTOTYPE,
-                summary=(
-                    "FEVER lookup workflow: after Search retrieves a page, use Lookup on a "
-                    "relation or attribute keyword from the claim before Finish."
+                    f"FEVER stop rule ({claim_type}): when the searched page already settles the "
+                    "claim, finish from evidence instead of forcing an extra Lookup."
                 ),
                 anchor={
                     "task_family": family,
                     "goal_arity": 1,
                     "progress_state": "need_lookup_or_finish",
-                    "artifact_role": "fever_lookup_strategy",
+                    "artifact_role": "fever_evidence_sufficiency_stop",
                     "domain": domain,
+                    "claim_type": claim_type,
                 },
                 payload={
                     "source": "fever_episode_graph",
                     "pattern_kind": "workflow",
-                    "fever_pattern": "lookup_relation_keyword",
-                    "keyword_role": relation_hint,
-                    "action_patterns": [
-                        "Lookup[claim relation keyword]",
-                        "lookup(keyword=claim_relation_keyword)",
-                    ],
+                    "fever_pattern": "evidence_sufficiency_stop",
+                    "claim_type": claim_type,
+                    "lookup_keywords": lookup_keywords,
+                    "stop_rule": "finish if current evidence directly supports, refutes, or shows missing evidence",
+                    "avoid_patterns": ["Lookup[generic relation keyword]"],
                 },
-                success=bool(episode_success or has_successful_lookup),
-                utility_delta=0.22 if episode_success else 0.09,
+                success=True,
+                utility_delta=0.18,
             )
 
         if any(_fever_no_results(step) for step in episode.steps):
             upsert_artifact(
                 kind=ArtifactKind.PROTOTYPE,
                 summary=(
-                    "FEVER recovery workflow: if Search or Lookup returns No Results, reformulate "
-                    "to a shorter entity/relation keyword before giving a final label."
+                    f"FEVER recovery workflow ({claim_type}): if Search or Lookup returns No Results, "
+                    "reformulate to a shorter current entity/relation keyword before giving a final label."
                 ),
                 anchor={
                     "task_family": family,
@@ -2375,14 +2430,17 @@ class LocalGraphMaintainer:
                     "progress_state": "search_failed",
                     "artifact_role": "fever_no_results_recovery",
                     "domain": domain,
+                    "claim_type": claim_type,
                 },
                 payload={
                     "source": "fever_episode_graph",
                     "pattern_kind": "workflow",
-                    "fever_pattern": "no_results_recovery",
+                    "fever_pattern": "claim_type_no_results_recovery",
+                    "claim_type": claim_type,
+                    "lookup_keywords": lookup_keywords,
                     "repair_patterns": [
-                        "Search[shorter claim entity]",
-                        "Lookup[shorter claim relation keyword]",
+                        "Search[shorter current claim entity]",
+                        "Lookup[shorter current claim relation keyword]",
                     ],
                 },
                 success=True,
@@ -2406,8 +2464,8 @@ class LocalGraphMaintainer:
             upsert_artifact(
                 kind=ArtifactKind.PROTOTYPE,
                 summary=(
-                    "FEVER failure avoidance: avoid Finish[...] before Search/Lookup evidence "
-                    "settles the claim; early label guesses often fail."
+                    f"FEVER failure avoidance ({claim_type}): avoid Finish[...] before Search/Lookup "
+                    "evidence settles the current claim; early label guesses often fail."
                 ),
                 anchor={
                     "task_family": family,
@@ -2415,15 +2473,18 @@ class LocalGraphMaintainer:
                     "progress_state": "ready_finish",
                     "artifact_role": "fever_premature_finish_failure",
                     "domain": domain,
+                    "claim_type": claim_type,
                 },
                 payload={
                     "source": "fever_episode_graph",
                     "pattern_kind": "workflow",
-                    "fever_pattern": "premature_finish_failure",
+                    "fever_pattern": "claim_type_premature_finish_failure",
+                    "claim_type": claim_type,
+                    "lookup_keywords": lookup_keywords,
                     "avoid_patterns": ["Finish[unsupported label]"],
                     "repair_patterns": [
-                        "Search[claim primary entity]",
-                        "Lookup[claim relation keyword]",
+                        "Search[current claim primary entity]",
+                        "Lookup[current claim relation keyword]",
                     ],
                 },
                 success=True,

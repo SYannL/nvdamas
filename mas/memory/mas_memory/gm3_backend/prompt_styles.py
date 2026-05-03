@@ -163,7 +163,13 @@ class PDDLPromptStyle(BasePromptStyle):
     ) -> str:
         goal = renderer._gm3_clean(str(getattr(query, "goal", "") or "")).strip()
         progress = str(getattr(query, "progress_state", "") or "unknown")
+        belief = getattr(query, "belief", {}) or {}
+        goal_literals = [str(item) for item in (belief.get("goal_literals") or []) if str(item).strip()]
+        current_literals = {renderer._gm3_norm(str(item)) for item in (belief.get("current_literals") or [])}
+        unsatisfied = [literal for literal in goal_literals if renderer._gm3_norm(literal) not in current_literals]
         parts = [f"goal={renderer._gm3_shorten(goal, 120) or 'unknown'}", f"stage={progress}"]
+        if unsatisfied:
+            parts.append("unsatisfied=" + "; ".join(renderer._gm3_shorten(lit, 50) for lit in unsatisfied[:2]))
         if visible:
             parts.append("state=" + "; ".join(renderer._gm3_base(x) for x in visible[:3] if str(x).strip()))
         if exhausted:
@@ -183,6 +189,9 @@ class PDDLPromptStyle(BasePromptStyle):
             mapped = renderer._gm3_first_admissible_action_in_text(text, admissible)
             if mapped:
                 return f"execute current valid operator `{mapped}` only if it advances an unsatisfied goal literal."
+        hint = renderer._gm3_pddl_current_action_hint(query, admissible)
+        if hint:
+            return f"prefer current valid operator `{hint}` because it overlaps unsatisfied goal literals; do not invent actions."
         if admissible:
             return "choose a currently valid operator that advances unsatisfied goal literals; do not invent actions."
         return "continue planning from current predicates and goal literals."
@@ -193,12 +202,13 @@ class FeverPromptStyle(BasePromptStyle):
 
     def phase_items(self, renderer: Any, *, query: Any, target: str, tool: str, destination: str) -> list[str]:
         progress = str(getattr(query, "progress_state", "") or "")
+        ctx = _fever_claim_context(query)
         if progress == "ready_finish":
             return [
-                "FEVER label decision stage: compare the current evidence against the claim; finish now if it supports, contradicts, or remains insufficient."
+                f"FEVER label decision stage ({ctx['claim_type']}): compare the current evidence against this claim; finish now only if it supports, contradicts, or remains insufficient."
             ]
         return [
-            f"FEVER graph stage={progress or 'unknown'}; use remembered Search -> Lookup -> Finish workflow/failure evidence as prompt guidance only."
+            f"FEVER graph stage={progress or 'unknown'}, claim_type={ctx['claim_type']}; use remembered Search -> Lookup -> Finish workflow only when it maps to this claim's entity/keywords."
         ]
 
     def keep_global_text(self, renderer: Any, *, text: str, norm_text: str, task_family: str) -> bool:
@@ -241,8 +251,14 @@ class FeverPromptStyle(BasePromptStyle):
     ) -> str:
         goal = renderer._gm3_clean(str(getattr(query, "goal", "") or "")).removeprefix("Verify claim:").strip()
         progress = str(getattr(query, "progress_state", "") or "unknown")
+        ctx = _fever_claim_context(query)
         evidence = [renderer._gm3_base(x) for x in visible[:2] if str(x).strip()]
         parts = [f"claim={renderer._gm3_shorten(goal, 110) or 'unknown'}", f"stage={progress}"]
+        parts.append(f"claim_type={ctx['claim_type']}")
+        if ctx["entity"]:
+            parts.append(f"primary_entity={ctx['entity']}")
+        if ctx["lookup_keywords"]:
+            parts.append("lookup_keywords=" + ", ".join(ctx["lookup_keywords"][:3]))
         if evidence:
             parts.append("evidence=" + "; ".join(evidence))
         if exhausted:
@@ -258,15 +274,20 @@ class FeverPromptStyle(BasePromptStyle):
         admissible: list[str],
     ) -> str:
         progress = str(getattr(query, "progress_state", "") or "")
+        for item in priority_items[:2]:
+            text = str(item or "").strip()
+            if text:
+                return text
+        ctx = _fever_claim_context(query)
         lookup_hint = _fever_lookup_hint(renderer, query)
         search_hint = _fever_search_hint(renderer, query, admissible)
         if progress == "need_search":
             if search_hint:
-                return f"start with {search_hint}; use Search on the claim's primary entity before deciding the label."
-            return "choose a focused Search[...] query from the claim; do not infer the label before evidence."
+                return f"claim-type workflow={ctx['claim_type']}; start with {search_hint}; do not infer the label before evidence."
+            return f"claim-type workflow={ctx['claim_type']}; choose a focused Search[...] query from the claim's primary entity before any label."
         if progress == "need_lookup_or_finish":
             if lookup_hint:
-                return f"try Lookup[{lookup_hint}] if the current evidence does not directly settle the claim; finish only after evidence justifies the label."
+                return f"claim-type workflow={ctx['claim_type']}; try Lookup[{lookup_hint}] if current evidence does not settle the claim; finish only after evidence justifies the label."
             return "use Lookup[...] when evidence is insufficient; Finish[...] only when the evidence supports, refutes, or is missing."
         if progress == "ready_finish":
             return (
@@ -279,8 +300,8 @@ class FeverPromptStyle(BasePromptStyle):
 
 
 def _fever_search_hint(renderer: Any, query: Any, admissible: list[str]) -> str:
-    goal_roles = getattr(query, "goal_roles", {}) or {}
-    anchor = _fever_entity_text(str(goal_roles.get("object", "") or ""))
+    ctx = _fever_claim_context(query)
+    anchor = _fever_entity_text(str(ctx.get("entity", "") or ""))
     if not anchor:
         return ""
     anchor_norm = _fever_norm(anchor)
@@ -291,6 +312,11 @@ def _fever_search_hint(renderer: Any, query: Any, admissible: list[str]) -> str:
 
 
 def _fever_lookup_hint(renderer: Any, query: Any) -> str:
+    ctx = _fever_claim_context(query)
+    for hint in ctx.get("lookup_keywords", []) or []:
+        cleaned = _fever_entity_text(str(hint or ""))
+        if cleaned:
+            return cleaned
     goal = renderer._gm3_clean(str(getattr(query, "goal", "") or "")).removeprefix("Verify claim:").strip()
     if not goal:
         return ""
@@ -306,6 +332,26 @@ def _fever_lookup_hint(renderer: Any, query: Any) -> str:
     )
     words = [w for w in text.split() if len(w) > 2]
     return " ".join(words[:5]).strip()
+
+
+def _fever_claim_context(query: Any) -> dict[str, Any]:
+    belief = getattr(query, "belief", {}) or {}
+    goal_roles = getattr(query, "goal_roles", {}) or {}
+    claim_type = str(belief.get("claim_type") or goal_roles.get("claim_type") or "general_fact").strip() or "general_fact"
+    entity = str(belief.get("primary_entity") or goal_roles.get("object") or "").strip()
+    raw_keywords = belief.get("relation_keywords") or goal_roles.get("relation") or []
+    if isinstance(raw_keywords, str):
+        raw_keywords = [raw_keywords]
+    keywords = [
+        _fever_entity_text(str(keyword or ""))
+        for keyword in raw_keywords
+        if _fever_entity_text(str(keyword or ""))
+    ]
+    return {
+        "claim_type": claim_type,
+        "entity": _fever_entity_text(entity),
+        "lookup_keywords": keywords,
+    }
 
 
 def _fever_entity_text(value: str) -> str:
@@ -373,8 +419,12 @@ def _is_fever_transferable_hint(norm_text: str) -> bool:
         marker in padded
         for marker in (
             " fever evidence workflow ",
+            " fever claim workflow ",
+            " global fever workflow ",
+            " local fever workflow ",
             " fever lookup workflow ",
             " fever recovery workflow ",
+            " fever stop rule ",
             " fever failure avoidance ",
             " evidence strategy ",
             " lookup strategy ",

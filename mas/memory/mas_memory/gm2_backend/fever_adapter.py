@@ -139,25 +139,41 @@ class FeverAdapter:
         desired_types = [CandidateType.PRECONDITION, CandidateType.WORKFLOW]
         if progress_state in {"search_failed", "invalid_action"}:
             desired_types.append(CandidateType.FAILURE)
-        entity = self._claim_anchor(claim)
+        profile = self._claim_profile(claim)
+        entity = str(profile.get("primary_entity", "") or self._claim_anchor(claim))
+        relation_keywords = [str(x) for x in profile.get("relation_keywords", []) if str(x).strip()]
+        claim_type = str(profile.get("claim_type", "") or "general_fact")
+        secondary_entity = str(profile.get("secondary_entity", "") or "")
         keywords = tuple(
             dict.fromkeys(
                 [
                     f"domain={domain}",
                     f"progress={progress_state}",
+                    f"claim_type={claim_type}",
+                    f"relation={relation_keywords[0]}" if relation_keywords else "",
+                    f"secondary={secondary_entity}" if secondary_entity else "",
                     f"label={_normalize(label)}" if label else "",
                     *(_normalize(x) for x in self._claim_keywords(claim)[:10]),
+                    *(_normalize(x) for x in relation_keywords[:6]),
                     *(_normalize(x) for x in self._evidence_phrases(observation)[:8]),
                 ]
             )
         )
+        goal_roles = {
+            "claim_type": claim_type,
+            "object": entity,
+        }
+        if relation_keywords:
+            goal_roles["relation"] = _normalize(relation_keywords[0])
+        if secondary_entity:
+            goal_roles["secondary"] = _normalize(secondary_entity)
         return MemoryQuery(
             goal=f"Verify claim: {claim}",
             scene_id=scene_id,
             current_stage=state.workflow_stage,
             progress_state=progress_state,
             task_family=self.infer_task_family(claim, domain),
-            goal_roles={"object": entity} if entity else {},
+            goal_roles={key: value for key, value in goal_roles.items() if value},
             required_count=1,
             placed_relevant_count=1 if progress_state in {"ready_finish", "done"} else 0,
             remaining_relevant_count=0 if progress_state == "done" else 1,
@@ -170,6 +186,10 @@ class FeverAdapter:
             belief={
                 "claim": claim,
                 "answer": label,
+                "claim_type": claim_type,
+                "primary_entity": entity,
+                "secondary_entity": secondary_entity,
+                "relation_keywords": relation_keywords,
                 "history_len": len(history),
                 "last_action": str(current.get("Action", "") or ""),
             },
@@ -300,22 +320,141 @@ class FeverAdapter:
         # title-case regex collapsed names with lowercase connectors, e.g.
         # "Off the Wall" -> "Off", which produces weak Search hints.
         predicate = re.search(
-            r"\b(?:is|are|was|were|has|have|had|does|do|did|worked|appeared|released|formed|created|directed|starred)\b",
+            r"\b(?:is|are|was|were|has|have|had|does|do|did|worked|appeared|released|formed|created|directed|stars|starred|starring|features|featured|includes|included)\b",
             text,
             flags=re.I,
         )
+        called = re.search(r"\bthere\s+(?:is|are|was|were)\b.*?\bcalled\s+(.+?)(?:[.;]|$)", text, flags=re.I)
+        if called:
+            candidate = called.group(1).strip(" .,:;\"'")
+            if candidate:
+                return _normalize(candidate)
         if predicate:
             subject = text[: predicate.start()].strip(" .,:;\"'")
+            subject = re.sub(r"\b(?:only|also|just)\s*$", "", subject, flags=re.I).strip(" .,:;\"'")
             if 1 <= len(re.findall(r"[A-Za-z0-9]+", subject)) <= 8:
                 return _normalize(subject)
         candidates = re.findall(
-            r"\b(?:[A-Z][A-Za-z0-9]*|[A-Z]\.)(?:\s+(?:the|of|and|in|on|for|to|a|an|[A-Z][A-Za-z0-9]*|[A-Z]\.)){0,5}",
+            r"\b(?:[A-Z][A-Za-z0-9]*|[A-Z]\.)(?:\s+(?:(?:the|of|and|in|on|for|to|a|an)\b|[A-Z][A-Za-z0-9]*|[A-Z]\.)){0,5}",
             text,
         )
         if candidates:
             return _normalize(candidates[0])
         words = FeverAdapter._claim_keywords(claim)
         return _normalize(words[0]) if words else ""
+
+    @staticmethod
+    def _claim_profile(claim: str) -> dict[str, Any]:
+        """Cheap structural routing for FEVER claims.
+
+        The graph should transfer evidence workflows ("cast membership",
+        "album track membership", etc.) instead of memorizing labels or old
+        entity names.  These heuristics intentionally stay deterministic so
+        they add almost no runtime overhead.
+        """
+        text = str(claim or "").strip()
+        norm = re.sub(r"[^a-z0-9\s]+", " ", text.lower())
+        primary = FeverAdapter._claim_anchor(text)
+
+        claim_type = "general_fact"
+        relation_keywords: list[str] = []
+        if any(marker in norm for marker in (" soundtrack", " track", " song ", " album", " single")):
+            claim_type = "album_track_membership"
+            relation_keywords = ["soundtrack", "track listing", "album", "song"]
+        elif any(marker in norm for marker in (" cast", " stars ", " starring", " starred", " appeared in", " actor", " actress", " played ")):
+            claim_type = "cast_membership"
+            relation_keywords = ["cast", "starring", "appeared", "played by"]
+        elif any(marker in norm for marker in (" directed", " director", " created", " creator", " producer", " wrote", " written")):
+            claim_type = "creative_role"
+            relation_keywords = ["director", "creator", "producer", "writer"]
+        elif any(marker in norm for marker in (" released", " release date", " premiered", " publication", " published")):
+            claim_type = "release_date"
+            relation_keywords = ["release date", "released", "premiered", "published"]
+        elif any(marker in norm for marker in (" genre", " style", " type of music", " rock", " pop", " hip hop", " jazz")):
+            claim_type = "genre"
+            relation_keywords = ["genre", "style", "music genre"]
+        elif any(marker in norm for marker in (" award", " won", " nominated", " grammy", " oscar", " emmy")):
+            claim_type = "award"
+            relation_keywords = ["awards", "nominations", "won"]
+        elif any(marker in norm for marker in (" singer", " musician", " band", " guitarist", " vocalist", " rapper", " composer")):
+            claim_type = "music_role"
+            relation_keywords = ["occupation", "members", "associated acts", "music career"]
+        elif any(marker in norm for marker in (" born", " nationality", " country", " city", " located", " from ")):
+            claim_type = "nationality_location"
+            relation_keywords = ["born", "nationality", "origin", "location"]
+        elif any(marker in norm for marker in (" occupation", " profession", " known for", " worked as")):
+            claim_type = "profession"
+            relation_keywords = ["occupation", "known for", "career"]
+        elif any(marker in norm for marker in (" spouse", " married", " member of", " part of", " belongs to")):
+            claim_type = "identity_relation"
+            relation_keywords = ["relationship", "member", "spouse"]
+
+        if not relation_keywords:
+            relation_keywords = FeverAdapter._claim_relation_keywords(text, primary)
+        secondary = FeverAdapter._secondary_entity_hint(text, primary)
+        return {
+            "claim_type": claim_type,
+            "primary_entity": primary,
+            "secondary_entity": secondary,
+            "relation_keywords": relation_keywords[:5],
+        }
+
+    @staticmethod
+    def _claim_relation_keywords(claim: str, primary_entity: str = "") -> list[str]:
+        stop = {
+            "claim",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "of",
+            "in",
+            "on",
+            "and",
+            "or",
+            "to",
+            "by",
+            "for",
+            "with",
+            "has",
+            "have",
+            "had",
+            "not",
+            "no",
+        }
+        text = re.sub(r"[^a-z0-9\s]+", " ", str(claim or "").lower())
+        primary_tokens = set(re.findall(r"[a-z0-9]+", primary_entity.replace("_", " ")))
+        words = [
+            word
+            for word in text.split()
+            if len(word) > 2 and word not in stop and word not in primary_tokens
+        ]
+        if not words:
+            return ["claim relation"]
+        # Preserve short adjacent phrases because Lookup often benefits from a
+        # relation phrase ("track listing") more than a single leftover token.
+        phrases: list[str] = []
+        for idx in range(len(words) - 1):
+            phrases.append(f"{words[idx]} {words[idx + 1]}")
+            if len(phrases) >= 2:
+                break
+        return phrases + words[:3]
+
+    @staticmethod
+    def _secondary_entity_hint(claim: str, primary_entity: str = "") -> str:
+        candidates = re.findall(
+            r"\b(?:[A-Z][A-Za-z0-9]*|[A-Z]\.)(?:\s+(?:(?:the|of|and|in|on|for|to|a|an)\b|[A-Z][A-Za-z0-9]*|[A-Z]\.)){0,5}",
+            str(claim or ""),
+        )
+        primary_norm = _normalize(primary_entity)
+        for candidate in candidates[1:]:
+            normalized = _normalize(candidate)
+            if normalized and normalized != primary_norm:
+                return normalized
+        return ""
 
     @staticmethod
     def _claim_keywords(claim: str) -> list[str]:
