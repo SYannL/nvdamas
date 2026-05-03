@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -28,6 +29,7 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     rebuild_graph_memory2_global_from_locals,
     rebuild_selectivemem_global_from_locals,
     reset_graph_memory2_artifacts_once,
+    memrl_collab_global_ready,
     run_tasks,
 )
 
@@ -377,6 +379,24 @@ def dedupe_tasks(tasks: list[dict]) -> list[dict]:
     return out
 
 
+# Repo layout: games live under data/alfworld/alfworld_official_042/json_2.1.1/...
+# Legacy lists used data/alfworld/json_2.1.1/... which breaks once data is only materialized under 042.
+_LEGACY_ALFWORLD_GAMEPATH = re.compile(r"(?:^|/)data/alfworld/json_2\.1\.1/")
+
+
+def _raise_if_legacy_alfworld_gamefiles(tasks: list[dict], *, where: str) -> None:
+    for i, row in enumerate(tasks):
+        g = str((row.get("env_kwargs") or {}).get("gamefile") or "").replace("\\", "/").strip()
+        if not g:
+            continue
+        if _LEGACY_ALFWORLD_GAMEPATH.search(g):
+            raise ValueError(
+                f"ALFWorld gamefile 仍使用旧路径（缺少 alfworld_official_042）。where={where} i={i} gamefile={g!r}。"
+                "请将子集 JSON 中的路径改为 data/alfworld/alfworld_official_042/json_2.1.1/...，"
+                "或对 data/alfworld/json_2.1.1 建立指向 alfworld_official_042/json_2.1.1 的符号链接。"
+            )
+
+
 def merge_eval_split(
     subset_dir: Path,
     merged_dir: Path,
@@ -460,9 +480,55 @@ def _print_multidomain_run_summary(
             )
 
 
+_ALFWORLD_MEMRL_EXAMPLE = r"""
+ALFWorld + memrl（与同 pipeline 下 graph_memory3 一样：显式子集、训练/评测 split、max_train/max_eval 等；
+memrl 不需要 --gm2_* / --gm3_*；依赖见仓库根 requirements-memrl.txt）:
+
+  cd /path/to/nvdamasgm && python scripts/medmcqa/eval_collab_multidomain_global.py \
+    --dataset_family alfworld \
+    --alfworld_domains bathroom,bedroom,kitchen,living \
+    --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
+    --alfworld_game_root "" \
+    --alfworld_eval_split valid_seen,valid_unseen \
+    --mas_type autogen \
+    --mas_memory memrl \
+    --reasoning io \
+    --model gpt-4o-mini \
+    --run_id "${RUN_ID}" \
+    --max_trials 30 \
+    --max_train 10000 \
+    --max_eval 10000 \
+    --batch_size 1 \
+    --tool_mode search \
+    --reset_memory
+
+仅评测（同一 RUN_ID；需已有 global/memrl/mem_cubes；不要与 --reset_memory 同用）:
+
+  cd /path/to/nvdamasgm && python scripts/medmcqa/eval_collab_multidomain_global.py \
+    --dataset_family alfworld \
+    --alfworld_domains bathroom,bedroom,kitchen,living \
+    --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
+    --alfworld_game_root "" \
+    --alfworld_eval_split valid_seen,valid_unseen \
+    --mas_type autogen \
+    --mas_memory memrl \
+    --reasoning io \
+    --model gpt-4o-mini \
+    --run_id "${RUN_ID}" \
+    --max_trials 30 \
+    --max_train 10000 \
+    --max_eval 10000 \
+    --batch_size 1 \
+    --tool_mode search \
+    --eval_only
+"""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="多 domain 协作训练（local）+ global 评测：ALFWorld / AmaBench / FEVER / PDDL。"
+        description="多 domain 协作训练（local）+ global 评测：ALFWorld / AmaBench / FEVER / PDDL。",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_ALFWORLD_MEMRL_EXAMPLE,
     )
     parser.add_argument(
         "--dataset_family",
@@ -547,7 +613,15 @@ def main() -> None:
     parser.add_argument("--max_train", type=int, default=None)
     parser.add_argument("--max_eval", type=int, default=None)
     parser.add_argument("--mas_type", type=str, choices=["autogen", "macnet", "dylan", "strategy"], default="autogen")
-    parser.add_argument("--mas_memory", type=str, default="graph_memory2")
+    parser.add_argument(
+        "--mas_memory",
+        type=str,
+        default="graph_memory2",
+        help=(
+            "记忆类型：graph_memory2 / graph_memory3 / g-memory / selectivemem / memrl / empty 等。"
+            "memrl 走与 g-memory 相同的多域 global 合并（add_memory_from_peer），无需 gm2/gm3 开关。"
+        ),
+    )
     parser.add_argument("--reasoning", type=str, default="io")
     parser.add_argument("--model", type=str, default="gpt-4o-mini")
     parser.add_argument("--max_trials", type=int, default=30)
@@ -650,6 +724,14 @@ def main() -> None:
     ensure_dir(log_base)
     ensure_dir(report_base)
 
+    if args.eval_only and args.mas_memory == "memrl":
+        if not memrl_collab_global_ready(global_dir):
+            raise ValueError(
+                "eval_only + mas_memory=memrl 需要已有 global 记忆。"
+                f" 未检测到 {os.path.abspath(os.path.join(global_dir, 'memrl', 'mem_cubes'))}；"
+                "请先跑完整训练阶段生成 global，或从其它 run 拷贝对应 global 目录。"
+            )
+
     train_tasks_by_domain: dict[str, list[dict]] = {}
     for domain in domains:
         if args.dataset_family == "alfworld":
@@ -662,9 +744,14 @@ def main() -> None:
             )
         else:
             rows = []
-        if args.dataset_family not in ("fever", "pddl") and args.max_train is not None:
-            rows = rows[: int(args.max_train)]
-        train_tasks_by_domain[domain] = rows
+        if args.dataset_family not in ("fever", "pddl"):
+            if args.max_train is not None:
+                rows = rows[: int(args.max_train)]
+            train_tasks_by_domain[domain] = rows
+
+    if args.dataset_family == "alfworld":
+        for dom, trows in train_tasks_by_domain.items():
+            _raise_if_legacy_alfworld_gamefiles(trows, where=f"train {dom}")
 
     if args.dataset_family == "fever":
         fever_train_rows: list[dict] = []
@@ -779,6 +866,8 @@ def main() -> None:
             }
         if args.max_eval is not None:
             rows = rows[: int(args.max_eval)]
+        if args.dataset_family == "alfworld":
+            _raise_if_legacy_alfworld_gamefiles(rows, where=f"eval split={split_name}")
         merged_eval_tasks[split_name] = rows
         merge_manifest_rows.append(meta)
 
@@ -828,6 +917,15 @@ def main() -> None:
             owner_scenes=domains + ["global"],
             memory_namespace=args.mas_memory,
         )
+    elif args.reset_memory and args.mas_memory == "memrl":
+        for d in domains:
+            p = os.path.join(local_root, d)
+            if os.path.isdir(p):
+                shutil.rmtree(p, ignore_errors=True)
+            ensure_dir(p)
+        if os.path.isdir(global_dir):
+            shutil.rmtree(global_dir, ignore_errors=True)
+        ensure_dir(global_dir)
 
     train_results: list[dict[str, Any]] = []
     saved_messages_by_domain: dict[str, list[Any]] = {}

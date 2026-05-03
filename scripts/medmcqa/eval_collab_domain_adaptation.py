@@ -1388,7 +1388,7 @@ def build_alfworld_subset(
         raise ValueError(f"Unsupported ALFWorld group: {group_name}")
 
     group_spec = ALFWORLD_GROUP_SPECS[group_name]
-    split_root = repo_root / "data" / "alfworld" / "json_2.1.1" / split_name
+    split_root = repo_root / "data" / "alfworld" / "alfworld_official_042" / "json_2.1.1" / split_name
     if not split_root.exists():
         raise FileNotFoundError(f"ALFWorld split directory not found: {split_root}")
 
@@ -1523,6 +1523,23 @@ def global_graph_exists(global_dir: str, mas_memory: str) -> bool:
         nodes = data.get("nodes") or []
         return len(nodes) > 0
     except (json.JSONDecodeError, OSError):
+        return False
+
+
+def memrl_collab_global_ready(global_dir: str, *, namespace: str = "memrl") -> bool:
+    """
+    True if MemRL multidomain global stage looks populated.
+
+    MemRLMASMemory uses ``<working_dir>/<namespace>/mem_cubes`` for MemOS cubes; after
+    per-domain training + ``add_memory_from_peer`` merge into ``global_dir``, this
+    directory should exist for ``eval_only`` runs.
+    """
+    cube_root = os.path.join(global_dir, namespace, "mem_cubes")
+    if not os.path.isdir(cube_root):
+        return False
+    try:
+        return any(os.scandir(cube_root))
+    except OSError:
         return False
 
 

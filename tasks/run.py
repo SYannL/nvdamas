@@ -305,7 +305,7 @@ def run_task(task_manager: TaskManager) -> None:
             task_config["task_index_1based"] = task_id + 1
             task_config["mas_memory_type"] = task_manager.memory_type
             task_config["model_type"] = task_manager.mas_config.get("model_type", "")
-            if task_manager.memory_type in ("g-memory", "selectivemem"):
+            if task_manager.memory_type in ("g-memory", "selectivemem", "memrl"):
                 _ma_dir = os.path.join(task_manager.recorder.working_dir, "memory_augmentation")
                 os.makedirs(_ma_dir, exist_ok=True)
                 task_config["memory_augment_log_dir"] = _ma_dir
@@ -427,7 +427,12 @@ if __name__ == '__main__':
         ],
     )
     parser.add_argument('--mas_type', type=str, choices=['autogen', 'macnet', 'dylan', 'strategy'])
-    parser.add_argument('--mas_memory', type=str, default='g-memory', help='Specify mas memory module')
+    parser.add_argument(
+        '--mas_memory',
+        type=str,
+        default='g-memory',
+        help='MAS memory: g-memory, graph_memory2, graph_memory3, selectivemem, memrl, ...',
+    )
     parser.add_argument('--reasoning', type=str, default='io', help='Specify reasoning module')
     parser.add_argument('--model', type=str, default='gpt-3.5-turbo-0125', help='Specify the LLM model type')
     parser.add_argument('--max_trials', type=int, default=50, help='max number of steps')
