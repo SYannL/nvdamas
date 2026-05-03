@@ -23,7 +23,7 @@ SECTION_HOW_TO_USE_SEARCH = """## How to Use Your Intermediate Findings
 SECTION_HOW_TO_USE_FEVER = """## How to Use Your Intermediate Findings
 - Use retrieved memories as evidence-search guidance, not as label priors.
 - Prefer a focused Search[...] from the claim, then Lookup[...] key entities or relations in the returned evidence.
-- Finish[SUPPORTS], Finish[REFUTES], or Finish[NOT ENOUGH INFO] only after the observation evidence justifies that label.
+- At the final decision, compare the claim against the current evidence: use Finish[SUPPORTS] only for direct entailment, Finish[REFUTES] only for a clear contradiction, and Finish[NOT ENOUGH INFO] when the evidence is missing or ambiguous.
 - If a lookup returns No Results, reformulate the evidence query instead of repeating the same lookup.
 
 """

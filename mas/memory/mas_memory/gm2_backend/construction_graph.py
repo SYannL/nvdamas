@@ -962,7 +962,10 @@ class LocalGraphMaintainer:
         *,
         episode_success: bool,
     ) -> list[PromotionCandidate]:
-        if _episode_domain(episode) != "alfworld":
+        domain = _episode_domain(episode)
+        if domain == "fever":
+            return []
+        if domain != "alfworld":
             return self._induce_generic_candidates(episode_graph, episode, episode_success=episode_success)
         candidates: list[PromotionCandidate] = []
         family = _task_family(episode)
@@ -1302,7 +1305,10 @@ class LocalGraphMaintainer:
         *,
         episode_success: bool,
     ) -> list[MemoryRule]:
-        if _episode_domain(episode) != "alfworld":
+        domain = _episode_domain(episode)
+        if domain == "fever":
+            return []
+        if domain != "alfworld":
             return self._induce_generic_rules(episode_graph, episode, episode_success=episode_success)
         adapter = ALFWorldAdapter(scene_label=episode.scene_id)
         family = adapter.infer_task_family(episode.goal)

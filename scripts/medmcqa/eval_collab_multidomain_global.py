@@ -209,6 +209,8 @@ def normalize_pddl_test_jsonl_rows(rows: list[dict]) -> list[dict]:
             row["difficulty"] = ""
         else:
             row["difficulty"] = str(row["difficulty"])
+        row.setdefault("env_name", "pddl")
+        row.setdefault("task_type", "pddl")
         out.append(row)
     return out
 
@@ -694,6 +696,9 @@ def main() -> None:
                     f"PDDL 训练文件不存在: {path}（可先运行 scripts/pddl/split_pddl_by_gamename.py）"
                 )
             rows = [copy.deepcopy(r) for r in load_jsonl_rows(path)]
+            for row in rows:
+                row.setdefault("env_name", "pddl")
+                row.setdefault("task_type", "pddl")
             if args.max_train is not None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows

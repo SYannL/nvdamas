@@ -294,7 +294,24 @@ class FeverAdapter:
 
     @staticmethod
     def _claim_anchor(claim: str) -> str:
-        candidates = re.findall(r"\b[A-Z][A-Za-z0-9]*(?:\s+[A-Z][A-Za-z0-9]*){0,4}", str(claim or ""))
+        text = str(claim or "").strip()
+        text = re.sub(r"^\s*(?:verify\s+claim|claim)\s*:\s*", "", text, flags=re.I).strip()
+        # FEVER search should usually start from the claim subject.  The older
+        # title-case regex collapsed names with lowercase connectors, e.g.
+        # "Off the Wall" -> "Off", which produces weak Search hints.
+        predicate = re.search(
+            r"\b(?:is|are|was|were|has|have|had|does|do|did|worked|appeared|released|formed|created|directed|starred)\b",
+            text,
+            flags=re.I,
+        )
+        if predicate:
+            subject = text[: predicate.start()].strip(" .,:;\"'")
+            if 1 <= len(re.findall(r"[A-Za-z0-9]+", subject)) <= 8:
+                return _normalize(subject)
+        candidates = re.findall(
+            r"\b(?:[A-Z][A-Za-z0-9]*|[A-Z]\.)(?:\s+(?:the|of|and|in|on|for|to|a|an|[A-Z][A-Za-z0-9]*|[A-Z]\.)){0,5}",
+            text,
+        )
         if candidates:
             return _normalize(candidates[0])
         words = FeverAdapter._claim_keywords(claim)

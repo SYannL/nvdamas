@@ -178,10 +178,11 @@ class PDDLPromptStyle(BasePromptStyle):
         priority_items: list[str],
         admissible: list[str],
     ) -> str:
-        for item in priority_items[:2]:
+        for item in priority_items[:3]:
             text = str(item or "").strip()
-            if text:
-                return text
+            mapped = renderer._gm3_first_admissible_action_in_text(text, admissible)
+            if mapped:
+                return f"execute current valid operator `{mapped}` only if it advances an unsatisfied goal literal."
         if admissible:
             return "choose a currently valid operator that advances unsatisfied goal literals; do not invent actions."
         return "continue planning from current predicates and goal literals."
@@ -192,6 +193,10 @@ class FeverPromptStyle(BasePromptStyle):
 
     def phase_items(self, renderer: Any, *, query: Any, target: str, tool: str, destination: str) -> list[str]:
         progress = str(getattr(query, "progress_state", "") or "")
+        if progress == "ready_finish":
+            return [
+                "FEVER label decision stage: compare the current evidence against the claim; finish now if it supports, contradicts, or remains insufficient."
+            ]
         return [
             f"FEVER graph stage={progress or 'unknown'}; use remembered Search -> Lookup -> Finish workflow/failure evidence as prompt guidance only."
         ]
@@ -259,10 +264,15 @@ class FeverPromptStyle(BasePromptStyle):
             if search_hint:
                 return f"start with {search_hint}; use Search on the claim's primary entity before deciding the label."
             return "choose a focused Search[...] query from the claim; do not infer the label before evidence."
-        if progress in {"need_lookup_or_finish", "ready_finish"}:
+        if progress == "need_lookup_or_finish":
             if lookup_hint:
                 return f"try Lookup[{lookup_hint}] if the current evidence does not directly settle the claim; finish only after evidence justifies the label."
             return "use Lookup[...] when evidence is insufficient; Finish[...] only when the evidence supports, refutes, or is missing."
+        if progress == "ready_finish":
+            return (
+                "decide the FEVER label from the current evidence: Finish[SUPPORTS] for direct entailment, "
+                "Finish[REFUTES] for a clear contradiction, otherwise Finish[NOT ENOUGH INFO]."
+            )
         if progress in {"search_failed", "invalid_action"}:
             return "try a narrower evidence query or finish NOT ENOUGH INFO only after evidence search fails."
         return "verify the claim using Search, Lookup, then an evidence-grounded Finish label."
@@ -270,13 +280,14 @@ class FeverPromptStyle(BasePromptStyle):
 
 def _fever_search_hint(renderer: Any, query: Any, admissible: list[str]) -> str:
     goal_roles = getattr(query, "goal_roles", {}) or {}
-    anchor = renderer._gm3_base(str(goal_roles.get("object", "") or ""))
+    anchor = _fever_entity_text(str(goal_roles.get("object", "") or ""))
     if not anchor:
         return ""
+    anchor_norm = _fever_norm(anchor)
     for action in admissible:
-        if str(action).lower().startswith("search[") and anchor in renderer._gm3_base(action):
+        if str(action).lower().startswith("search[") and anchor_norm and anchor_norm in _fever_norm(str(action)):
             return str(action)
-    return f"Search[{anchor.replace('_', ' ').title()}]"
+    return f"Search[{_fever_display(anchor)}]"
 
 
 def _fever_lookup_hint(renderer: Any, query: Any) -> str:
@@ -284,11 +295,10 @@ def _fever_lookup_hint(renderer: Any, query: Any) -> str:
     if not goal:
         return ""
     goal_roles = getattr(query, "goal_roles", {}) or {}
-    anchor = renderer._gm3_base(str(goal_roles.get("object", "") or "")).replace("_", " ")
-    text = renderer._gm3_base(goal).replace("_", " ")
+    anchor = _fever_entity_text(str(goal_roles.get("object", "") or ""))
+    text = _fever_norm(goal)
     if anchor:
-        text = text.replace(anchor, " ")
-    text = re.sub(r"[^a-z0-9_ ]+", " ", text)
+        text = re.sub(rf"\b{re.escape(_fever_norm(anchor))}\b", " ", text)
     text = re.sub(
         r"\b(?:claim|has|have|had|is|are|was|were|a|an|the|to|of|in|on|by|for|with|and|or|no|not)\b",
         " ",
@@ -296,6 +306,34 @@ def _fever_lookup_hint(renderer: Any, query: Any) -> str:
     )
     words = [w for w in text.split() if len(w) > 2]
     return " ".join(words[:5]).strip()
+
+
+def _fever_entity_text(value: str) -> str:
+    text = re.sub(r"[_\s]+", " ", str(value or "")).strip()
+    return re.sub(r"\s+", " ", text)
+
+
+def _fever_norm(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+
+def _fever_display(value: str) -> str:
+    text = _fever_entity_text(value)
+    if not text:
+        return ""
+    # Reconstruct a readable entity from normalized graph roles without
+    # collapsing multi-word titles such as "Off the Wall".
+    small = {"a", "an", "and", "for", "in", "of", "on", "the", "to"}
+    parts: list[str] = []
+    for idx, part in enumerate(text.split()):
+        low = part.lower()
+        if len(low) == 1:
+            parts.append(low.upper())
+        elif idx > 0 and low in small:
+            parts.append(low)
+        else:
+            parts.append(low[:1].upper() + low[1:])
+    return " ".join(parts)
 
 
 def _is_fever_label_only_hint(norm_text: str) -> bool:
@@ -322,7 +360,12 @@ def _is_fever_label_only_hint(norm_text: str) -> bool:
 def _is_fever_transferable_hint(norm_text: str) -> bool:
     text = re.sub(r"[^a-z0-9]+", " ", str(norm_text or "").lower()).strip()
     if "fever" not in text:
-        return True
+        # FEVER bundle items can contain entity- or label-specific action
+        # examples such as "try finish(label=refutes)" or
+        # "try search(query=off_the_wall)".  Those are local priors, not
+        # transferable evidence discipline, so only explicit FEVER artifacts
+        # are allowed through this style boundary.
+        return False
     if _is_fever_label_only_hint(text):
         return False
     padded = f" {text} "

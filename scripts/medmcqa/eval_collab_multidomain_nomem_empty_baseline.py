@@ -38,8 +38,20 @@ from scripts.medmcqa.eval_collab_multidomain_global import (
     normalize_pddl_test_jsonl_rows,
     parse_domains,
     parse_eval_splits,
-    _raise_if_legacy_alfworld_gamefiles,
 )
+
+
+def _raise_if_legacy_alfworld_gamefiles(rows: list[dict], *, where: str = "") -> None:
+    """Reject old in-repo ALFWorld gamefile paths that bypass --alfworld_game_root remapping."""
+    for idx, row in enumerate(rows):
+        env_kwargs = row.get("env_kwargs") if isinstance(row, dict) else {}
+        gamefile = str((env_kwargs or {}).get("gamefile") or row.get("gamefile", "") or "")
+        if gamefile.startswith("data/alfworld/json_2.1.1/"):
+            prefix = f"{where}: " if where else ""
+            raise ValueError(
+                f"{prefix}ALFWorld task {idx} uses legacy gamefile path {gamefile!r}; "
+                "use collab_subsets/v3_s with --alfworld_game_root remapping."
+            )
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:

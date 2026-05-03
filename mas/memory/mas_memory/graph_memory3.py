@@ -646,6 +646,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             destination=destination,
             task_family=task_family,
             owner_scene=owner_scene,
+            admissible=admissible,
+            progress=progress,
         )
         if setting not in {"base", "local_only"} and global_items:
             sections.append({"slot": "global_workflow", "title": "Global transferable workflow", "items": global_items[:3], "source": "global"})
@@ -659,6 +661,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             admissible=admissible,
             visible=visible,
             exhausted=exhausted,
+            progress=progress,
         )
         if setting not in {"base", "global_only"} and local_items:
             sections.append({"slot": "local_grounding", "title": "Local graph grounding", "items": local_items[:4], "source": "local"})
@@ -715,12 +718,22 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         destination: str,
         task_family: str,
         owner_scene: str,
+        admissible: list[str],
+        progress: str = "",
     ) -> list[str]:
         raw_items = (
             list(getattr(bundle, "global_task_plan_items", []) or [])
             + list(getattr(bundle, "global_promoted_contribution", []) or [])
             + list(getattr(bundle, "global_items", []) or [])
         )
+        if task_family.startswith("fever") and global_memory is not None:
+            # FEVER global memory is intentionally stored as a tiny set of
+            # procedural artifacts.  The generic artifact retriever can score
+            # them too weakly because they avoid claim/entity/label specifics,
+            # so expose them here and let the FEVER prompt style/textloss gate
+            # decide whether they fit the current phase.
+            artifacts = getattr(global_memory, "artifacts_by_id", {}) or {}
+            raw_items += list(artifacts.values() if isinstance(artifacts, dict) else artifacts)
         rendered: list[str] = []
         for item in raw_items:
             if not self._gm3_keep_global_item_for_owner(item, global_memory=global_memory, owner_scene=owner_scene):
@@ -735,6 +748,30 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 norm_text=norm,
                 task_family=task_family,
             ):
+                continue
+            if self._gm3_should_suppress_fever_workflow_for_phase(
+                text=text,
+                task_family=task_family,
+                progress=progress,
+            ):
+                continue
+            if not self._gm3_fever_workflow_fits_phase(
+                text=text,
+                task_family=task_family,
+                progress=progress,
+            ):
+                continue
+            if task_family.startswith("pddl"):
+                mapped = self._gm3_first_admissible_action_in_text(text, admissible)
+                if mapped:
+                    rendered.append(
+                        f"Global PDDL memory maps to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
+                    )
+                else:
+                    rendered.append(
+                        "Global PDDL transfer: reuse abstract planning discipline only "
+                        "(satisfy operator preconditions, use current valid actions, and never copy arguments from another domain)."
+                    )
                 continue
             marker_ok = any(
                 marker in norm
@@ -771,6 +808,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         admissible: list[str],
         visible: list[str],
         exhausted: list[str],
+        progress: str = "",
     ) -> list[str]:
         rendered: list[str] = []
         admissible_norm = {self._gm3_norm(cmd): cmd for cmd in admissible}
@@ -853,6 +891,18 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             text = self._gm3_clean(str(getattr(artifact, "summary", "") or ""))
             if not text:
                 continue
+            if self._gm3_should_suppress_fever_workflow_for_phase(
+                text=text,
+                task_family=task_family,
+                progress=progress,
+            ):
+                continue
+            if not self._gm3_fever_workflow_fits_phase(
+                text=text,
+                task_family=task_family,
+                progress=progress,
+            ):
+                continue
             if not self._gm3_prompt_style(query=None, task_family=task_family or domain).keep_local_artifact_text(
                 self,
                 domain=domain,
@@ -862,7 +912,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             ):
                 continue
             if mapped:
+                if domain == "pddl":
+                    rendered.append(
+                        f"Local PDDL graph maps prior workflow to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
+                    )
+                    continue
                 rendered.append(f"{text} Current admissible grounding: `{mapped}`.")
+            elif domain == "pddl":
+                continue
             elif pattern_kind in {"workflow", "closure", "rule", "precondition"}:
                 rendered.append(text)
         if task_family.startswith("fever"):
@@ -877,6 +934,18 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 text = self._gm3_clean(str(getattr(item, "summary", "") or ""))
                 if not text:
                     continue
+                if self._gm3_should_suppress_fever_workflow_for_phase(
+                    text=text,
+                    task_family=task_family,
+                    progress=progress,
+                ):
+                    continue
+                if not self._gm3_fever_workflow_fits_phase(
+                    text=text,
+                    task_family=task_family,
+                    progress=progress,
+                ):
+                    continue
                 if not style.keep_local_artifact_text(
                     self,
                     domain="fever",
@@ -887,6 +956,40 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     continue
                 rendered.append(text)
         return self._gm3_dedupe(rendered, 5)
+
+    def _gm3_should_suppress_fever_workflow_for_phase(self, *, text: str, task_family: str, progress: str) -> bool:
+        """Avoid carrying evidence-acquisition hints into FEVER final-label decisions."""
+        if progress != "ready_finish":
+            return False
+        if not str(task_family or "").startswith("fever"):
+            return False
+        norm = self._gm3_norm(text)
+        return any(
+            marker in norm
+            for marker in (
+                "fever evidence workflow",
+                "fever lookup workflow",
+                "fever recovery workflow",
+                "fever failure avoidance",
+            )
+        )
+
+    def _gm3_fever_workflow_fits_phase(self, *, text: str, task_family: str, progress: str) -> bool:
+        """Keep FEVER procedural memory phase-specific so it stays helpful."""
+        if not str(task_family or "").startswith("fever"):
+            return True
+        norm = self._gm3_norm(text)
+        if "fever" not in norm:
+            return True
+        if "fever evidence workflow" in norm:
+            return progress in {"need_search", "search_failed", "invalid_action"}
+        if "fever lookup workflow" in norm:
+            return progress == "need_lookup_or_finish"
+        if "fever recovery workflow" in norm:
+            return progress in {"search_failed", "invalid_action"}
+        if "fever failure avoidance" in norm:
+            return progress in {"need_search", "need_lookup_or_finish"}
+        return True
 
     def _gm3_source_role_items(
         self,
@@ -1579,6 +1682,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             selected=selected,
             next_line=next_line,
             admissible=admissible,
+            task_family=task_family,
         )
         state_line = self._gm3_state_summary(
             query=query,
@@ -1665,9 +1769,22 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             admissible=admissible,
         )
 
-    def _gm3_confidence_caveat(self, *, selected: list[dict[str, Any]], next_line: str, admissible: list[str]) -> str:
+    def _gm3_confidence_caveat(
+        self,
+        *,
+        selected: list[dict[str, Any]],
+        next_line: str,
+        admissible: list[str],
+        task_family: str = "",
+    ) -> str:
         slots = {str(item.get("slot", "") or "") for item in selected}
         concrete = self._gm3_prompt_has_concrete_priority(next_line, admissible)
+        if str(task_family or "").startswith("fever"):
+            if concrete and ("local_grounding" in slots or "source_roles" in slots):
+                return "medium; FEVER memory suggests evidence actions, but the label must follow current evidence."
+            if "global_workflow" in slots:
+                return "medium-low; FEVER global memory is procedural only and must not provide a label prior."
+            return "low; decide from current evidence, not memory priors."
         if "local_grounding" in slots and concrete:
             return "high; local grounding maps to a current admissible action."
         if "source_roles" in slots and concrete:
