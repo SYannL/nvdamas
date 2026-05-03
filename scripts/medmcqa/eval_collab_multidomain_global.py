@@ -31,11 +31,6 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     run_tasks,
 )
 
-try:
-    from tasks.envs.pddl_env.pddl_env import get_all_environment_configs as pddl_get_all_environment_configs
-except ImportError:
-    pddl_get_all_environment_configs = None
-
 # GraphMemory3 reuses GM2 persistence / shared global layout; treat like GM2 in this script.
 _GM_GRAPH_MEMORY = frozenset({"graph_memory2", "graph_memory3"})
 
@@ -58,6 +53,12 @@ def parse_eval_splits(value: str) -> list[str]:
     if invalid:
         raise ValueError(f"不支持的 split: {invalid}，仅支持 {sorted(allowed)}")
     return splits
+
+
+def pddl_domain_train_jsonl(repo_root: Path, domain: str, override_path: Path | None) -> Path:
+    if override_path is not None:
+        return override_path
+    return (repo_root / "data" / "pddl" / f"pddl_domain_{domain}.jsonl").resolve()
 
 
 def load_jsonl_rows(path: Path) -> list[dict]:
@@ -371,22 +372,14 @@ def main() -> None:
     parser.add_argument(
         "--pddl_domains",
         type=str,
-        default="pddl_A,pddl_B",
-        help="PDDL：恰好 2 个 local 分区名（第 1 个用 train_A jsonl，第 2 个用 train_B）。",
-    )
-    parser.add_argument("--pddl_train_a_jsonl", type=str, default="data/pddl/pddl_ab_train_A.jsonl")
-    parser.add_argument("--pddl_train_b_jsonl", type=str, default="data/pddl/pddl_ab_train_B.jsonl")
-    parser.add_argument(
-        "--pddl_test_jsonl",
-        type=str,
-        default="data/pddl/test.jsonl",
-        help="与 tasks/envs 中 pddl 任务一致：按行提供 difficulty，展开为四领域固定题量 episode。",
+        default="gripper,blockworld,barman,tyreworld",
+        help="PDDL：各游戏一个 local 分区名，与 data/pddl/pddl_domain_<name>.jsonl 对应。",
     )
     parser.add_argument(
-        "--pddl_game_names",
+        "--pddl_train_jsonl",
         type=str,
-        default="barman,blockworld,gripper,tyreworld",
-        help="评测展开顺序与题量，逗号分隔，须与 test.jsonl 行数一致（默认 60）。",
+        default="",
+        help="可选：与 --pddl_domains 等长的逗号分隔训练 JSONL；留空则用默认 data/pddl/pddl_domain_<domain>.jsonl。",
     )
     parser.add_argument(
         "--amabench_max_traj_turns",
@@ -442,10 +435,10 @@ def main() -> None:
     elif args.dataset_family == "pddl":
         subset_dir = (repo_root / "data" / "pddl").resolve()
         domains = parse_domains(args.pddl_domains)
-        if len(domains) != 2:
-            raise ValueError("dataset_family=pddl 需要 --pddl_domains 恰好 2 项（AB 两分区）。")
+        if len(domains) < 1:
+            raise ValueError("dataset_family=pddl 需要至少 1 个 --pddl_domains。")
         eval_splits = ["test"]
-        train_task_name = "pddl_ab_train_A"
+        train_task_name = "pddl"
         eval_task_name = "pddl"
     else:
         subset_dir = repo_root / "data" / "fever"
@@ -513,14 +506,19 @@ def main() -> None:
             train_tasks_by_domain[domain] = rows
 
     if args.dataset_family == "pddl":
-        pddl_train_paths = [
-            (repo_root / args.pddl_train_a_jsonl).resolve(),
-            (repo_root / args.pddl_train_b_jsonl).resolve(),
-        ]
+        override_paths: list[Path | None] = []
+        if str(args.pddl_train_jsonl or "").strip():
+            override_paths = [(repo_root / item).resolve() for item in parse_csv(args.pddl_train_jsonl)]
+            if len(override_paths) != len(domains):
+                raise ValueError("--pddl_train_jsonl 逗号项数须与 --pddl_domains 一致。")
+        else:
+            override_paths = [None] * len(domains)
         for i, domain in enumerate(domains):
-            path = pddl_train_paths[i]
+            path = pddl_domain_train_jsonl(repo_root, domain, override_paths[i])
             if not path.exists():
-                raise FileNotFoundError(f"PDDL 训练文件不存在: {path}")
+                raise FileNotFoundError(
+                    f"PDDL 训练文件不存在: {path}（可先运行 scripts/pddl/split_pddl_by_gamename.py）"
+                )
             rows = [copy.deepcopy(r) for r in load_jsonl_rows(path)]
             if args.max_train is not None:
                 rows = rows[: int(args.max_train)]
@@ -556,16 +554,23 @@ def main() -> None:
                 "source_files": source_files,
             }
         elif args.dataset_family == "pddl":
-            if pddl_get_all_environment_configs is None:
-                raise ImportError(
-                    "PDDL 环境不可用（import pddlgym 失败）。请安装 gym、numpy、nltk 等依赖后重试。"
-                )
-            pddl_test_path = (repo_root / args.pddl_test_jsonl).resolve()
-            if not pddl_test_path.exists():
-                raise FileNotFoundError(f"PDDL 评测标注文件不存在: {pddl_test_path}")
-            game_names = parse_domains(args.pddl_game_names)
-            rows = list(pddl_get_all_environment_configs(game_names, str(pddl_test_path)))
-            rows = dedupe_tasks(rows)
+            eval_train_overrides: list[Path | None] = []
+            if str(args.pddl_train_jsonl or "").strip():
+                eval_train_overrides = [(repo_root / item).resolve() for item in parse_csv(args.pddl_train_jsonl)]
+                if len(eval_train_overrides) != len(domains):
+                    raise ValueError("评测合并：--pddl_train_jsonl 项数须与 --pddl_domains 一致。")
+            else:
+                eval_train_overrides = [None] * len(domains)
+            merged_rows: list[dict] = []
+            source_files: list[str] = []
+            for i, domain in enumerate(domains):
+                src = pddl_domain_train_jsonl(repo_root, domain, eval_train_overrides[i])
+                if not src.exists():
+                    raise FileNotFoundError(f"PDDL 评测合并用文件不存在: {src}")
+                part = [copy.deepcopy(r) for r in load_jsonl_rows(src)]
+                merged_rows.extend(part)
+                source_files.append(str(src))
+            rows = dedupe_tasks(merged_rows)
             merged_eval_dir.mkdir(parents=True, exist_ok=True)
             out_path = merged_eval_dir / "merged__test.json"
             with out_path.open("w", encoding="utf-8") as writer:
@@ -573,10 +578,10 @@ def main() -> None:
             meta = {
                 "split": split_name,
                 "output_file": str(out_path),
-                "num_tasks_raw": len(rows),
+                "num_tasks_raw": len(merged_rows),
                 "num_tasks_dedup": len(rows),
-                "source_files": [str(pddl_test_path)],
-                "pddl_game_names": game_names,
+                "source_files": source_files,
+                "pddl_domains": domains,
             }
         else:
             eval_path = (repo_root / args.fever_test_jsonl).resolve()
@@ -650,7 +655,7 @@ def main() -> None:
     if not args.eval_only:
         for domain_idx, domain in enumerate(domains):
             if args.dataset_family == "pddl":
-                task_name = "pddl_ab_train_A" if domain_idx == 0 else "pddl_ab_train_B"
+                task_name = f"pddl_domain_{domains[domain_idx]}"
             else:
                 task_name = train_task_name
             local_dir = os.path.join(local_root, domain)

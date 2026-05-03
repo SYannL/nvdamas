@@ -19,8 +19,10 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
         'huskyqa': huskyqa_solver_system_prompt,
         'huskyqa_aca_test': huskyqa_solver_system_prompt,
         'pddl': pddl_prompts,
-        'pddl_ab_train_A': pddl_prompts,
-        'pddl_ab_train_B': pddl_prompts,
+        'pddl_domain_gripper': pddl_prompts,
+        'pddl_domain_blockworld': pddl_prompts,
+        'pddl_domain_barman': pddl_prompts,
+        'pddl_domain_tyreworld': pddl_prompts,
         'medmcqa_test': medmcqa_solver_system_prompt,
         'medmcqa_physio_30': medmcqa_solver_system_prompt,
         'medmcqa_pharma_30': medmcqa_solver_system_prompt,
@@ -46,11 +48,10 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
     if prompt_map.get(task) is None:
         raise ValueError(f'Unsupported task type: {task}')
     
-    if task not in ('pddl', 'pddl_ab_train_A', 'pddl_ab_train_B'):
+    if task != 'pddl' and not str(task).startswith('pddl_domain_'):
         return prompt_map.get(task)
-    else:
-        task_type: str = task_config.get('game_name')
-        return pddl_prompts[task_type]['instruction']
+    task_type: str = task_config.get('game_name')
+    return pddl_prompts[task_type]['instruction']
         
 
 
@@ -89,7 +90,7 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
     elif dataset == 'huskyqa_aca_test':
         return huskyqa_few_shots[:few_shots_num]
 
-    elif dataset in ('pddl', 'pddl_ab_train_A', 'pddl_ab_train_B'):
+    elif dataset == 'pddl' or str(dataset).startswith('pddl_domain_'):
         task_type = task_config.get('game_name')
         if task_type is None:
             raise ValueError('The task config must have the `game_name` attribute.')

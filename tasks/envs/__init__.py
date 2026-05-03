@@ -40,8 +40,6 @@ TASKS_PATH = {
     'fever_ab_test_a': 'data/fever/fever_ab_test_A_v3.jsonl',
     'fever_ab_test_b': 'data/fever/fever_ab_test_B_v3.jsonl',
     'pddl': 'data/pddl/test.jsonl',
-    'pddl_ab_train_A': 'data/pddl/pddl_ab_train_A.jsonl',
-    'pddl_ab_train_B': 'data/pddl/pddl_ab_train_B.jsonl',
     'huskyqa': 'data/HuskyQA/huskyQA.json',
     'huskyqa_aca_test': 'data/HuskyQA/huskyQA_aca_test.json',
     'medmcqa_test': 'data/medmcqa/medmcqa_test.jsonl',
@@ -60,6 +58,9 @@ TASKS_PATH = {
     'mtmind2web_test_website': 'data/MT-Mind2Web/mtmind2web_test_website_eval.jsonl',
     'mtmind2web_test_subdomain': 'data/MT-Mind2Web/mtmind2web_test_subdomain_eval.jsonl',
 }
+# Per-game PDDL splits: data/pddl/pddl_domain_<game>.jsonl（由 scripts/pddl/split_pddl_by_gamename.py 生成）
+for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
+    TASKS_PATH[f"pddl_domain_{_pddl_game}"] = f"data/pddl/pddl_domain_{_pddl_game}.jsonl"
 
 
 def _load_jsonl_rows(path: str) -> list[dict]:
@@ -349,8 +350,6 @@ TASK_DATA = {
     'fever_ab_test_a': None,
     'fever_ab_test_b': None,
     'pddl': pddl_tasks,
-    'pddl_ab_train_A': None,
-    'pddl_ab_train_B': None,
     'huskyqa': huskyqa_tasks,
     'huskyqa_aca_test': huskyqa_aca_test_tasks,
     'medmcqa_test': medmcqa_test_tasks,
@@ -371,6 +370,8 @@ TASK_DATA = {
     'mtmind2web_test_website': None,
     'mtmind2web_test_subdomain': None,
 }
+for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
+    TASK_DATA[f"pddl_domain_{_pddl_game}"] = None
 
 ENVS = {
     'fever': FeverEnv,
@@ -381,8 +382,6 @@ ENVS = {
     'fever_ab_test_a': FeverEnv,
     'fever_ab_test_b': FeverEnv,
     'pddl': PDDLEnv,
-    'pddl_ab_train_A': PDDLEnv,
-    'pddl_ab_train_B': PDDLEnv,
     'huskyqa': HuskyQAEnv,
     'huskyqa_aca_test': HuskyQAEnv,
     'medmcqa_test': MedMCQAEnv,
@@ -413,8 +412,6 @@ RECORDERS = {
     'fever_ab_test_a': FeverRecorder,
     'fever_ab_test_b': FeverRecorder,
     'pddl': PDDLRecorder,
-    'pddl_ab_train_A': PDDLRecorder,
-    'pddl_ab_train_B': PDDLRecorder,
     'huskyqa': HuskyQARecorder,
     'huskyqa_aca_test': HuskyQARecorder,
     'medmcqa_test': MedMCQARecorder,
@@ -436,6 +433,12 @@ RECORDERS = {
 if AlfworldRecorder is not None:
     RECORDERS['alfworld'] = AlfworldRecorder
 
+if PDDLEnv is not None and PDDLRecorder is not None:
+    for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
+        _pddl_task = f"pddl_domain_{_pddl_game}"
+        ENVS[_pddl_task] = PDDLEnv
+        RECORDERS[_pddl_task] = PDDLRecorder
+
 
 def get_env(task: str, env_config: dict, max_trials: int) -> BaseEnv:
     
@@ -452,7 +455,7 @@ def get_env(task: str, env_config: dict, max_trials: int) -> BaseEnv:
                 f'  uv pip install alfworld\n'
                 f'Underlying import error: {ALFWORLD_IMPORT_ERROR!r}'
             )
-        if task == 'pddl':
+        if task == 'pddl' or task.startswith('pddl_domain_'):
             raise ImportError(
                 'PDDL task is not available. This is likely because gym/pddlgym dependencies are missing.\n'
                 'Please install gym/pddlgym or use a task that does not require it.'
@@ -476,7 +479,7 @@ def get_recorder(task: str, working_dir: str, namespace: str) -> BaseRecorder:
                 f'  uv pip install alfworld\n'
                 f'Underlying import error: {ALFWORLD_IMPORT_ERROR!r}'
             )
-        if task == 'pddl':
+        if task == 'pddl' or task.startswith('pddl_domain_'):
             raise ImportError(
                 'PDDL task recorder is not available. This is likely because gym/pddlgym dependencies are missing.\n'
                 'Please install gym/pddlgym or use a task that does not require it.'
@@ -490,9 +493,12 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
     if (
         task.startswith('mtmind2web_')
         or task.startswith('fever_ab_')
-        or task.startswith('pddl_ab_')
+        or task.startswith('pddl_domain_')
     ) and TASK_DATA.get(task) is None:
         data_path = TASKS_PATH.get(task)
+        if task.startswith('pddl_domain_') and not data_path:
+            _game = task.removeprefix('pddl_domain_')
+            data_path = f"data/pddl/pddl_domain_{_game}.jsonl"
         if not data_path or not os.path.exists(data_path):
             raise FileNotFoundError(
                 f"Dataset file for task '{task}' not found: {data_path}. "
@@ -511,9 +517,7 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
                     }
                 )
             TASK_DATA[task] = converted
-        elif task.startswith('pddl_ab_'):
-            # pddl env expects task dicts containing pddl fields from annotation file
-            # (goal, subgoals, difficulty, additional_info, etc.).
+        elif task.startswith('pddl_domain_'):
             TASK_DATA[task] = loaded_rows
         else:
             TASK_DATA[task] = loaded_rows

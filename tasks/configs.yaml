@@ -48,12 +48,22 @@ pddl:
   max_steps: 30
   few_shots_num: 1
 
-pddl_ab_train_A:
+pddl_domain_gripper:
   env_config_path: tasks/env_configs/pddl_config.yaml
   max_steps: 30
   few_shots_num: 1
 
-pddl_ab_train_B:
+pddl_domain_blockworld:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_domain_barman:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_domain_tyreworld:
   env_config_path: tasks/env_configs/pddl_config.yaml
   max_steps: 30
   few_shots_num: 1
