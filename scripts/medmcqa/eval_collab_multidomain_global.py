@@ -169,6 +169,50 @@ def load_jsonl_rows(path: Path) -> list[dict]:
     return rows
 
 
+def _pddl_row_game_name(row: dict) -> str:
+    gn = row.get("game_name")
+    if gn is not None and str(gn).strip():
+        return str(gn).strip().lower()
+    add = row.get("additional_info")
+    if isinstance(add, dict):
+        st = add.get("subtask")
+        if st is not None and str(st).strip():
+            return str(st).strip().lower()
+    return ""
+
+
+def normalize_pddl_test_jsonl_rows(rows: list[dict]) -> list[dict]:
+    """
+    ``data/pddl/test.jsonl`` 风格：可有 ``additional_info.subtask``，可无顶层 ``game_name``/``problem_index``。
+    无 ``problem_index`` 时按文件顺序对每个 ``game_name`` 递增编号，与 pddlgym 题序一致。
+    """
+    per_game_next: dict[str, int] = {}
+    out: list[dict] = []
+    for raw in rows:
+        row = copy.deepcopy(raw)
+        gn = _pddl_row_game_name(row)
+        if not gn:
+            continue
+        row["game_name"] = gn
+        if row.get("problem_index") is not None:
+            try:
+                row["problem_index"] = int(row["problem_index"])
+            except (TypeError, ValueError):
+                idx = per_game_next.get(gn, 0)
+                row["problem_index"] = idx
+                per_game_next[gn] = idx + 1
+        else:
+            idx = per_game_next.get(gn, 0)
+            row["problem_index"] = idx
+            per_game_next[gn] = idx + 1
+        if "difficulty" not in row or row.get("difficulty") is None:
+            row["difficulty"] = ""
+        else:
+            row["difficulty"] = str(row["difficulty"])
+        out.append(row)
+    return out
+
+
 def build_fever_task(row: dict) -> dict:
     claim = str(row.get("claim", "")).strip()
     label = str(row.get("label", "")).strip()
@@ -484,6 +528,12 @@ def main() -> None:
         help="可选：与 --pddl_domains 等长的逗号分隔训练 JSONL；留空则用默认 data/pddl/pddl_domain_<domain>.jsonl。",
     )
     parser.add_argument(
+        "--pddl_test_jsonl",
+        type=str,
+        default="data/pddl/test.jsonl",
+        help="PDDL 评测 JSONL（相对仓库根）；默认 data/pddl/test.jsonl。",
+    )
+    parser.add_argument(
         "--amabench_max_traj_turns",
         type=int,
         default=0,
@@ -675,22 +725,20 @@ def main() -> None:
                 "source_files": source_files,
             }
         elif args.dataset_family == "pddl":
-            eval_train_overrides: list[Path | None] = []
-            if str(args.pddl_train_jsonl or "").strip():
-                eval_train_overrides = [(repo_root / item).resolve() for item in parse_csv(args.pddl_train_jsonl)]
-                if len(eval_train_overrides) != len(domains):
-                    raise ValueError("评测合并：--pddl_train_jsonl 项数须与 --pddl_domains 一致。")
-            else:
-                eval_train_overrides = [None] * len(domains)
-            merged_rows: list[dict] = []
-            source_files: list[str] = []
-            for i, domain in enumerate(domains):
-                src = pddl_domain_train_jsonl(repo_root, domain, eval_train_overrides[i])
-                if not src.exists():
-                    raise FileNotFoundError(f"PDDL 评测合并用文件不存在: {src}")
-                part = [copy.deepcopy(r) for r in load_jsonl_rows(src)]
-                merged_rows.extend(part)
-                source_files.append(str(src))
+            test_rel = str(args.pddl_test_jsonl or "").strip() or "data/pddl/test.jsonl"
+            test_path = (repo_root / test_rel).resolve()
+            if not test_path.is_file():
+                raise FileNotFoundError(f"PDDL 测试集不存在: {test_path}")
+            domain_set = {str(d).strip().lower() for d in domains}
+            raw_test = load_jsonl_rows(test_path)
+            merged_rows = normalize_pddl_test_jsonl_rows(raw_test)
+            merged_rows = [r for r in merged_rows if str(r.get("game_name", "")).lower() in domain_set]
+            if not merged_rows:
+                raise ValueError(
+                    f"PDDL 测试集在 --pddl_domains {domains!r} 下无有效行: {test_path}。"
+                    "请检查 additional_info.subtask / game_name 是否与 domain 一致。"
+                )
+            source_files = [str(test_path)]
             rows = dedupe_tasks(merged_rows)
             merged_eval_dir.mkdir(parents=True, exist_ok=True)
             out_path = merged_eval_dir / "merged__test.json"
@@ -703,6 +751,7 @@ def main() -> None:
                 "num_tasks_dedup": len(rows),
                 "source_files": source_files,
                 "pddl_domains": domains,
+                "pddl_test_jsonl": test_rel,
             }
         else:
             eval_path = (repo_root / args.fever_test_jsonl).resolve()
@@ -907,6 +956,13 @@ def main() -> None:
         owner_scene: str,
     ) -> dict[str, Any]:
         eval_tasks = copy.deepcopy(merged_eval_tasks[split_name])
+        if args.dataset_family == "pddl":
+            owner = str(owner_scene or "").strip().lower()
+            eval_tasks = [
+                t
+                for t in eval_tasks
+                if str(t.get("game_name") or _pddl_row_game_name(t) or "").strip().lower() == owner
+            ]
         log_eval = os.path.join(log_base, "eval", memory_scope, split_name)
         ensure_dir(log_eval)
         manager = build_task_manager(
