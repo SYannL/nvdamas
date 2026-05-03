@@ -67,23 +67,48 @@ class GraphMemory2MASMemory(MASMemoryBase):
     _gm2_debug_current_task: str = field(default="", init=False, repr=False)
     _gm2_debug_last_step: int = field(default=0, init=False, repr=False)
     _gm2_debug_env_step: int = field(default=0, init=False, repr=False)
+    _graph_config_warnings: set[str] = field(default_factory=set, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
         self.namespace = self.namespace or "graph_memory2"
         self._records_path = os.path.join(self.persist_dir, "episodes.jsonl")
         self._insights_path = os.path.join(self.persist_dir, "insights.json")
-        self.freeze_memory: bool = bool(self.global_config.get("gm2_freeze_memory", False))
-        self.enable_overlay: bool = bool(self.global_config.get("gm2_enable_overlay", True))
-        self.reset_memory: bool = bool(self.global_config.get("gm2_reset_memory", False))
+        self.freeze_memory: bool = bool(self._graph_config_value("freeze_memory", False))
+        self.enable_overlay: bool = bool(self._graph_config_value("enable_overlay", True))
+        self.reset_memory: bool = bool(self._graph_config_value("reset_memory", False))
         self.promotion_threshold: float = float(
-            self.global_config.get("gm2_promotion_threshold", 0.35)
+            self._graph_config_value("promotion_threshold", 0.35)
         )
         if self.reset_memory:
             self._overwrite_lightweight_memory_files()
         self.committed_messages = self._load_messages()
         self.insight_bank = self._load_insights()
         self._init_external_graph_memory()
+
+    def _graph_config_prefix(self) -> str:
+        return "gm3" if str(self.namespace or "") == "graph_memory3" else "gm2"
+
+    def _warn_legacy_graph_config(self, legacy_key: str, new_key: str) -> None:
+        if legacy_key in self._graph_config_warnings:
+            return
+        self._graph_config_warnings.add(legacy_key)
+        print(
+            f"[{self.namespace}] legacy config `{legacy_key}` detected; prefer `{new_key}`.",
+            flush=True,
+        )
+
+    def _graph_config_value(self, suffix: str, default: Any = None) -> Any:
+        prefix = self._graph_config_prefix()
+        primary_key = f"{prefix}_{suffix}"
+        if primary_key in self.global_config:
+            return self.global_config.get(primary_key)
+        if prefix == "gm3":
+            legacy_key = f"gm2_{suffix}"
+            if legacy_key in self.global_config:
+                self._warn_legacy_graph_config(legacy_key, primary_key)
+                return self.global_config.get(legacy_key)
+        return default
 
     def init_task_context(self, task_main: str, task_description: str = None) -> MASMessage:
         message = super().init_task_context(task_main, task_description)
@@ -149,14 +174,14 @@ class GraphMemory2MASMemory(MASMemoryBase):
         return payload.to_dict()
 
     def _init_external_graph_memory(self) -> None:
-        memory_dir = str(self.global_config.get("gm2_memory_dir", "") or "").strip()
-        dynamic_graph = bool(self.global_config.get("gm2_dynamic_graph", False))
+        memory_dir = str(self._graph_config_value("memory_dir", "") or "").strip()
+        dynamic_graph = bool(self._graph_config_value("dynamic_graph", False))
         if not memory_dir and not dynamic_graph:
             return
         memory_path = Path(memory_dir).expanduser() if memory_dir else Path(self.persist_dir)
         local_artifact_scene = self._gm2_local_artifact_scene(memory_path)
         if memory_dir and not memory_path.exists():
-            self._external_error = f"external gm2_memory_dir not found: {memory_path}"
+            self._external_error = f"external {self._graph_config_prefix()}_memory_dir not found: {memory_path}"
             return
 
         try:
@@ -181,7 +206,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             )
             return
 
-        mode = str(self.global_config.get("gm2_retrieval_mode", "lightweight") or "lightweight")
+        mode = str(self._graph_config_value("retrieval_mode", "lightweight") or "lightweight")
         self._external_retrieval_mode = mode
         self._gm2_feedback_path = Path(self.persist_dir) / "feedback_stats.json"
         if mode in {"graph_policy_feedback", "graph_policy_quality"}:
@@ -214,7 +239,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         self._external_artifact_dir = Path(self.persist_dir)
         self._gm2_debug_trace_path = Path(self.persist_dir) / "gm2_debug_trace.jsonl"
         self._dynamic_graph_enabled = dynamic_graph
-        shared_global_dir = str(self.global_config.get("gm2_shared_global_dir", "") or "").strip()
+        shared_global_dir = str(self._graph_config_value("shared_global_dir", "") or "").strip()
         if shared_global_dir:
             shared_path = Path(shared_global_dir).expanduser()
             if shared_path.name != self.namespace:
@@ -280,7 +305,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             else:
                 self._external_global_memory = GlobalGraphMemory()
             self._refresh_shared_global_memory()
-            owner_scene = str(self.global_config.get("gm2_owner_scene", "") or "").strip()
+            owner_scene = str(self._graph_config_value("owner_scene", "") or "").strip()
             if owner_scene and owner_scene not in self._external_local_memories:
                 self._external_local_memories[owner_scene] = LocalGraphMemory(agent_id=f"agent_{owner_scene}")
             if self.reset_memory:
@@ -582,7 +607,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         query = self._build_external_query(**kargs)
         step_index = int(kargs.get("step_index", 0) or 0)
         self._gm2_debug_last_step = step_index
-        setting = str(self.global_config.get("gm2_settings", "local_only") or "local_only")
+        setting = str(self._graph_config_value("settings", "local_only") or "local_only")
         trajectory_payload = None
         if setting not in {"base", "global_only"}:
             successful, failed, insights = self.retrieve_memory(**kargs)
@@ -1187,7 +1212,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         )
         if query is None:
             return processed_action
-        setting = str(self.global_config.get("gm2_settings", "local_only") or "local_only")
+        setting = str(self._graph_config_value("settings", "local_only") or "local_only")
         owner_scene = self._resolve_external_owner_scene(task_config or {}, env_ref)
         local_memory = (
             self._external_empty_local(owner_scene)
@@ -5448,7 +5473,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         return "container" if cls._gm2_base_token(value) in {"drawer", "cabinet", "safe", "fridge", "microwave"} else "support_surface"
 
     def _resolve_external_owner_scene(self, task_config: dict | None = None, env_ref: Any = None) -> str:
-        configured = str(self.global_config.get("gm2_owner_scene", "") or "").strip()
+        configured = str(self._graph_config_value("owner_scene", "") or "").strip()
         if configured:
             return configured
         task_config = task_config or {}

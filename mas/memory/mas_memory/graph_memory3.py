@@ -39,7 +39,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self._external_retrieval_mode = "graph_memory3_textloss"
+        router = str(self._graph_config_value("router", "textloss") or "textloss").strip().lower()
+        if router not in {"textloss"}:
+            print(
+                f"[graph_memory3] unsupported gm3_router `{router}`; falling back to `textloss`.",
+                flush=True,
+            )
+            router = "textloss"
+        self._external_retrieval_mode = "graph_memory3_textloss" if router == "textloss" else f"graph_memory3_{router}"
         self._gm3_debug_trace_path = Path(self.persist_dir) / "gm3_debug_trace.jsonl"
         self._gm3_last_prompt_signature = ""
         self._gm3_use_textgrad = bool(
@@ -292,7 +299,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         query = self._build_external_query(**kargs)
         step_index = int(kargs.get("step_index", 0) or 0)
         self._gm2_debug_last_step = step_index
-        setting = str(self.global_config.get("gm2_settings", "local_only") or "local_only")
+        setting = str(self._graph_config_value("settings", "local_only") or "local_only")
         if query is None:
             note = self._external_error or "GraphMemory3 query unavailable for this task state."
             self._gm2_debug_append(

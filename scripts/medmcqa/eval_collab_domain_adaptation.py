@@ -22,6 +22,104 @@ from networkx.readwrite import json_graph
 # Keep terminal output clean: we only want progress prints (and success rate).
 os.environ.setdefault("NV_DAMAS_CONSOLE_LOG", "0")
 
+GM2_RETRIEVAL_MODE_CHOICES: tuple[str, ...] = (
+    "lightweight",
+    "query",
+    "phasee_compat",
+    "phasee_policy",
+    "phasee_action",
+    "hybrid_policy",
+    "hybrid_repair",
+    "lightweight_repair",
+    "graph_policy",
+    "graph_policy_rerank",
+    "graph_policy_feedback",
+    "graph_policy_candidate",
+    "graph_policy_quality",
+)
+GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ("base", "local_only", "global_only", "local_plus_global")
+GM3_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
+
+
+def _warn_legacy_graph_arg(memory_type: str, legacy_flag: str, new_flag: str, value: object) -> None:
+    print(
+        f"[config] {memory_type} received legacy {legacy_flag}={value!r}; prefer {new_flag}.",
+        flush=True,
+    )
+
+
+def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir: str) -> dict[str, Any]:
+    if args.mas_memory == "graph_memory2":
+        config: dict[str, Any] = {
+            "gm2_dynamic_graph": bool(args.gm2_dynamic_graph),
+            "gm2_repo_root": str(args.gm2_repo_root or "").strip(),
+            "gm2_retrieval_mode": str(args.gm2_retrieval_mode or "lightweight").strip(),
+            "gm2_settings": str(args.gm2_settings or "local_plus_global").strip(),
+            "gm2_promotion_threshold": float(args.gm2_promotion_threshold),
+            "gm2_shared_global_dir": shared_global_dir,
+        }
+        if args.gm2_enable_overlay:
+            config["gm2_enable_overlay"] = True
+        return config
+
+    if args.mas_memory != "graph_memory3":
+        return {}
+
+    gm3_dynamic_graph = bool(args.gm3_dynamic_graph)
+    if not gm3_dynamic_graph and bool(args.gm2_dynamic_graph):
+        gm3_dynamic_graph = True
+        _warn_legacy_graph_arg(args.mas_memory, "--gm2_dynamic_graph", "--gm3_dynamic_graph", True)
+
+    gm3_repo_root = str(args.gm3_repo_root or "").strip()
+    if not gm3_repo_root and str(args.gm2_repo_root or "").strip():
+        gm3_repo_root = str(args.gm2_repo_root).strip()
+        _warn_legacy_graph_arg(args.mas_memory, "--gm2_repo_root", "--gm3_repo_root", gm3_repo_root)
+
+    gm3_router = str(args.gm3_router or "").strip().lower()
+    legacy_mode = str(args.gm2_retrieval_mode or "lightweight").strip().lower()
+    if not gm3_router and legacy_mode != "lightweight":
+        gm3_router = "textloss"
+        _warn_legacy_graph_arg(args.mas_memory, "--gm2_retrieval_mode", "--gm3_router", legacy_mode)
+    gm3_router = gm3_router or "textloss"
+
+    gm3_settings = str(args.gm3_settings or "").strip()
+    legacy_settings = str(args.gm2_settings or "local_plus_global").strip()
+    if not gm3_settings and legacy_settings != "local_plus_global":
+        gm3_settings = legacy_settings
+        _warn_legacy_graph_arg(args.mas_memory, "--gm2_settings", "--gm3_settings", legacy_settings)
+    gm3_settings = gm3_settings or "local_plus_global"
+
+    gm3_enable_overlay = bool(args.gm3_enable_overlay)
+    if not gm3_enable_overlay and bool(args.gm2_enable_overlay):
+        gm3_enable_overlay = True
+        _warn_legacy_graph_arg(args.mas_memory, "--gm2_enable_overlay", "--gm3_enable_overlay", True)
+
+    gm3_promotion_threshold = args.gm3_promotion_threshold
+    if gm3_promotion_threshold is None and float(args.gm2_promotion_threshold) != 0.35:
+        gm3_promotion_threshold = float(args.gm2_promotion_threshold)
+        _warn_legacy_graph_arg(
+            args.mas_memory,
+            "--gm2_promotion_threshold",
+            "--gm3_promotion_threshold",
+            gm3_promotion_threshold,
+        )
+    if gm3_promotion_threshold is None:
+        gm3_promotion_threshold = 0.35
+
+    config = {
+        "gm3_dynamic_graph": gm3_dynamic_graph,
+        "gm3_repo_root": gm3_repo_root,
+        "gm3_router": gm3_router,
+        "gm3_settings": gm3_settings,
+        "gm3_promotion_threshold": float(gm3_promotion_threshold),
+        "gm3_shared_global_dir": shared_global_dir,
+        "gm3_use_textgrad": bool(args.gm3_use_textgrad),
+        "gm3_textgrad_engine": str(args.gm3_textgrad_engine or "").strip(),
+    }
+    if gm3_enable_overlay:
+        config["gm3_enable_overlay"] = True
+    return config
+
 
 def _print_train_progress(
     *,
@@ -1717,32 +1815,30 @@ def main() -> None:
         "--gm2_retrieval_mode",
         type=str,
         default="lightweight",
-        choices=[
-            "lightweight",
-            "query",
-            "phasee_compat",
-            "phasee_policy",
-            "phasee_action",
-            "hybrid_policy",
-            "hybrid_repair",
-            "lightweight_repair",
-            "graph_policy",
-            "graph_policy_rerank",
-            "graph_policy_feedback",
-            "graph_policy_candidate",
-            "graph_policy_quality",
-        ],
+        choices=GM2_RETRIEVAL_MODE_CHOICES,
         help="GraphMemory2 retrieval mode.",
     )
     parser.add_argument(
         "--gm2_settings",
         type=str,
         default="local_plus_global",
-        choices=["base", "local_only", "global_only", "local_plus_global"],
+        choices=GRAPH_MEMORY_SETTINGS_CHOICES,
         help="GraphMemory2 eval memory setting. Train local phase uses local_only.",
     )
     parser.add_argument("--gm2_enable_overlay", action="store_true", help="GraphMemory2: include per-episode overlay notes.")
     parser.add_argument("--gm2_promotion_threshold", type=float, default=0.35, help="GraphMemory2 global promotion threshold.")
+    parser.add_argument("--gm3_dynamic_graph", action="store_true", help="GraphMemory3: dynamically build local/global graph memory.")
+    parser.add_argument("--gm3_repo_root", type=str, default="", help="Deprecated: GraphMemory3 modules are vendored under gm2_backend.")
+    parser.add_argument("--gm3_router", type=str, default="", choices=GM3_ROUTER_CHOICES, help="GraphMemory3 prompt router.")
+    parser.add_argument(
+        "--gm3_settings",
+        type=str,
+        default="",
+        choices=GRAPH_MEMORY_SETTINGS_CHOICES,
+        help="GraphMemory3 eval memory setting. Train local phase uses local_only.",
+    )
+    parser.add_argument("--gm3_enable_overlay", action="store_true", help="GraphMemory3: include per-episode overlay notes.")
+    parser.add_argument("--gm3_promotion_threshold", type=float, default=None, help="GraphMemory3 global promotion threshold.")
     parser.add_argument("--gm3_use_textgrad", action="store_true", help="GraphMemory3: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.")
     parser.add_argument("--gm3_textgrad_engine", type=str, default="", help="GraphMemory3: TextGrad engine name, e.g. experimental:openai/qwen32b-api.")
     parser.add_argument(
@@ -1921,7 +2017,17 @@ def main() -> None:
     ensure_dir(local_a_dir)
     ensure_dir(local_b_dir)
     gm_graph_memory_names = {"graph_memory2", "graph_memory3"}
-    if args.reset_memory and args.mas_memory in gm_graph_memory_names and args.gm2_dynamic_graph:
+    graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
+    graph_memory_prefix = "gm3" if args.mas_memory == "graph_memory3" else "gm2"
+    graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
+    graph_settings_value = str(
+        graph_memory_common.get(f"{graph_memory_prefix}_settings", "local_plus_global") or "local_plus_global"
+    )
+    graph_promotion_threshold = float(
+        graph_memory_common.get(f"{graph_memory_prefix}_promotion_threshold", 0.35) or 0.35
+    )
+    graph_repo_root = str(graph_memory_common.get(f"{graph_memory_prefix}_repo_root", "") or "").strip()
+    if args.reset_memory and args.mas_memory in gm_graph_memory_names and graph_dynamic_graph:
         reset_graph_memory2_artifacts_once(
             memory_dirs=[local_a_dir, local_b_dir, global_dir],
             owner_scenes=[task_a_label, task_b_label, "global"],
@@ -1951,32 +2057,18 @@ def main() -> None:
     # ALFWorld: persist entity graph every 3 tasks; use raw task for retrieval; insights_topk=1
     alfworld_mem_overrides = {"entity_graph_persist_every": 3} if args.dataset_family == "alfworld" else {}
     alfworld_mas_overrides = {"insights_topk": 1} if args.dataset_family == "alfworld" else {}
-    gm2_common_extras: dict[str, Any] = {}
-    if args.mas_memory in gm_graph_memory_names:
-        gm2_common_extras.update(
-            gm2_dynamic_graph=bool(args.gm2_dynamic_graph),
-            gm2_repo_root=str(args.gm2_repo_root or "").strip(),
-            gm2_retrieval_mode=str(args.gm2_retrieval_mode or "lightweight").strip(),
-            gm2_promotion_threshold=float(args.gm2_promotion_threshold),
-            gm2_shared_global_dir=global_dir,
-        )
-        if args.mas_memory == "graph_memory3":
-            gm2_common_extras.update(
-                gm3_use_textgrad=bool(args.gm3_use_textgrad),
-                gm3_textgrad_engine=str(args.gm3_textgrad_engine or "").strip(),
-            )
-        if args.gm2_enable_overlay:
-            gm2_common_extras["gm2_enable_overlay"] = True
-    train_mem_extras = {**alfworld_mem_overrides, **mem_profile_extras, **gm2_common_extras}
+    train_mem_extras = {**alfworld_mem_overrides, **mem_profile_extras, **graph_memory_common}
 
-    def apply_gm2_scene_config(mgr: TaskManager, scene: str, *, settings: str = "local_only", freeze: bool = False) -> None:
+    def apply_graph_scene_config(mgr: TaskManager, scene: str, *, settings: str = "local_only", freeze: bool = False) -> None:
         if args.mas_memory not in gm_graph_memory_names:
             return
         mgr.mem_config.update(
-            gm2_owner_scene=scene,
-            gm2_settings=settings,
-            gm2_freeze_memory=freeze,
-            **gm2_common_extras,
+            {
+                f"{graph_memory_prefix}_owner_scene": scene,
+                f"{graph_memory_prefix}_settings": settings,
+                f"{graph_memory_prefix}_freeze_memory": freeze,
+                **graph_memory_common,
+            }
         )
     train_metrics: dict[str, Any] = {
         "dataset_family": args.dataset_family,
@@ -1996,9 +2088,9 @@ def main() -> None:
         apply_collab_mem_tags(b_manager, "B", task_b_label, "pass1_local")
         a_manager.mem_config.update(train_mem_extras)
         b_manager.mem_config.update(train_mem_extras)
-        train_gm2_settings = str(args.gm2_settings or "local_plus_global")
-        apply_gm2_scene_config(a_manager, task_a_label, settings=train_gm2_settings, freeze=False)
-        apply_gm2_scene_config(b_manager, task_b_label, settings=train_gm2_settings, freeze=False)
+        train_graph_settings = graph_settings_value
+        apply_graph_scene_config(a_manager, task_a_label, settings=train_graph_settings, freeze=False)
+        apply_graph_scene_config(b_manager, task_b_label, settings=train_graph_settings, freeze=False)
         a_manager.mas_config.update(alfworld_mas_overrides)
         b_manager.mas_config.update(alfworld_mas_overrides)
         a_manager.mas_config.update({"silent_mas": True})
@@ -2793,12 +2885,12 @@ def main() -> None:
             model_name=args.model,
             snapshot_tag=None,
         )
-    elif args.mas_memory in gm_graph_memory_names and args.gm2_dynamic_graph:
+    elif args.mas_memory in gm_graph_memory_names and graph_dynamic_graph:
         rebuild_graph_memory2_global_from_locals(
             local_dirs=[local_a_dir, local_b_dir],
             global_dir=global_dir,
-            promotion_threshold=float(args.gm2_promotion_threshold),
-            gm2_repo_root=args.gm2_repo_root,
+            promotion_threshold=graph_promotion_threshold,
+            gm2_repo_root=graph_repo_root,
             memory_namespace=args.mas_memory,
         )
     elif args.mas_memory == "empty":
@@ -2983,8 +3075,8 @@ def main() -> None:
         log_eval = os.path.join(log_base, "eval", tag)
         manager = build_manager(task_name, memory_dir, log_eval, tasks_override)
         gm2_eval_scene = task_a_label if task_a_label in memory_dir.replace("\\", "/") else task_b_label
-        gm2_eval_settings = str(args.gm2_settings or "local_plus_global") if use_global_insights else "local_only"
-        apply_gm2_scene_config(manager, gm2_eval_scene, settings=gm2_eval_settings, freeze=True)
+        graph_eval_settings = graph_settings_value if use_global_insights else "local_only"
+        apply_graph_scene_config(manager, gm2_eval_scene, settings=graph_eval_settings, freeze=True)
         if args.dataset_family == "alfworld" and args.mas_memory == "selectivemem":
             mem_norm = memory_dir.replace("\\", "/")
             if task_a_label in mem_norm:
@@ -3016,13 +3108,10 @@ def main() -> None:
                 global_config={
                     "working_dir": global_dir,
                     "freeze_memory": True,
-                    "gm2_freeze_memory": True,
-                    "gm2_dynamic_graph": bool(args.gm2_dynamic_graph),
-                    "gm2_repo_root": str(args.gm2_repo_root or "").strip(),
-                    "gm2_retrieval_mode": str(args.gm2_retrieval_mode or "lightweight").strip(),
-                    "gm2_settings": "global_only",
-                    "gm2_promotion_threshold": float(args.gm2_promotion_threshold),
                     **mem_profile_extras,
+                    **graph_memory_common,
+                    f"{graph_memory_prefix}_freeze_memory": True,
+                    f"{graph_memory_prefix}_settings": "global_only",
                 },
                 llm_model=GPTChat(model_name=args.model),
                 embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
