@@ -531,7 +531,10 @@ def main() -> None:
         "--pddl_test_jsonl",
         type=str,
         default="data/pddl/test.jsonl",
-        help="PDDL 评测 JSONL（相对仓库根）；默认 data/pddl/test.jsonl。",
+        help=(
+            "PDDL 评测 JSONL（相对仓库根）；默认 data/pddl/test.jsonl。"
+            "载入完整列表；每个 --pddl_domains 均在「该域 local + 共享 global」下跑同一批任务（不按 game_name 拆分到各域）。"
+        ),
     )
     parser.add_argument(
         "--amabench_max_traj_turns",
@@ -729,14 +732,12 @@ def main() -> None:
             test_path = (repo_root / test_rel).resolve()
             if not test_path.is_file():
                 raise FileNotFoundError(f"PDDL 测试集不存在: {test_path}")
-            domain_set = {str(d).strip().lower() for d in domains}
             raw_test = load_jsonl_rows(test_path)
             merged_rows = normalize_pddl_test_jsonl_rows(raw_test)
-            merged_rows = [r for r in merged_rows if str(r.get("game_name", "")).lower() in domain_set]
             if not merged_rows:
                 raise ValueError(
-                    f"PDDL 测试集在 --pddl_domains {domains!r} 下无有效行: {test_path}。"
-                    "请检查 additional_info.subtask / game_name 是否与 domain 一致。"
+                    f"PDDL 测试集未解析出有效任务: {test_path}。"
+                    "请检查 additional_info.subtask / game_name / problem_index。"
                 )
             source_files = [str(test_path)]
             rows = dedupe_tasks(merged_rows)
@@ -956,13 +957,6 @@ def main() -> None:
         owner_scene: str,
     ) -> dict[str, Any]:
         eval_tasks = copy.deepcopy(merged_eval_tasks[split_name])
-        if args.dataset_family == "pddl":
-            owner = str(owner_scene or "").strip().lower()
-            eval_tasks = [
-                t
-                for t in eval_tasks
-                if str(t.get("game_name") or _pddl_row_game_name(t) or "").strip().lower() == owner
-            ]
         log_eval = os.path.join(log_base, "eval", memory_scope, split_name)
         ensure_dir(log_eval)
         manager = build_task_manager(
