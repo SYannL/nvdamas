@@ -14,6 +14,7 @@ from typing import Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from tasks.utils import get_model_type
+from scripts.memskill.memskill_assets import prepare_memskill_assets
 
 from scripts.medmcqa.eval_collab_domain_adaptation import (
     CONFIG,
@@ -152,6 +153,136 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
     if gm3_enable_overlay:
         config["gm3_enable_overlay"] = True
     return config
+
+
+def _resolve_memskill_common(args: argparse.Namespace) -> dict[str, Any]:
+    if args.mas_memory != "memskill":
+        return {}
+    config: dict[str, Any] = {}
+    if args.memskill_finalize_local:
+        config.update(
+            {
+                "memskill_finalize_local": True,
+                "memskill_collect_replay": True,
+                "memskill_finalize_rebuild": True,
+            }
+        )
+    if args.memskill_controller:
+        config["memskill_controller"] = args.memskill_controller
+    if args.memskill_operation_bank_path:
+        config["memskill_operation_bank_path"] = args.memskill_operation_bank_path
+    if args.memskill_checkpoint_path:
+        config["memskill_checkpoint_path"] = args.memskill_checkpoint_path
+    if args.memskill_ppo_repo_path:
+        config["memskill_ppo_repo_path"] = args.memskill_ppo_repo_path
+    if args.memskill_state_encoder:
+        config["memskill_state_encoder"] = args.memskill_state_encoder
+    if args.memskill_op_encoder:
+        config["memskill_op_encoder"] = args.memskill_op_encoder
+    if args.memskill_ppo_device:
+        config["memskill_ppo_device"] = args.memskill_ppo_device
+    if args.memskill_action_top_k is not None:
+        config["memskill_action_top_k"] = args.memskill_action_top_k
+    if args.memskill_require_ppo:
+        config["memskill_require_ppo"] = True
+    if args.memskill_retrieve_top_k is not None:
+        config["memskill_retrieve_top_k"] = args.memskill_retrieve_top_k
+    if args.memskill_construction_top_k is not None:
+        config["memskill_construction_top_k"] = args.memskill_construction_top_k
+    if args.memskill_chunk_chars is not None:
+        config["memskill_chunk_chars"] = args.memskill_chunk_chars
+    if args.memskill_train_controller:
+        config["memskill_train_controller"] = True
+    return config
+
+
+def _coerce_saved_message_rows(rows: list[Any]) -> list[Any]:
+    try:
+        from mas.memory.common import MASMessage  # type: ignore
+    except Exception:
+        MASMessage = None  # type: ignore
+
+    out: list[Any] = []
+    for row in rows or []:
+        if MASMessage is not None and isinstance(row, MASMessage):
+            out.append(row)
+        elif MASMessage is not None and isinstance(row, dict):
+            try:
+                out.append(MASMessage.from_dict(row))
+            except Exception:
+                continue
+        else:
+            out.append(row)
+    return out
+
+
+def finalize_memskill_local_memory(
+    *,
+    args: argparse.Namespace,
+    domain: str,
+    local_dir: str,
+    saved_messages: list[Any],
+    memskill_common: dict[str, Any],
+) -> dict[str, Any] | None:
+    if args.mas_memory != "memskill" or not args.memskill_finalize_local:
+        return None
+    _reasoning_cls, mem_cls = module_map(args.reasoning, args.mas_memory)
+    local_mem = mem_cls(
+        namespace=args.mas_memory,
+        global_config={
+            "working_dir": local_dir,
+            **memskill_common,
+            "memskill_finalize_local": True,
+            "memskill_collect_replay": True,
+        },
+        llm_model=GPTChat(model_name=args.model),
+        embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
+    )
+    finalize = getattr(local_mem, "finalize_training", None)
+    if not callable(finalize):
+        return None
+    return finalize(
+        saved_messages=_coerce_saved_message_rows(saved_messages),
+        source_id=domain,
+        train_controller=bool(args.memskill_train_controller),
+        rebuild_memory=True,
+    )
+
+
+def merge_memskill_global_from_local_memories(
+    *,
+    args: argparse.Namespace,
+    domains: list[str],
+    local_root: str,
+    global_mem: Any,
+    memskill_common: dict[str, Any],
+) -> bool:
+    if args.mas_memory != "memskill" or not args.memskill_finalize_local:
+        return False
+    add_items = getattr(global_mem, "add_memory_items_from_peer", None)
+    if not callable(add_items):
+        return False
+    for domain in domains:
+        local_dir = os.path.join(local_root, domain)
+        _reasoning_cls, mem_cls = module_map(args.reasoning, args.mas_memory)
+        local_mem = mem_cls(
+            namespace=args.mas_memory,
+            global_config={
+                "working_dir": local_dir,
+                **memskill_common,
+                "freeze_memory": True,
+            },
+            llm_model=GPTChat(model_name=args.model),
+            embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
+        )
+        export_items = getattr(local_mem, "export_memory_items", None)
+        if callable(export_items):
+            add_items(export_items(), source_id=domain)
+        add_failures = getattr(global_mem, "add_failure_cases_from_peer", None)
+        export_failures = getattr(local_mem, "export_failure_cases", None)
+        if callable(add_failures) and callable(export_failures):
+            add_failures(export_failures(), source_id=domain)
+    return True
 
 
 def pddl_domain_train_jsonl(repo_root: Path, domain: str, override_path: Path | None) -> Path:
@@ -664,6 +795,183 @@ def main() -> None:
     parser.add_argument("--gm3_promotion_threshold", type=float, default=None)
     parser.add_argument("--gm3_use_textgrad", action="store_true")
     parser.add_argument("--gm3_textgrad_engine", type=str, default="")
+    parser.add_argument(
+        "--memskill_finalize_local",
+        action="store_true",
+        help=(
+            "MemSkill only: after each local/domain train split, rebuild that local memory from "
+            "its saved train episodes; global memory then merges finalized local memory items."
+        ),
+    )
+    parser.add_argument(
+        "--memskill_train_controller",
+        action="store_true",
+        help=(
+            "MemSkill only: request controller training during finalize. This is opt-in and "
+            "currently requires an external/configured PPO adapter or checkpoint."
+        ),
+    )
+    parser.add_argument(
+        "--memskill_controller",
+        type=str,
+        default="",
+        choices=("", "llm", "heuristic", "ppo"),
+        help="MemSkill controller selector. Empty keeps the memory backend default.",
+    )
+    parser.add_argument("--memskill_operation_bank_path", type=str, default="")
+    parser.add_argument("--memskill_checkpoint_path", type=str, default="")
+    parser.add_argument(
+        "--memskill_models_dir",
+        type=str,
+        default="Models/memskill",
+        help="MemSkill assets directory. Relative paths are resolved from the nvdamas repo root.",
+    )
+    parser.add_argument(
+        "--memskill_auto_download_checkpoint",
+        action="store_true",
+        help="Download an official MemSkill PPO checkpoint from Hugging Face if the checkpoint path is missing.",
+    )
+    parser.add_argument("--memskill_hf_repo_id", type=str, default="XaiverZ/MemSkill")
+    parser.add_argument(
+        "--memskill_hf_filename",
+        type=str,
+        default="",
+        help="Optional exact checkpoint filename inside the Hugging Face repo. Empty scans downloaded files.",
+    )
+    parser.add_argument(
+        "--memskill_force_checkpoint",
+        action="store_true",
+        help="Overwrite existing Models/memskill checkpoint when downloading/training.",
+    )
+    parser.add_argument(
+        "--memskill_train_ppo_from_scratch",
+        action="store_true",
+        help=(
+            "Run the original MemSkill ALFWorld PPO training loop before nvdamas eval, "
+            "then copy the newest controller checkpoint into --memskill_checkpoint_path."
+        ),
+    )
+    parser.add_argument(
+        "--memskill_ppo_offline_data",
+        type=str,
+        default="",
+        help="Original MemSkill ALFWorld offline expert trajectory JSON. Empty uses <repo>/data/alfworld_train_offline.json.",
+    )
+    parser.add_argument(
+        "--memskill_generate_offline_data",
+        action="store_true",
+        help="Generate --memskill_ppo_offline_data via original MemSkill alfworld_replay.py before training.",
+    )
+    parser.add_argument("--memskill_offline_split", type=str, default="train")
+    parser.add_argument("--memskill_force_offline_data", action="store_true")
+    parser.add_argument("--memskill_ppo_save_dir", type=str, default="")
+    parser.add_argument("--memskill_ppo_model", type=str, default="")
+    parser.add_argument("--memskill_ppo_designer_model", type=str, default="")
+    parser.add_argument("--memskill_ppo_api_base", type=str, default="")
+    parser.add_argument("--memskill_ppo_api_key", type=str, default="")
+    parser.add_argument("--memskill_ppo_train_device", type=str, default="")
+    parser.add_argument("--memskill_ppo_inner_epochs", type=int, default=100)
+    parser.add_argument("--memskill_ppo_outer_epochs", type=int, default=10)
+    parser.add_argument("--memskill_ppo_batch_size", type=int, default=16)
+    parser.add_argument("--memskill_ppo_encode_batch_size", type=int, default=8)
+    parser.add_argument("--memskill_ppo_epochs", type=int, default=2)
+    parser.add_argument("--memskill_ppo_mem_top_k", type=int, default=20)
+    parser.add_argument("--memskill_ppo_mem_top_k_eval", type=int, default=20)
+    parser.add_argument("--memskill_ppo_reward_metric", type=str, default="llm_judge", choices=("f1", "llm_judge"))
+    parser.add_argument("--memskill_ppo_enable_designer", action="store_true")
+    parser.add_argument(
+        "--memskill_ppo_train_backend",
+        type=str,
+        default="embedded",
+        choices=("embedded", "subprocess"),
+        help=(
+            "How to run from-scratch MemSkill PPO training. 'embedded' imports the original "
+            "MemSkill trainer into the nvdamas process; 'subprocess' calls original main.py."
+        ),
+    )
+    parser.add_argument(
+        "--memskill_ppo_wandb_mode",
+        type=str,
+        default="disabled",
+        help="WANDB_MODE used for MemSkill PPO training. Default disables network logging.",
+    )
+    parser.add_argument(
+        "--memskill_ppo_alfworld_eval_query_source",
+        type=str,
+        default="objective",
+        choices=("objective", "first_observation"),
+    )
+    parser.add_argument("--memskill_ppo_pair_a_min", type=int, default=40)
+    parser.add_argument("--memskill_ppo_pair_a_max", type=int, default=60)
+    parser.add_argument("--memskill_ppo_pair_b_size", type=int, default=5)
+    parser.add_argument("--memskill_ppo_pair_same_type_prob", type=float, default=1.0)
+    parser.add_argument("--memskill_ppo_pair_chunk_size", type=int, default=2048)
+    parser.add_argument("--memskill_ppo_pair_max_steps", type=int, default=50)
+    parser.add_argument("--memskill_ppo_pair_b_workers", type=int, default=80)
+    parser.add_argument("--memskill_ppo_designer_freq", type=int, default=1)
+    parser.add_argument("--memskill_ppo_new_action_bias_steps", type=int, default=25)
+    parser.add_argument("--memskill_ppo_stage_reward_fraction", type=float, default=0.25)
+    parser.add_argument("--memskill_ppo_designer_reflection_cycles", type=int, default=3)
+    parser.add_argument("--memskill_ppo_designer_max_changes", type=int, default=3)
+    parser.add_argument("--memskill_ppo_designer_failure_window_epochs", type=int, default=100)
+    parser.add_argument("--memskill_ppo_designer_failure_pool_size", type=int, default=2000)
+    parser.add_argument("--memskill_ppo_designer_new_skill_hint", action="store_true")
+    parser.add_argument(
+        "--memskill_ppo_extra_args",
+        type=str,
+        default="",
+        help="Extra arguments appended to original MemSkill main.py, parsed with shlex.",
+    )
+    parser.add_argument(
+        "--memskill_ppo_repo_path",
+        type=str,
+        default="/workspace/MemSkill-main",
+        help="MemSkill PPO adapter: path to the original MemSkill repo containing src/controller.py.",
+    )
+    parser.add_argument(
+        "--memskill_state_encoder",
+        type=str,
+        default="",
+        help="MemSkill PPO adapter: override state encoder from checkpoint config.",
+    )
+    parser.add_argument(
+        "--memskill_op_encoder",
+        type=str,
+        default="",
+        help="MemSkill PPO adapter: override operation encoder from checkpoint config.",
+    )
+    parser.add_argument(
+        "--memskill_ppo_retriever",
+        type=str,
+        default="contriever",
+        choices=("contriever", "dpr", "dragon"),
+        help="Retriever used during PPO training (memory retrieval in ALFWorld pair episodes). Default: contriever.",
+    )
+    parser.add_argument(
+        "--memskill_ppo_device",
+        type=str,
+        default="",
+        help="MemSkill PPO adapter device, e.g. cuda:0 or cpu. Empty uses checkpoint/default.",
+    )
+    parser.add_argument(
+        "--memskill_action_top_k",
+        type=int,
+        default=None,
+        help="MemSkill PPO adapter: override number of skills selected per step.",
+    )
+    parser.add_argument(
+        "--memskill_require_ppo",
+        action="store_true",
+        help="Fail instead of falling back to LLM selection if PPO checkpoint loading/selection fails.",
+    )
+    parser.add_argument("--memskill_retrieve_top_k", type=int, default=None)
+    parser.add_argument("--memskill_construction_top_k", type=int, default=None)
+    parser.add_argument(
+        "--memskill_chunk_chars",
+        type=int,
+        default=None,
+        help="MemSkill construction chunk size in chars. None keeps backend default; 0 means no split.",
+    )
     args = parser.parse_args()
 
     if args.reset_memory and args.eval_only:
@@ -704,6 +1012,20 @@ def main() -> None:
 
     if not subset_dir.exists():
         raise FileNotFoundError(f"subset_dir 不存在: {subset_dir}")
+
+    memskill_asset_report: dict[str, Any] | None = None
+    if args.mas_memory == "memskill":
+        memskill_assets = prepare_memskill_assets(args, repo_root=repo_root)
+        memskill_asset_report = memskill_assets.to_dict()
+        training = (memskill_asset_report.get("ppo_training") or {}).get("training") if memskill_asset_report else None
+        download = memskill_asset_report.get("hf_download") if memskill_asset_report else None
+        failed = []
+        if isinstance(download, dict) and download.get("requested") and download.get("status") == "failed":
+            failed.append(f"Hugging Face checkpoint download failed: {download.get('error') or download.get('status')}")
+        if isinstance(training, dict) and training.get("requested") and training.get("status") == "failed":
+            failed.append(f"MemSkill PPO training failed: {training.get('error') or training.get('status')}")
+        if failed:
+            raise RuntimeError("; ".join(failed))
 
     model_type = get_model_type(args.model)
     run_id = args.run_id or time.strftime("%Y%m%d_%H%M%S")
@@ -883,6 +1205,7 @@ def main() -> None:
         json.dump(merge_manifest, writer, ensure_ascii=False, indent=2)
 
     graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
+    memskill_common = _resolve_memskill_common(args)
     graph_memory_prefix = "gm3" if args.mas_memory == "graph_memory3" else "gm2"
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
@@ -953,6 +1276,7 @@ def main() -> None:
             manager.tasks = copy.deepcopy(train_tasks_by_domain[domain])
             manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
             manager.mem_config.update(graph_memory_common)
+            manager.mem_config.update(memskill_common)
             train_graph_settings = graph_settings_value
             apply_gm_graph_scene_config(
                 manager,
@@ -973,6 +1297,13 @@ def main() -> None:
                 manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=isolated_sp
             )
             saved_messages_by_domain[domain] = list(saved_messages or [])
+            finalize_report = finalize_memskill_local_memory(
+                args=args,
+                domain=domain,
+                local_dir=local_dir,
+                saved_messages=saved_messages_by_domain[domain],
+                memskill_common=memskill_common,
+            )
             wall = time.perf_counter() - t0
             persist_fn = getattr(getattr(manager.mas, "meta_memory", None), "persist_entity_graph", None)
             if callable(persist_fn):
@@ -987,6 +1318,7 @@ def main() -> None:
                     "num_skipped": len(skipped),
                     "num_success": sum(1 for r in rewards if r > 0),
                     "wall_time_sec": wall,
+                    "memskill_finalize": finalize_report,
                 }
             )
     else:
@@ -1019,7 +1351,7 @@ def main() -> None:
             _reasoning_cls, global_mem_cls = module_map(args.reasoning, args.mas_memory)
             global_mem = global_mem_cls(
                 namespace=args.mas_memory,
-                global_config={"working_dir": global_dir},
+                global_config={"working_dir": global_dir, **memskill_common},
                 llm_model=GPTChat(model_name=args.model),
                 embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
             )
@@ -1037,14 +1369,22 @@ def main() -> None:
                     return MASMessage.from_dict(x)
                 return x
 
-            for domain in domains:
-                for msg in saved_messages_by_domain.get(domain, []):
-                    m = _coerce_message(msg)
-                    add_peer = getattr(global_mem, "add_memory_from_peer", None)
-                    if callable(add_peer):
-                        add_peer(m, source_id=domain)
-                    else:
-                        global_mem.add_memory(m)
+            merged_from_local = merge_memskill_global_from_local_memories(
+                args=args,
+                domains=domains,
+                local_root=local_root,
+                global_mem=global_mem,
+                memskill_common=memskill_common,
+            )
+            if not merged_from_local:
+                for domain in domains:
+                    for msg in saved_messages_by_domain.get(domain, []):
+                        m = _coerce_message(msg)
+                        add_peer = getattr(global_mem, "add_memory_from_peer", None)
+                        if callable(add_peer):
+                            add_peer(m, source_id=domain)
+                        else:
+                            global_mem.add_memory(m)
             persist_fn = getattr(global_mem, "persist_entity_graph", None)
             if callable(persist_fn):
                 persist_fn()
@@ -1074,6 +1414,7 @@ def main() -> None:
         manager.tasks = eval_tasks
         manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
         manager.mem_config.update({"freeze_memory": True, **graph_memory_common})
+        manager.mem_config.update(memskill_common)
         graph_memory_settings = graph_settings_value
         if args.mas_memory in _GM_GRAPH_MEMORY:
             apply_gm_graph_scene_config(
@@ -1091,6 +1432,7 @@ def main() -> None:
                 global_config={
                     "working_dir": global_dir,
                     "freeze_memory": True,
+                    **memskill_common,
                 },
                 llm_model=GPTChat(model_name=args.model),
                 embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
@@ -1156,6 +1498,7 @@ def main() -> None:
         "expected_eval_result_count": len(eval_splits) * len(domains),
         "memory_type": args.mas_memory,
         "merged_eval_manifest_path": merge_manifest_path,
+        "memskill_assets": memskill_asset_report,
         "train_results": train_results,
         "eval_results": eval_results,
     }

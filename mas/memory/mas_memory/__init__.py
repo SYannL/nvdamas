@@ -11,6 +11,7 @@ from .selectivemem import SelectiveMemMASMemory
 from .graph_memory2 import GraphMemory2MASMemory
 from .graph_memory3 import GraphMemory3MASMemory
 from .memrl_mas import MemRLMASMemory
+from .memskill import MemSkillMASMemory
 
 __all__ = [
     'MASMemoryBase',
@@ -26,4 +27,5 @@ __all__ = [
     'GraphMemory2MASMemory',
     'GraphMemory3MASMemory',
     'MemRLMASMemory',
+    'MemSkillMASMemory',
 ]

@@ -15,6 +15,7 @@ from .memory import (
     GraphMemory2MASMemory,
     GraphMemory3MASMemory,
     MemRLMASMemory,
+    MemSkillMASMemory,
 )
 
 
@@ -38,6 +39,7 @@ def module_map(
         'graph_memory2': GraphMemory2MASMemory,
         'graph_memory3': GraphMemory3MASMemory,
         'memrl': MemRLMASMemory,
+        'memskill': MemSkillMASMemory,
     }
 
     if reasoning not in reasoning_map:
