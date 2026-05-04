@@ -46,6 +46,60 @@ def _mem_text(mem: dict[str, Any]) -> str:
     return ""
 
 
+def _resolve_chat_base_url() -> Optional[str]:
+    u = os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL") or ""
+    s = u.strip()
+    return s if s else None
+
+
+def _resolve_embedding_base_url(gc: dict[str, Any]) -> Optional[str]:
+    """
+    Embedding 网关可与对话分离（本地 Qwen + 官方或其它 embedding 服务）。
+
+    优先级：global_config ``memrl_embedding_api_base`` >
+    ``OPENAI_EMBEDDING_API_BASE`` / ``OPENAI_EMBEDDING_BASE_URL`` >
+    与对话相同（``OPENAI_API_BASE`` / ``OPENAI_BASE_URL``）。
+    若环境变量存在且为空字符串，则视为使用 SDK 默认官方 endpoint。
+    """
+    raw = gc.get("memrl_embedding_api_base")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    env_emb = os.environ.get("OPENAI_EMBEDDING_API_BASE") or os.environ.get(
+        "OPENAI_EMBEDDING_BASE_URL"
+    )
+    if env_emb is not None:
+        s = env_emb.strip()
+        return s if s else None
+    return _resolve_chat_base_url()
+
+
+def _resolve_embedding_api_key(gc: dict[str, Any]) -> str:
+    raw = gc.get("memrl_embedding_api_key")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    k = os.environ.get("OPENAI_EMBEDDING_API_KEY", "")
+    if (k or "").strip():
+        return k.strip()
+    return os.environ.get("OPENAI_API_KEY", "")
+
+
+def _resolve_embedding_model(gc: dict[str, Any]) -> str:
+    """
+    与主模型（Chat）完全独立：仅用于 MemOS / MemRL 的向量写入与检索。
+
+    优先级：``memrl_embedding_model``（global_config）>
+    ``MEMRL_EMBEDDING_MODEL`` / ``OPENAI_EMBEDDING_MODEL`` > 默认 ``text-embedding-3-large``。
+    本地部署时通常配合 ``OPENAI_EMBEDDING_API_BASE`` 指向本机 embedding 服务。
+    """
+    raw = gc.get("memrl_embedding_model")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    env_m = os.environ.get("MEMRL_EMBEDDING_MODEL") or os.environ.get("OPENAI_EMBEDDING_MODEL")
+    if env_m and str(env_m).strip():
+        return str(env_m).strip()
+    return "text-embedding-3-large"
+
+
 @dataclass
 class MemRLMASMemory(MASMemoryBase):
     """
@@ -60,7 +114,9 @@ class MemRLMASMemory(MASMemoryBase):
         memrl_retrieve_strategy: random|query|avefact
         memrl_update_strategy: vanilla|validation|adjustment
         memrl_enable_value_driven: bool (default True)
-        memrl_embedding_model: OpenAI embedding model (default text-embedding-3-large for 3072-dim cube)
+        memrl_embedding_model: 向量模型名，与主模型无关；也可用环境变量 MEMRL_EMBEDDING_MODEL（默认 text-embedding-3-large）
+        memrl_embedding_api_base: embedding-only base URL（或使用环境变量 OPENAI_EMBEDDING_API_BASE）
+        memrl_embedding_api_key: embedding-only API key（或使用 OPENAI_EMBEDDING_API_KEY）
         memrl_epsilon, memrl_tau, memrl_alpha, memrl_gamma, memrl_topk, weight_sim, weight_q: RL knobs
     """
 
@@ -82,12 +138,13 @@ class MemRLMASMemory(MASMemoryBase):
     def _mos_config_path(self) -> str:
         os.makedirs(self._mos_temp_dir, exist_ok=True)
         path = os.path.join(self._mos_temp_dir, "mos_config.json")
+        gc = self.global_config
         api_key = os.environ.get("OPENAI_API_KEY", "")
         base_url = os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL") or ""
+        embed_key = _resolve_embedding_api_key(gc)
+        embed_base = _resolve_embedding_base_url(gc)
         model = getattr(self.llm_model, "model_name", "") or "gpt-4o-mini"
-        embed_model = str(
-            self.global_config.get("memrl_embedding_model") or "text-embedding-3-large"
-        )
+        embed_model = _resolve_embedding_model(gc)
         cfg = {
             "chat_model": {
                 "backend": "openai",
@@ -113,8 +170,8 @@ class MemRLMASMemory(MASMemoryBase):
                         "config": {
                             "provider": "openai",
                             "model_name_or_path": embed_model,
-                            "api_key": api_key,
-                            "base_url": base_url or None,
+                            "api_key": embed_key,
+                            "base_url": embed_base,
                         },
                     },
                     "chunker": {"backend": "sentence", "config": {"chunk_size": 500}},
@@ -154,9 +211,11 @@ class MemRLMASMemory(MASMemoryBase):
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if not (api_key or "").strip():
             raise ValueError("OPENAI_API_KEY 未设置，无法初始化 MemRL / MemOS。")
-        base_url = os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL") or None
+        base_url = _resolve_chat_base_url()
+        embed_base = _resolve_embedding_base_url(gc)
+        embed_key = _resolve_embedding_api_key(gc)
         model = getattr(self.llm_model, "model_name", "") or "gpt-4o-mini"
-        embed_model = str(gc.get("memrl_embedding_model") or "text-embedding-3-large")
+        embed_model = _resolve_embedding_model(gc)
 
         llm_provider = OpenAILLM(
             api_key=api_key,
@@ -166,8 +225,8 @@ class MemRLMASMemory(MASMemoryBase):
             token_log_dir=self._mos_temp_dir,
         )
         embedding_provider = OpenAIEmbedder(
-            api_key=api_key,
-            base_url=base_url,
+            api_key=embed_key,
+            base_url=embed_base,
             model=embed_model,
             max_text_len=int(gc.get("memrl_max_text_len", 8196)),
             token_log_dir=self._mos_temp_dir,
