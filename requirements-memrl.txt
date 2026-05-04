@@ -1,5 +1,6 @@
 # Optional dependencies for mas_memory=memrl (MemRL / MemOS episodic memory).
 # Install: pip install -r requirements-memrl.txt
+# MemRL 源码与 MAS 适配器同处 mas/memory/mas_memory/（子包 memrl/ 与 memrl_mas.py）。
 #
 # Pinned loosely to match baselines/MemRL; resolve conflicts with your env as needed.
 

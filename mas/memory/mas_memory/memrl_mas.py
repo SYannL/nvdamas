@@ -2,7 +2,7 @@
 MemRL episodic memory (Memp + MemOS) integrated as a MASMemoryBase implementation.
 
 Requires optional dependencies: see ``requirements-memrl.txt`` at repo root
-(``memoryos`` / MemOS stack used by upstream MemRL).
+(``memoryos`` / MemOS stack). MemRL 实现代码位于同目录下的 ``memrl/`` 子包。
 """
 
 from __future__ import annotations
@@ -134,16 +134,16 @@ class MemRLMASMemory(MASMemoryBase):
         if self._memory_service is not None:
             return self._memory_service
         try:
-            from memrl.providers.embedding import OpenAIEmbedder
-            from memrl.providers.llm import OpenAILLM
-            from memrl.service.memory_service import MemoryService
-            from memrl.service.strategies import (
+            from .memrl.providers.embedding import OpenAIEmbedder
+            from .memrl.providers.llm import OpenAILLM
+            from .memrl.service.memory_service import MemoryService
+            from .memrl.service.strategies import (
                 BuildStrategy,
                 RetrieveStrategy,
                 StrategyConfiguration,
                 UpdateStrategy,
             )
-            from memrl.service.value_driven import RLConfig
+            from .memrl.service.value_driven import RLConfig
         except ImportError as e:
             raise ImportError(
                 "MemRL memory 需要可选依赖：请在仓库根目录执行 "

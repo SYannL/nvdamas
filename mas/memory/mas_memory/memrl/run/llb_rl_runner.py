@@ -24,27 +24,39 @@ except Exception:  # pragma: no cover - optional dependency
 import contextlib
 
 from .base_runner import BaseRunner
-from memrl.service.memory_service import MemoryService
-from memrl.service.value_driven import RLConfig
-from memrl.providers.llm import OpenAILLM
-from memrl.providers.embedding import OpenAIEmbedder
-from memrl.utils.task_id import extract_task_id
+from ..service.memory_service import MemoryService
+from ..service.value_driven import RLConfig
+from ..providers.llm import OpenAILLM
+from ..providers.embedding import OpenAIEmbedder
+from ..utils.task_id import extract_task_id
 
-from memrl.lifelongbench_eval.prompts import (
+from ..lifelongbench_eval.prompts import (
     DEFAULT_SYSTEM_PROMPT as LLB_DEFAULT_SYSTEM_PROMPT,
     build_llb_prompt_with_memory,
     build_llb_system_prompt,
 )
-from memrl.lifelongbench_eval.memory_context import format_llb_memory_context
+from ..lifelongbench_eval.memory_context import format_llb_memory_context
 
 # --- Setup LLB Path ---
-# 动态查找项目根目录和 LLB 路径
-_current_file = Path(__file__).resolve()
-_project_root = _current_file.parent.parent.parent  # memp/run/llb_rl_runner.py -> memp/
-LLB_ROOT = _project_root / "3rdparty" / "LifelongAgentBench"
-
-if not LLB_ROOT.exists():
-    raise RuntimeError(f"LLB directory not found: {LLB_ROOT}")
+# MemRL 作为 nvdamasgm 子包：在仓库内查找 LifelongAgentBench（与 baselines/MemRL 共用 vendor）。
+_memrl_pkg = Path(__file__).resolve().parent.parent
+_repo_root: Optional[Path] = None
+for p in _memrl_pkg.parents:
+    if (p / "mas" / "memory" / "mas_memory").is_dir():
+        _repo_root = p
+        break
+if _repo_root is None:
+    raise RuntimeError("Could not locate repo root (expected mas/memory/mas_memory).")
+_llb_candidates = [
+    _repo_root / "baselines" / "MemRL" / "3rdparty" / "LifelongAgentBench",
+    _repo_root / "3rdparty" / "LifelongAgentBench",
+]
+LLB_ROOT = next((c for c in _llb_candidates if c.is_dir()), None)
+if LLB_ROOT is None or not LLB_ROOT.exists():
+    raise RuntimeError(
+        "LifelongAgentBench directory not found. Tried: "
+        + ", ".join(str(c) for c in _llb_candidates)
+    )
 
 # Python 3.10 兼容：为 enum.StrEnum 提供兜底实现
 try:
@@ -166,13 +178,13 @@ class LLBRunner(BaseRunner):
         self.rl_config: Optional[RLConfig] = rl_config
 
         # Optional per-task JSONL tracing (activated via TRACE_JSONL_PATH).
-        from memrl.trace.llb_jsonl import LLBJsonlTracer
-        from memrl.trace.tracing_llm import TracingLLMProvider
+        from ..trace.llb_jsonl import LLBJsonlTracer
+        from ..trace.tracing_llm import TracingLLMProvider
 
         self._trace = LLBJsonlTracer.from_env()
 
         # Create LLM adapter for LLB LanguageModelAgent (optionally wrapped for tracing)
-        from memrl.lifelongbench_eval.lm_adapter import MempOpenAIAdapter
+        from ..lifelongbench_eval.lm_adapter import MempOpenAIAdapter
 
         provider_for_adapter = self.llm_provider
         if self._trace is not None:
@@ -276,7 +288,7 @@ class LLBRunner(BaseRunner):
 
     def _build_llb_task(self):
         """Build LLB task object and load dataset."""
-        from memrl.lifelongbench_eval.task_wrappers import (
+        from ..lifelongbench_eval.task_wrappers import (
             build_task,
             ensure_standard_prompts,
         )
@@ -612,7 +624,7 @@ class LLBRunner(BaseRunner):
                             memory_context = self._format_memory_context(processed_mems)
 
                         if trace_ctx is not None:
-                            from memrl.trace.llb_jsonl import summarize_text
+                            from ..trace.llb_jsonl import summarize_text
 
                             def _mem_summary(m: Dict[str, Any]) -> Dict[str, Any]:
                                 md = m.get("metadata")
@@ -693,7 +705,7 @@ class LLBRunner(BaseRunner):
                 )
 
                 # Create new task instance for this sample (avoid state pollution)
-                from memrl.lifelongbench_eval.task_wrappers import build_task
+                from ..lifelongbench_eval.task_wrappers import build_task
 
                 task_obj, _ = build_task(
                     task=self.task,

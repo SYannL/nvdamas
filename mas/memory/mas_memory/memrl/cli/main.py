@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import click
 
-from memrl.__version__ import __description__, __version__
+from ..__version__ import __description__, __version__
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})

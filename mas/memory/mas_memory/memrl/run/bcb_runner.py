@@ -22,13 +22,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from memrl.bigcodebench_eval.bcb_adapter import extract_code_from_response
-from memrl.bigcodebench_eval.eval_utils import (
+from ..bigcodebench_eval.bcb_adapter import extract_code_from_response
+from ..bigcodebench_eval.eval_utils import (
     ensure_bigcodebench_on_path,
     run_untrusted_check_with_hard_timeout,
     sanitize_code,
 )
-from memrl.bigcodebench_eval.task_wrappers import get_prompt, load_bcb_data, split_dataset, write_samples
+from ..bigcodebench_eval.task_wrappers import get_prompt, load_bcb_data, split_dataset, write_samples
 
 logger = logging.getLogger(__name__)
 
