@@ -14,7 +14,7 @@
     "goal_instruction": "Your task is to: put a candle in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Cart-401/trial_T20190909_081855_856149/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Cart-401/trial_T20190909_081855_856149/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -35,7 +35,7 @@
     "goal_instruction": "Your task is to: put a candle in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Cart-401/trial_T20190909_081920_801026/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Cart-401/trial_T20190909_081920_801026/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -56,7 +56,7 @@
     "goal_instruction": "Your task is to: clean some cloth and put it in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Cart-401/trial_T20190907_045526_367332/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Cart-401/trial_T20190907_045526_367332/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -77,7 +77,7 @@
     "goal_instruction": "Your task is to: put some cloth on cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -98,7 +98,7 @@
     "goal_instruction": "Your task is to: put a cloth in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054522_876529/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054522_876529/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -119,7 +119,7 @@
     "goal_instruction": "Your task is to: put a cloth in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054535_981513/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054535_981513/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -140,7 +140,7 @@
     "goal_instruction": "Your task is to: put two dishsponge in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Cart-401/trial_T20190909_041313_714283/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Cart-401/trial_T20190909_041313_714283/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -161,7 +161,7 @@
     "goal_instruction": "Your task is to: put a dishsponge in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Cart-401/trial_T20190909_045712_019986/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Cart-401/trial_T20190909_045712_019986/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -182,7 +182,7 @@
     "goal_instruction": "Your task is to: put some dishsponge on cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Cart-401/trial_T20190909_045729_956116/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Cart-401/trial_T20190909_045729_956116/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -203,7 +203,7 @@
     "goal_instruction": "Your task is to: put two dishsponge in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Cart-401/trial_T20190909_054258_649233/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Cart-401/trial_T20190909_054258_649233/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -224,7 +224,7 @@
     "goal_instruction": "Your task is to: put a clean dishsponge in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-401/trial_T20190908_072146_807271/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-401/trial_T20190908_072146_807271/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -245,7 +245,7 @@
     "goal_instruction": "Your task is to: put a clean dishsponge in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-401/trial_T20190908_072206_068474/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-401/trial_T20190908_072206_068474/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -266,7 +266,7 @@
     "goal_instruction": "Your task is to: clean some dishsponge and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-401/trial_T20190908_072225_397518/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-401/trial_T20190908_072225_397518/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -287,7 +287,7 @@
     "goal_instruction": "Your task is to: clean some soapbar and put it in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cart-401/trial_T20190906_183132_047199/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cart-401/trial_T20190906_183132_047199/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -308,7 +308,7 @@
     "goal_instruction": "Your task is to: clean some soapbar and put it in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cart-401/trial_T20190906_183157_958090/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cart-401/trial_T20190906_183157_958090/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -329,7 +329,7 @@
     "goal_instruction": "Your task is to: put some soapbar on cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SoapBar-None-Cart-401/trial_T20190907_054853_603987/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SoapBar-None-Cart-401/trial_T20190907_054853_603987/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -350,7 +350,7 @@
     "goal_instruction": "Your task is to: find two soapbottle and put them in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Cart-401/trial_T20190908_215205_561346/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Cart-401/trial_T20190908_215205_561346/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -371,7 +371,7 @@
     "goal_instruction": "Your task is to: find two soapbottle and put them in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Cart-401/trial_T20190908_215319_029253/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Cart-401/trial_T20190908_215319_029253/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -392,7 +392,7 @@
     "goal_instruction": "Your task is to: find two spraybottle and put them in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cart-401/trial_T20190906_193324_436227/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cart-401/trial_T20190906_193324_436227/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -413,7 +413,7 @@
     "goal_instruction": "Your task is to: find two spraybottle and put them in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cart-401/trial_T20190906_193356_571004/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cart-401/trial_T20190906_193356_571004/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -434,7 +434,7 @@
     "goal_instruction": "Your task is to: put two spraybottle in cart.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cart-401/trial_T20190906_193428_881063/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cart-401/trial_T20190906_193428_881063/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -455,7 +455,7 @@
     "goal_instruction": "Your task is to: put some toiletpaper on toiletpaperhanger.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-401/trial_T20190908_215205_687893/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-401/trial_T20190908_215205_687893/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -476,7 +476,7 @@
     "goal_instruction": "Your task is to: put some toiletpaper on toiletpaperhanger.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-401/trial_T20190908_215223_949164/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-401/trial_T20190908_215223_949164/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -497,7 +497,7 @@
     "goal_instruction": "Your task is to: put some toiletpaper on toiletpaperhanger.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-401/trial_T20190908_215242_151083/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-401/trial_T20190908_215242_151083/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -518,7 +518,7 @@
     "goal_instruction": "Your task is to: find two candle and put them in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084748_312432/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084748_312432/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -539,7 +539,7 @@
     "goal_instruction": "Your task is to: put two candle in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084818_682608/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084818_682608/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -560,7 +560,7 @@
     "goal_instruction": "Your task is to: find two candle and put them in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084844_114031/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084844_114031/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -581,7 +581,7 @@
     "goal_instruction": "Your task is to: find two candle and put them in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-CounterTop-402/trial_T20190909_082809_314519/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-CounterTop-402/trial_T20190909_082809_314519/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -602,7 +602,7 @@
     "goal_instruction": "Your task is to: put some candle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-402/trial_T20190909_150110_676215/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-402/trial_T20190909_150110_676215/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -623,7 +623,7 @@
     "goal_instruction": "Your task is to: put some candle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-402/trial_T20190909_150140_960275/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-402/trial_T20190909_150140_960275/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -644,7 +644,7 @@
     "goal_instruction": "Your task is to: put a candle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-402/trial_T20190909_150202_194037/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-402/trial_T20190909_150202_194037/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -665,7 +665,7 @@
     "goal_instruction": "Your task is to: put a clean cloth in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-402/trial_T20190906_201408_789070/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-402/trial_T20190906_201408_789070/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -686,7 +686,7 @@
     "goal_instruction": "Your task is to: put a clean cloth in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-402/trial_T20190906_201431_394089/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-402/trial_T20190906_201431_394089/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -707,7 +707,7 @@
     "goal_instruction": "Your task is to: put a clean soapbar in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-402/trial_T20190908_055202_188428/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-402/trial_T20190908_055202_188428/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -728,7 +728,7 @@
     "goal_instruction": "Your task is to: find two spraybottle and put them in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-402/trial_T20190911_213113_817208/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-402/trial_T20190911_213113_817208/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -749,7 +749,7 @@
     "goal_instruction": "Your task is to: put a tissuebox in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Toilet-402/trial_T20190908_055936_625704/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Toilet-402/trial_T20190908_055936_625704/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -770,7 +770,7 @@
     "goal_instruction": "Your task is to: put some tissuebox on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Toilet-402/trial_T20190908_060020_023543/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Toilet-402/trial_T20190908_060020_023543/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -791,7 +791,7 @@
     "goal_instruction": "Your task is to: put two toiletpaper in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Cabinet-402/trial_T20190908_144830_163459/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Cabinet-402/trial_T20190908_144830_163459/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -812,7 +812,7 @@
     "goal_instruction": "Your task is to: find two toiletpaper and put them in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Cabinet-402/trial_T20190911_202322_415136/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Cabinet-402/trial_T20190911_202322_415136/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -833,7 +833,7 @@
     "goal_instruction": "Your task is to: put two toiletpaper in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-CounterTop-402/trial_T20190909_053732_822099/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-CounterTop-402/trial_T20190909_053732_822099/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -854,7 +854,7 @@
     "goal_instruction": "Your task is to: put two toiletpaper in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-CounterTop-402/trial_T20190912_052310_164968/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-CounterTop-402/trial_T20190912_052310_164968/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -875,7 +875,7 @@
     "goal_instruction": "Your task is to: put some toiletpaper on toiletpaperhanger.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-402/trial_T20190908_030848_480173/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-402/trial_T20190908_030848_480173/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -896,7 +896,7 @@
     "goal_instruction": "Your task is to: put a toiletpaper in toiletpaperhanger.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-402/trial_T20190908_225522_245107/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-402/trial_T20190908_225522_245107/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -917,7 +917,7 @@
     "goal_instruction": "Your task is to: find two candle and put them in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-403/trial_T20190909_065744_416414/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-403/trial_T20190909_065744_416414/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -938,7 +938,7 @@
     "goal_instruction": "Your task is to: find two candle and put them in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-403/trial_T20190909_065841_838469/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-403/trial_T20190909_065841_838469/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -959,7 +959,7 @@
     "goal_instruction": "Your task is to: put a clean dishsponge in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-CounterTop-403/trial_T20190908_144337_493760/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-CounterTop-403/trial_T20190908_144337_493760/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -980,7 +980,7 @@
     "goal_instruction": "Your task is to: put some dishsponge on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Toilet-403/trial_T20190907_192737_190036/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Toilet-403/trial_T20190907_192737_190036/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1001,7 +1001,7 @@
     "goal_instruction": "Your task is to: put a dishsponge in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Toilet-403/trial_T20190907_192753_899150/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-DishSponge-None-Toilet-403/trial_T20190907_192753_899150/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1022,7 +1022,7 @@
     "goal_instruction": "Your task is to: put two dishsponge in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Toilet-403/trial_T20190908_024658_735745/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Toilet-403/trial_T20190908_024658_735745/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1043,7 +1043,7 @@
     "goal_instruction": "Your task is to: put two dishsponge in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Toilet-403/trial_T20190908_024917_909971/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-DishSponge-None-Toilet-403/trial_T20190908_024917_909971/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1064,7 +1064,7 @@
     "goal_instruction": "Your task is to: put a clean soapbar in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-403/trial_T20190906_161837_412072/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-403/trial_T20190906_161837_412072/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1085,7 +1085,7 @@
     "goal_instruction": "Your task is to: clean some soapbar and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-403/trial_T20190906_161856_202281/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-403/trial_T20190906_161856_202281/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1106,7 +1106,7 @@
     "goal_instruction": "Your task is to: clean some soapbar and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-403/trial_T20190906_161918_796066/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-403/trial_T20190906_161918_796066/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1127,7 +1127,7 @@
     "goal_instruction": "Your task is to: clean some soapbar and put it in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-403/trial_T20190909_080111_999655/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-403/trial_T20190909_080111_999655/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1148,7 +1148,7 @@
     "goal_instruction": "Your task is to: find two soapbottle and put them in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-403/trial_T20190908_060039_542379/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-403/trial_T20190908_060039_542379/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1169,7 +1169,7 @@
     "goal_instruction": "Your task is to: put two soapbottle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-403/trial_T20190908_060213_777780/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-403/trial_T20190908_060213_777780/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1190,7 +1190,7 @@
     "goal_instruction": "Your task is to: put two spraybottle in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cabinet-403/trial_T20190907_123331_293578/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cabinet-403/trial_T20190907_123331_293578/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1211,7 +1211,7 @@
     "goal_instruction": "Your task is to: put two spraybottle in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cabinet-403/trial_T20190907_123359_561127/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Cabinet-403/trial_T20190907_123359_561127/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1232,7 +1232,7 @@
     "goal_instruction": "Your task is to: put a spraybottle in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Cabinet-403/trial_T20190908_220946_946277/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Cabinet-403/trial_T20190908_220946_946277/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1253,7 +1253,7 @@
     "goal_instruction": "Your task is to: put a spraybottle in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Cabinet-403/trial_T20190908_221024_103153/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Cabinet-403/trial_T20190908_221024_103153/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1274,7 +1274,7 @@
     "goal_instruction": "Your task is to: put a spraybottle in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Cabinet-403/trial_T20190908_221042_476220/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Cabinet-403/trial_T20190908_221042_476220/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1295,7 +1295,7 @@
     "goal_instruction": "Your task is to: put some spraybottle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-403/trial_T20190908_042148_900573/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-403/trial_T20190908_042148_900573/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1316,7 +1316,7 @@
     "goal_instruction": "Your task is to: put some spraybottle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-403/trial_T20190908_042208_991561/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-403/trial_T20190908_042208_991561/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1337,7 +1337,7 @@
     "goal_instruction": "Your task is to: put a toiletpaper in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-GarbageCan-403/trial_T20190907_034528_884833/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-GarbageCan-403/trial_T20190907_034528_884833/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1358,7 +1358,7 @@
     "goal_instruction": "Your task is to: put some toiletpaper on garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-GarbageCan-403/trial_T20190907_034554_937587/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-GarbageCan-403/trial_T20190907_034554_937587/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1379,7 +1379,7 @@
     "goal_instruction": "Your task is to: put some candle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-405/trial_T20190908_131501_794150/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-405/trial_T20190908_131501_794150/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1400,7 +1400,7 @@
     "goal_instruction": "Your task is to: clean some cloth and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Cabinet-405/trial_T20190907_080924_812825/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Cabinet-405/trial_T20190907_080924_812825/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1421,7 +1421,7 @@
     "goal_instruction": "Your task is to: clean some cloth and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Cabinet-405/trial_T20190907_080943_173175/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Cabinet-405/trial_T20190907_080943_173175/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1442,7 +1442,7 @@
     "goal_instruction": "Your task is to: put a clean cloth in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-405/trial_T20190909_073556_939534/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-405/trial_T20190909_073556_939534/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1463,7 +1463,7 @@
     "goal_instruction": "Your task is to: put some soapbottle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015553_305032/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015553_305032/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1484,7 +1484,7 @@
     "goal_instruction": "Your task is to: put a soapbottle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015616_880449/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015616_880449/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1505,7 +1505,7 @@
     "goal_instruction": "Your task is to: put a soapbottle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015700_206003/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015700_206003/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1526,7 +1526,7 @@
     "goal_instruction": "Your task is to: find two soapbottle and put them in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-405/trial_T20190909_014637_759728/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-405/trial_T20190909_014637_759728/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1547,7 +1547,7 @@
     "goal_instruction": "Your task is to: find two soapbottle and put them in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-405/trial_T20190909_014710_793462/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-405/trial_T20190909_014710_793462/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1568,7 +1568,7 @@
     "goal_instruction": "Your task is to: find two soapbottle and put them in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-405/trial_T20190909_014901_056414/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-405/trial_T20190909_014901_056414/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1589,7 +1589,7 @@
     "goal_instruction": "Your task is to: put two spraybottle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-405/trial_T20190907_151132_176889/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-405/trial_T20190907_151132_176889/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1610,7 +1610,7 @@
     "goal_instruction": "Your task is to: put two spraybottle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-405/trial_T20190907_151208_870860/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-405/trial_T20190907_151208_870860/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1631,7 +1631,7 @@
     "goal_instruction": "Your task is to: find two spraybottle and put them in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-405/trial_T20190907_151246_155544/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SprayBottle-None-Toilet-405/trial_T20190907_151246_155544/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1652,7 +1652,7 @@
     "goal_instruction": "Your task is to: put some spraybottle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-405/trial_T20190908_021323_460782/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-405/trial_T20190908_021323_460782/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1673,7 +1673,7 @@
     "goal_instruction": "Your task is to: put some spraybottle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-405/trial_T20190908_021334_018317/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SprayBottle-None-Toilet-405/trial_T20190908_021334_018317/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1694,7 +1694,7 @@
     "goal_instruction": "Your task is to: put two toiletpaper in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Toilet-405/trial_T20190909_070029_031921/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Toilet-405/trial_T20190909_070029_031921/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1715,7 +1715,7 @@
     "goal_instruction": "Your task is to: put two toiletpaper in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Toilet-405/trial_T20190909_070123_655113/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-ToiletPaper-None-Toilet-405/trial_T20190909_070123_655113/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1736,7 +1736,7 @@
     "goal_instruction": "Your task is to: put two candle in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-406/trial_T20190908_165628_335781/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-406/trial_T20190908_165628_335781/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1757,7 +1757,7 @@
     "goal_instruction": "Your task is to: find two candle and put them in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-406/trial_T20190908_165708_885279/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-Cabinet-406/trial_T20190908_165708_885279/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1778,7 +1778,7 @@
     "goal_instruction": "Your task is to: put two candle in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Candle-None-CounterTop-406/trial_T20190908_045902_729862/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Candle-None-CounterTop-406/trial_T20190908_045902_729862/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1799,7 +1799,7 @@
     "goal_instruction": "Your task is to: clean some cloth and put it in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-406/trial_T20190908_102552_835735/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-406/trial_T20190908_102552_835735/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1820,7 +1820,7 @@
     "goal_instruction": "Your task is to: clean some cloth and put it in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-406/trial_T20190908_102709_492098/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cloth-None-Toilet-406/trial_T20190908_102709_492098/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1841,7 +1841,7 @@
     "goal_instruction": "Your task is to: put a clean soapbar in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-406/trial_T20190907_015846_164761/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-406/trial_T20190907_015846_164761/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1862,7 +1862,7 @@
     "goal_instruction": "Your task is to: clean some soapbar and put it in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-406/trial_T20190907_015904_010057/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-406/trial_T20190907_015904_010057/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1883,7 +1883,7 @@
     "goal_instruction": "Your task is to: clean some soapbar and put it in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-406/trial_T20190907_015923_805044/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-406/trial_T20190907_015923_805044/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1904,7 +1904,7 @@
     "goal_instruction": "Your task is to: find two soapbottle and put them in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Cabinet-406/trial_T20190909_145628_658348/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Cabinet-406/trial_T20190909_145628_658348/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1925,7 +1925,7 @@
     "goal_instruction": "Your task is to: put some soapbottle on toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-406/trial_T20190909_104206_052441/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-406/trial_T20190909_104206_052441/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1946,7 +1946,7 @@
     "goal_instruction": "Your task is to: put a soapbottle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-406/trial_T20190909_104226_709618/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-SoapBottle-None-Toilet-406/trial_T20190909_104226_709618/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1967,7 +1967,7 @@
     "goal_instruction": "Your task is to: put two soapbottle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-406/trial_T20190909_145737_829825/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-SoapBottle-None-Toilet-406/trial_T20190909_145737_829825/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1988,7 +1988,7 @@
     "goal_instruction": "Your task is to: put a toiletpaper in toiletpaperhanger.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-406/trial_T20190908_122807_136741/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-406/trial_T20190908_122807_136741/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2009,7 +2009,7 @@
     "goal_instruction": "Your task is to: put some toiletpaper on toiletpaperhanger.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-406/trial_T20190908_122840_498444/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-406/trial_T20190908_122840_498444/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2030,7 +2030,7 @@
     "goal_instruction": "Your task is to: put some candle on cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Cabinet-407/trial_T20190909_073645_454627/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Cabinet-407/trial_T20190909_073645_454627/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2051,7 +2051,7 @@
     "goal_instruction": "Your task is to: put some candle on cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Cabinet-407/trial_T20190909_073700_129324/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Cabinet-407/trial_T20190909_073700_129324/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2072,7 +2072,7 @@
     "goal_instruction": "Your task is to: put a candle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-407/trial_T20190909_055216_511429/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-407/trial_T20190909_055216_511429/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2093,7 +2093,7 @@
     "goal_instruction": "Your task is to: put a candle in toilet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-407/trial_T20190909_055329_734896/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Candle-None-Toilet-407/trial_T20190909_055329_734896/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",

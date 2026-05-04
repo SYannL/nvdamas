@@ -14,7 +14,7 @@
     "goal_instruction": "Your task is to: put a book in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-201/trial_T20190908_132524_528227/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-201/trial_T20190908_132524_528227/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -35,7 +35,7 @@
     "goal_instruction": "Your task is to: put some book on sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-201/trial_T20190908_132554_397223/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-201/trial_T20190908_132554_397223/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -56,7 +56,7 @@
     "goal_instruction": "Your task is to: put some book on sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-201/trial_T20190908_132617_405517/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-201/trial_T20190908_132617_405517/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -77,7 +77,7 @@
     "goal_instruction": "Your task is to: put a bowl in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171714_885383/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171714_885383/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -98,7 +98,7 @@
     "goal_instruction": "Your task is to: put some bowl on coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171756_784651/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171756_784651/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -119,7 +119,7 @@
     "goal_instruction": "Your task is to: put some creditcard on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-201/trial_T20190908_124413_314288/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-201/trial_T20190908_124413_314288/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -140,7 +140,7 @@
     "goal_instruction": "Your task is to: put some creditcard on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-201/trial_T20190908_124445_444943/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-201/trial_T20190908_124445_444943/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -161,7 +161,7 @@
     "goal_instruction": "Your task is to: put two newspaper in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Newspaper-None-Sofa-201/trial_T20190906_190045_063430/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Newspaper-None-Sofa-201/trial_T20190906_190045_063430/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -182,7 +182,7 @@
     "goal_instruction": "Your task is to: put two newspaper in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Newspaper-None-Sofa-201/trial_T20190918_190347_937339/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Newspaper-None-Sofa-201/trial_T20190918_190347_937339/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -203,7 +203,7 @@
     "goal_instruction": "Your task is to: find two plate and put them in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Plate-None-CoffeeTable-201/trial_T20190907_170428_254428/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Plate-None-CoffeeTable-201/trial_T20190907_170428_254428/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -224,7 +224,7 @@
     "goal_instruction": "Your task is to: put two plate in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Plate-None-CoffeeTable-201/trial_T20190907_170504_777989/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Plate-None-CoffeeTable-201/trial_T20190907_170504_777989/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -245,7 +245,7 @@
     "goal_instruction": "Your task is to: find two plate and put them in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Plate-None-CoffeeTable-201/trial_T20190918_172828_710071/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Plate-None-CoffeeTable-201/trial_T20190918_172828_710071/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -266,7 +266,7 @@
     "goal_instruction": "Your task is to: find two remotecontrol and put them in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-201/trial_T20190908_120009_660950/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-201/trial_T20190908_120009_660950/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -287,7 +287,7 @@
     "goal_instruction": "Your task is to: find two remotecontrol and put them in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-201/trial_T20190911_210231_723670/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-201/trial_T20190911_210231_723670/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -308,7 +308,7 @@
     "goal_instruction": "Your task is to: put some statue on coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Statue-None-CoffeeTable-201/trial_T20190908_124645_879712/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Statue-None-CoffeeTable-201/trial_T20190908_124645_879712/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -329,7 +329,7 @@
     "goal_instruction": "Your task is to: put some statue on coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Statue-None-CoffeeTable-201/trial_T20190908_124709_477856/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Statue-None-CoffeeTable-201/trial_T20190908_124709_477856/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -350,7 +350,7 @@
     "goal_instruction": "Your task is to: put a statue in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Statue-None-CoffeeTable-201/trial_T20190908_124733_145874/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Statue-None-CoffeeTable-201/trial_T20190908_124733_145874/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -371,7 +371,7 @@
     "goal_instruction": "Your task is to: put a watch in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Watch-None-CoffeeTable-201/trial_T20190908_124509_296941/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Watch-None-CoffeeTable-201/trial_T20190908_124509_296941/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -392,7 +392,7 @@
     "goal_instruction": "Your task is to: put a watch in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Watch-None-CoffeeTable-201/trial_T20190908_124638_700872/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Watch-None-CoffeeTable-201/trial_T20190908_124638_700872/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -413,7 +413,7 @@
     "goal_instruction": "Your task is to: put a book in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-202/trial_T20190907_043640_929501/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-202/trial_T20190907_043640_929501/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -434,7 +434,7 @@
     "goal_instruction": "Your task is to: put some book on sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-202/trial_T20190907_043652_096323/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-202/trial_T20190907_043652_096323/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -455,7 +455,7 @@
     "goal_instruction": "Your task is to: put a book in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-202/trial_T20190907_043708_054006/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Sofa-202/trial_T20190907_043708_054006/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -476,7 +476,7 @@
     "goal_instruction": "Your task is to: put some creditcard on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-202/trial_T20190909_011622_519100/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-202/trial_T20190909_011622_519100/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -497,7 +497,7 @@
     "goal_instruction": "Your task is to: put some creditcard on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-202/trial_T20190909_011645_748929/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-202/trial_T20190909_011645_748929/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -518,7 +518,7 @@
     "goal_instruction": "Your task is to: find two keychain and put them in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Sofa-202/trial_T20190908_102743_595985/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Sofa-202/trial_T20190908_102743_595985/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -539,7 +539,7 @@
     "goal_instruction": "Your task is to: put two remotecontrol in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-CoffeeTable-202/trial_T20190907_075335_280493/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-CoffeeTable-202/trial_T20190907_075335_280493/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -560,7 +560,7 @@
     "goal_instruction": "Your task is to: put two bowl in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Bowl-None-CoffeeTable-203/trial_T20190907_153332_888821/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Bowl-None-CoffeeTable-203/trial_T20190907_153332_888821/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -581,7 +581,7 @@
     "goal_instruction": "Your task is to: put two bowl in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Bowl-None-CoffeeTable-203/trial_T20190907_153434_051209/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Bowl-None-CoffeeTable-203/trial_T20190907_153434_051209/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -602,7 +602,7 @@
     "goal_instruction": "Your task is to: find two bowl and put them in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Bowl-None-CoffeeTable-203/trial_T20190907_153529_699181/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Bowl-None-CoffeeTable-203/trial_T20190907_153529_699181/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -623,7 +623,7 @@
     "goal_instruction": "Your task is to: put a keychain in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Ottoman-203/trial_T20190908_123648_878822/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Ottoman-203/trial_T20190908_123648_878822/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -644,7 +644,7 @@
     "goal_instruction": "Your task is to: put a keychain in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Ottoman-203/trial_T20190908_123712_283630/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Ottoman-203/trial_T20190908_123712_283630/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -665,7 +665,7 @@
     "goal_instruction": "Your task is to: put some keychain on ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Ottoman-203/trial_T20190908_140430_032812/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Ottoman-203/trial_T20190908_140430_032812/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -686,7 +686,7 @@
     "goal_instruction": "Your task is to: find two laptop and put them in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Laptop-None-Ottoman-203/trial_T20190907_034356_767031/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Laptop-None-Ottoman-203/trial_T20190907_034356_767031/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -707,7 +707,7 @@
     "goal_instruction": "Your task is to: find two laptop and put them in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Laptop-None-Ottoman-203/trial_T20190907_034427_986385/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Laptop-None-Ottoman-203/trial_T20190907_034427_986385/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -728,7 +728,7 @@
     "goal_instruction": "Your task is to: put two laptop in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Laptop-None-Ottoman-203/trial_T20190907_034519_385647/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Laptop-None-Ottoman-203/trial_T20190907_034519_385647/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -749,7 +749,7 @@
     "goal_instruction": "Your task is to: put a laptop in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-Ottoman-203/trial_T20190908_110606_176017/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-Ottoman-203/trial_T20190908_110606_176017/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -770,7 +770,7 @@
     "goal_instruction": "Your task is to: put a laptop in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-Ottoman-203/trial_T20190908_110656_971485/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-Ottoman-203/trial_T20190908_110656_971485/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -791,7 +791,7 @@
     "goal_instruction": "Your task is to: put some laptop on ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-Ottoman-203/trial_T20190908_110713_350931/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-Ottoman-203/trial_T20190908_110713_350931/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -812,7 +812,7 @@
     "goal_instruction": "Your task is to: put some newspaper on ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Newspaper-None-Ottoman-203/trial_T20190908_173724_161102/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Newspaper-None-Ottoman-203/trial_T20190908_173724_161102/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -833,7 +833,7 @@
     "goal_instruction": "Your task is to: put a newspaper in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Newspaper-None-Ottoman-203/trial_T20190908_173745_461691/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Newspaper-None-Ottoman-203/trial_T20190908_173745_461691/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -854,7 +854,7 @@
     "goal_instruction": "Your task is to: put a newspaper in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Newspaper-None-Ottoman-203/trial_T20190908_190823_442359/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Newspaper-None-Ottoman-203/trial_T20190908_190823_442359/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -875,7 +875,7 @@
     "goal_instruction": "Your task is to: put two remotecontrol in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Ottoman-203/trial_T20190906_182839_298430/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Ottoman-203/trial_T20190906_182839_298430/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -896,7 +896,7 @@
     "goal_instruction": "Your task is to: find two remotecontrol and put them in ottoman.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Ottoman-203/trial_T20190906_182910_532448/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Ottoman-203/trial_T20190906_182910_532448/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -917,7 +917,7 @@
     "goal_instruction": "Your task is to: find two keychain and put them in safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Safe-204/trial_T20190906_190138_748596/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Safe-204/trial_T20190906_190138_748596/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -938,7 +938,7 @@
     "goal_instruction": "Your task is to: find two vase and put them in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Vase-None-Desk-204/trial_T20190906_181446_979303/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Vase-None-Desk-204/trial_T20190906_181446_979303/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -959,7 +959,7 @@
     "goal_instruction": "Your task is to: find two vase and put them in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Vase-None-Desk-204/trial_T20190906_181607_130370/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Vase-None-Desk-204/trial_T20190906_181607_130370/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -980,7 +980,7 @@
     "goal_instruction": "Your task is to: put a vase in safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Vase-None-Safe-204/trial_T20190907_023343_425395/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Vase-None-Safe-204/trial_T20190907_023343_425395/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1001,7 +1001,7 @@
     "goal_instruction": "Your task is to: put some vase on safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Vase-None-Safe-204/trial_T20190919_000130_908789/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Vase-None-Safe-204/trial_T20190919_000130_908789/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1022,7 +1022,7 @@
     "goal_instruction": "Your task is to: put a vase in safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Vase-None-Safe-204/trial_T20190919_000336_714640/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Vase-None-Safe-204/trial_T20190919_000336_714640/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1043,7 +1043,7 @@
     "goal_instruction": "Your task is to: look at box under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Box-None-DeskLamp-205/trial_T20190907_074438_715192/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Box-None-DeskLamp-205/trial_T20190907_074438_715192/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1064,7 +1064,7 @@
     "goal_instruction": "Your task is to: put some box on sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Box-None-Sofa-205/trial_T20190907_214755_478301/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Box-None-Sofa-205/trial_T20190907_214755_478301/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1085,7 +1085,7 @@
     "goal_instruction": "Your task is to: put a box in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Box-None-Sofa-205/trial_T20190907_214830_497445/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Box-None-Sofa-205/trial_T20190907_214830_497445/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1106,7 +1106,7 @@
     "goal_instruction": "Your task is to: put a laptop in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-ArmChair-205/trial_T20190908_082554_250199/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-ArmChair-205/trial_T20190908_082554_250199/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1127,7 +1127,7 @@
     "goal_instruction": "Your task is to: put some laptop on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-ArmChair-205/trial_T20190908_082607_110365/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-ArmChair-205/trial_T20190908_082607_110365/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1148,7 +1148,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-205/trial_T20190909_014913_726205/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-205/trial_T20190909_014913_726205/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1169,7 +1169,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-205/trial_T20190909_014933_134232/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-205/trial_T20190909_014933_134232/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1190,7 +1190,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-205/trial_T20190909_014955_096321/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-205/trial_T20190909_014955_096321/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1211,7 +1211,7 @@
     "goal_instruction": "Your task is to: examine the watch with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-205/trial_T20190907_001900_859623/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-205/trial_T20190907_001900_859623/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1232,7 +1232,7 @@
     "goal_instruction": "Your task is to: examine the watch with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-205/trial_T20190907_001919_953335/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-205/trial_T20190907_001919_953335/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1253,7 +1253,7 @@
     "goal_instruction": "Your task is to: examine the watch with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-205/trial_T20190907_001948_509721/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-205/trial_T20190907_001948_509721/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1274,7 +1274,7 @@
     "goal_instruction": "Your task is to: put two watch in dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-205/trial_T20190907_181954_161870/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-205/trial_T20190907_181954_161870/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1295,7 +1295,7 @@
     "goal_instruction": "Your task is to: put two watch in dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-205/trial_T20190907_182257_096741/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-205/trial_T20190907_182257_096741/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1316,7 +1316,7 @@
     "goal_instruction": "Your task is to: put a box in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Box-None-Sofa-206/trial_T20190909_102133_696249/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Box-None-Sofa-206/trial_T20190909_102133_696249/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1337,7 +1337,7 @@
     "goal_instruction": "Your task is to: find two creditcard and put them in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-206/trial_T20190909_020952_108591/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-206/trial_T20190909_020952_108591/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1358,7 +1358,7 @@
     "goal_instruction": "Your task is to: put a creditcard in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-206/trial_T20190909_023729_905485/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CreditCard-None-ArmChair-206/trial_T20190909_023729_905485/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1379,7 +1379,7 @@
     "goal_instruction": "Your task is to: put two creditcard in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Sofa-206/trial_T20190906_203503_354880/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Sofa-206/trial_T20190906_203503_354880/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1400,7 +1400,7 @@
     "goal_instruction": "Your task is to: put some laptop on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-ArmChair-206/trial_T20190907_173903_898221/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-ArmChair-206/trial_T20190907_173903_898221/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1421,7 +1421,7 @@
     "goal_instruction": "Your task is to: put a pillow in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Pillow-None-ArmChair-206/trial_T20190909_011649_821132/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Pillow-None-ArmChair-206/trial_T20190909_011649_821132/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1442,7 +1442,7 @@
     "goal_instruction": "Your task is to: put some pillow on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Pillow-None-ArmChair-206/trial_T20190909_011712_191509/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Pillow-None-ArmChair-206/trial_T20190909_011712_191509/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1463,7 +1463,7 @@
     "goal_instruction": "Your task is to: put a pillow in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Pillow-None-ArmChair-206/trial_T20190909_011730_702236/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Pillow-None-ArmChair-206/trial_T20190909_011730_702236/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1484,7 +1484,7 @@
     "goal_instruction": "Your task is to: put a remotecontrol in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-206/trial_T20190909_035937_333619/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-206/trial_T20190909_035937_333619/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1505,7 +1505,7 @@
     "goal_instruction": "Your task is to: put some remotecontrol on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-206/trial_T20190909_035950_335914/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-206/trial_T20190909_035950_335914/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1526,7 +1526,7 @@
     "goal_instruction": "Your task is to: find two remotecontrol and put them in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-206/trial_T20190909_094915_819748/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-206/trial_T20190909_094915_819748/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1547,7 +1547,7 @@
     "goal_instruction": "Your task is to: put two remotecontrol in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-206/trial_T20190909_094938_751823/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-206/trial_T20190909_094938_751823/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1568,7 +1568,7 @@
     "goal_instruction": "Your task is to: put two remotecontrol in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-206/trial_T20190909_095001_569701/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-206/trial_T20190909_095001_569701/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1589,7 +1589,7 @@
     "goal_instruction": "Your task is to: put some vase on coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-206/trial_T20190909_024707_531392/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-206/trial_T20190909_024707_531392/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1610,7 +1610,7 @@
     "goal_instruction": "Your task is to: put a vase in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-206/trial_T20190909_055405_757562/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-206/trial_T20190909_055405_757562/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1631,7 +1631,7 @@
     "goal_instruction": "Your task is to: find two creditcard and put them in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-207/trial_T20190906_201623_682219/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-207/trial_T20190906_201623_682219/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1652,7 +1652,7 @@
     "goal_instruction": "Your task is to: put two creditcard in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-207/trial_T20190906_201649_171488/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-207/trial_T20190906_201649_171488/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1673,7 +1673,7 @@
     "goal_instruction": "Your task is to: find two creditcard and put them in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-207/trial_T20190906_201711_370043/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-ArmChair-207/trial_T20190906_201711_370043/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1694,7 +1694,7 @@
     "goal_instruction": "Your task is to: put a creditcard in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CreditCard-None-Sofa-207/trial_T20190908_050824_930889/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CreditCard-None-Sofa-207/trial_T20190908_050824_930889/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1715,7 +1715,7 @@
     "goal_instruction": "Your task is to: put a creditcard in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CreditCard-None-Sofa-207/trial_T20190908_050901_604144/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CreditCard-None-Sofa-207/trial_T20190908_050901_604144/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1736,7 +1736,7 @@
     "goal_instruction": "Your task is to: find two creditcard and put them in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Sofa-207/trial_T20190909_085924_009925/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Sofa-207/trial_T20190909_085924_009925/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1757,7 +1757,7 @@
     "goal_instruction": "Your task is to: find two creditcard and put them in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Sofa-207/trial_T20190909_090035_107554/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Sofa-207/trial_T20190909_090035_107554/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1778,7 +1778,7 @@
     "goal_instruction": "Your task is to: find two keychain and put them in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Shelf-207/trial_T20190909_131732_113671/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Shelf-207/trial_T20190909_131732_113671/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1799,7 +1799,7 @@
     "goal_instruction": "Your task is to: put two keychain in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Shelf-207/trial_T20190909_131800_907993/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-KeyChain-None-Shelf-207/trial_T20190909_131800_907993/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1820,7 +1820,7 @@
     "goal_instruction": "Your task is to: put two remotecontrol in armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-ArmChair-207/trial_T20190908_132827_840235/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-ArmChair-207/trial_T20190908_132827_840235/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1841,7 +1841,7 @@
     "goal_instruction": "Your task is to: put some remotecontrol on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-207/trial_T20190908_140544_546482/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-207/trial_T20190908_140544_546482/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1862,7 +1862,7 @@
     "goal_instruction": "Your task is to: put some remotecontrol on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-207/trial_T20190908_140559_342150/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-207/trial_T20190908_140559_342150/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1883,7 +1883,7 @@
     "goal_instruction": "Your task is to: put some remotecontrol on armchair.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-207/trial_T20190908_140615_941385/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-ArmChair-207/trial_T20190908_140615_941385/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1904,7 +1904,7 @@
     "goal_instruction": "Your task is to: put two remotecontrol in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-CoffeeTable-207/trial_T20190908_122319_820046/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-CoffeeTable-207/trial_T20190908_122319_820046/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1925,7 +1925,7 @@
     "goal_instruction": "Your task is to: put two remotecontrol in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-207/trial_T20190908_111138_987161/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-RemoteControl-None-Sofa-207/trial_T20190908_111138_987161/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1946,7 +1946,7 @@
     "goal_instruction": "Your task is to: put a remotecontrol in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-Sofa-207/trial_T20190909_153653_822972/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-Sofa-207/trial_T20190909_153653_822972/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1967,7 +1967,7 @@
     "goal_instruction": "Your task is to: put a remotecontrol in sofa.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-Sofa-207/trial_T20190909_153746_466577/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-RemoteControl-None-Sofa-207/trial_T20190909_153746_466577/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1988,7 +1988,7 @@
     "goal_instruction": "Your task is to: put a vase in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-207/trial_T20190909_091234_276889/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-207/trial_T20190909_091234_276889/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2009,7 +2009,7 @@
     "goal_instruction": "Your task is to: put a vase in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-207/trial_T20190909_091313_185407/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Vase-None-CoffeeTable-207/trial_T20190909_091313_185407/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2030,7 +2030,7 @@
     "goal_instruction": "Your task is to: put a watch in coffeetable.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Watch-None-CoffeeTable-207/trial_T20190907_152215_435376/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Watch-None-CoffeeTable-207/trial_T20190907_152215_435376/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2051,7 +2051,7 @@
     "goal_instruction": "Your task is to: put a watch in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Watch-None-Shelf-207/trial_T20190908_122239_644484/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Watch-None-Shelf-207/trial_T20190908_122239_644484/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2072,7 +2072,7 @@
     "goal_instruction": "Your task is to: put some watch on shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Watch-None-Shelf-207/trial_T20190908_122255_167374/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Watch-None-Shelf-207/trial_T20190908_122255_167374/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -2093,7 +2093,7 @@
     "goal_instruction": "Your task is to: put some keychain on drawer.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Drawer-208/trial_T20190909_013444_420195/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-KeyChain-None-Drawer-208/trial_T20190909_013444_420195/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",

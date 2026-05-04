@@ -14,7 +14,7 @@
     "goal_instruction": "Your task is to: cool some bowl and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190907_073805_220745/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190907_073805_220745/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -35,7 +35,7 @@
     "goal_instruction": "Your task is to: put a cool bowl in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190907_073835_452186/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190907_073835_452186/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -56,7 +56,7 @@
     "goal_instruction": "Your task is to: cool some bowl and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190907_073907_658108/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190907_073907_658108/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -77,7 +77,7 @@
     "goal_instruction": "Your task is to: put a clean bowl in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190909_070204_191856/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190909_070204_191856/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -98,7 +98,7 @@
     "goal_instruction": "Your task is to: clean some bowl and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190909_070230_620351/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190909_070230_620351/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -119,7 +119,7 @@
     "goal_instruction": "Your task is to: put a clean bowl in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190909_070255_772779/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Bowl-None-Shelf-1/trial_T20190909_070255_772779/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -140,7 +140,7 @@
     "goal_instruction": "Your task is to: put a cool bread in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Bread-None-CounterTop-1/trial_T20190908_212319_595200/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Bread-None-CounterTop-1/trial_T20190908_212319_595200/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -161,7 +161,7 @@
     "goal_instruction": "Your task is to: put a cool bread in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Bread-None-CounterTop-1/trial_T20190908_212439_711334/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Bread-None-CounterTop-1/trial_T20190908_212439_711334/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -182,7 +182,7 @@
     "goal_instruction": "Your task is to: cool some bread and put it in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Bread-None-CounterTop-1/trial_T20190908_212506_100520/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Bread-None-CounterTop-1/trial_T20190908_212506_100520/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -203,7 +203,7 @@
     "goal_instruction": "Your task is to: heat some cup and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Cabinet-1/trial_T20190909_090847_096524/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Cabinet-1/trial_T20190909_090847_096524/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -224,7 +224,7 @@
     "goal_instruction": "Your task is to: heat some cup and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Cabinet-1/trial_T20190909_090951_740727/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Cabinet-1/trial_T20190909_090951_740727/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -245,7 +245,7 @@
     "goal_instruction": "Your task is to: heat some cup and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Cabinet-1/trial_T20190909_091033_436380/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Cabinet-1/trial_T20190909_091033_436380/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -266,7 +266,7 @@
     "goal_instruction": "Your task is to: put a clean cup in microwave.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150843_298006/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150843_298006/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -287,7 +287,7 @@
     "goal_instruction": "Your task is to: put a clean cup in microwave.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -308,7 +308,7 @@
     "goal_instruction": "Your task is to: put a clean cup in microwave.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150955_575706/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150955_575706/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -329,7 +329,7 @@
     "goal_instruction": "Your task is to: heat some cup and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Shelf-1/trial_T20190906_230132_658755/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Shelf-1/trial_T20190906_230132_658755/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -350,7 +350,7 @@
     "goal_instruction": "Your task is to: heat some cup and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Shelf-1/trial_T20190906_230209_175441/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Cup-None-Shelf-1/trial_T20190906_230209_175441/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -371,7 +371,7 @@
     "goal_instruction": "Your task is to: cool some cup and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181520_113143/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181520_113143/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -392,7 +392,7 @@
     "goal_instruction": "Your task is to: put a cool cup in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -413,7 +413,7 @@
     "goal_instruction": "Your task is to: cool some cup and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181654_244229/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181654_244229/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -434,7 +434,7 @@
     "goal_instruction": "Your task is to: find two cup and put them in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Cup-None-Shelf-1/trial_T20190908_015241_045631/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Cup-None-Shelf-1/trial_T20190908_015241_045631/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -455,7 +455,7 @@
     "goal_instruction": "Your task is to: find two cup and put them in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Cup-None-Shelf-1/trial_T20190908_015321_582840/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Cup-None-Shelf-1/trial_T20190908_015321_582840/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -476,7 +476,7 @@
     "goal_instruction": "Your task is to: put a clean cup in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Shelf-1/trial_T20190909_151718_080876/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Shelf-1/trial_T20190909_151718_080876/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -497,7 +497,7 @@
     "goal_instruction": "Your task is to: clean some cup and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Shelf-1/trial_T20190909_151825_980574/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Shelf-1/trial_T20190909_151825_980574/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -518,7 +518,7 @@
     "goal_instruction": "Your task is to: put a clean cup in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Shelf-1/trial_T20190909_152013_462926/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Cup-None-Shelf-1/trial_T20190909_152013_462926/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -539,7 +539,7 @@
     "goal_instruction": "Your task is to: put a clean dishsponge in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-1/trial_T20190908_114005_852221/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-1/trial_T20190908_114005_852221/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -560,7 +560,7 @@
     "goal_instruction": "Your task is to: clean some dishsponge and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-1/trial_T20190908_114031_740744/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-1/trial_T20190908_114031_740744/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -581,7 +581,7 @@
     "goal_instruction": "Your task is to: put a clean dishsponge in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-1/trial_T20190908_114111_289794/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-DishSponge-None-Shelf-1/trial_T20190908_114111_289794/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -602,7 +602,7 @@
     "goal_instruction": "Your task is to: put a hot egg in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Egg-None-GarbageCan-1/trial_T20190908_132828_295041/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Egg-None-GarbageCan-1/trial_T20190908_132828_295041/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -623,7 +623,7 @@
     "goal_instruction": "Your task is to: heat some egg and put it in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Egg-None-GarbageCan-1/trial_T20190908_132914_241547/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Egg-None-GarbageCan-1/trial_T20190908_132914_241547/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -644,7 +644,7 @@
     "goal_instruction": "Your task is to: put two glassbottle in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Fridge-1/trial_T20190906_210352_897478/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Fridge-1/trial_T20190906_210352_897478/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -665,7 +665,7 @@
     "goal_instruction": "Your task is to: find two glassbottle and put them in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Fridge-1/trial_T20190906_210518_664798/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Fridge-1/trial_T20190906_210518_664798/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -686,7 +686,7 @@
     "goal_instruction": "Your task is to: find two glassbottle and put them in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Shelf-1/trial_T20190907_122241_270554/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Glassbottle-None-Shelf-1/trial_T20190907_122241_270554/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -707,7 +707,7 @@
     "goal_instruction": "Your task is to: put a clean kettle in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-Shelf-1/trial_T20190906_182430_397766/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-Shelf-1/trial_T20190906_182430_397766/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -728,7 +728,7 @@
     "goal_instruction": "Your task is to: put a clean kettle in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-Shelf-1/trial_T20190906_182520_877513/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-Shelf-1/trial_T20190906_182520_877513/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -749,7 +749,7 @@
     "goal_instruction": "Your task is to: clean some kettle and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-Shelf-1/trial_T20190906_182550_556437/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-Shelf-1/trial_T20190906_182550_556437/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -770,7 +770,7 @@
     "goal_instruction": "Your task is to: put a kettle in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011711_519188/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011711_519188/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -791,7 +791,7 @@
     "goal_instruction": "Your task is to: put a kettle in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011728_518941/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011728_518941/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -812,7 +812,7 @@
     "goal_instruction": "Your task is to: put a kettle in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -833,7 +833,7 @@
     "goal_instruction": "Your task is to: put a clean kettle in stoveburner.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-StoveBurner-1/trial_T20190908_172041_358328/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-StoveBurner-1/trial_T20190908_172041_358328/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -854,7 +854,7 @@
     "goal_instruction": "Your task is to: put a clean kettle in stoveburner.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-StoveBurner-1/trial_T20190908_172105_948396/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-StoveBurner-1/trial_T20190908_172105_948396/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -875,7 +875,7 @@
     "goal_instruction": "Your task is to: put a clean kettle in stoveburner.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-StoveBurner-1/trial_T20190908_172317_474122/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Kettle-None-StoveBurner-1/trial_T20190908_172317_474122/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -896,7 +896,7 @@
     "goal_instruction": "Your task is to: put a cool lettuce in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Lettuce-None-CounterTop-1/trial_T20190908_042746_681012/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Lettuce-None-CounterTop-1/trial_T20190908_042746_681012/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -917,7 +917,7 @@
     "goal_instruction": "Your task is to: put a cool lettuce in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Lettuce-None-CounterTop-1/trial_T20190908_042822_616396/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Lettuce-None-CounterTop-1/trial_T20190908_042822_616396/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -938,7 +938,7 @@
     "goal_instruction": "Your task is to: put two lettuce in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Lettuce-None-Fridge-1/trial_T20190908_124634_452782/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Lettuce-None-Fridge-1/trial_T20190908_124634_452782/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -959,7 +959,7 @@
     "goal_instruction": "Your task is to: put two lettuce in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Lettuce-None-Fridge-1/trial_T20190918_212722_569040/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Lettuce-None-Fridge-1/trial_T20190918_212722_569040/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -980,7 +980,7 @@
     "goal_instruction": "Your task is to: put two lettuce in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Lettuce-None-Fridge-1/trial_T20190918_213438_348886/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Lettuce-None-Fridge-1/trial_T20190918_213438_348886/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1001,7 +1001,7 @@
     "goal_instruction": "Your task is to: put a cool mug in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Cabinet-1/trial_T20190907_161939_640141/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Cabinet-1/trial_T20190907_161939_640141/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1022,7 +1022,7 @@
     "goal_instruction": "Your task is to: put a cool mug in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Cabinet-1/trial_T20190907_162013_417284/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Cabinet-1/trial_T20190907_162013_417284/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1043,7 +1043,7 @@
     "goal_instruction": "Your task is to: put a cool mug in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Cabinet-1/trial_T20190907_162048_678475/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Cabinet-1/trial_T20190907_162048_678475/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1064,7 +1064,7 @@
     "goal_instruction": "Your task is to: put a cool mug in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_100811_087784/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_100811_087784/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1085,7 +1085,7 @@
     "goal_instruction": "Your task is to: cool some mug and put it in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_100841_356010/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_100841_356010/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1106,7 +1106,7 @@
     "goal_instruction": "Your task is to: put a cool mug in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_100909_634204/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_100909_634204/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1127,7 +1127,7 @@
     "goal_instruction": "Your task is to: heat some mug and put it in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_222837_842651/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_222837_842651/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1148,7 +1148,7 @@
     "goal_instruction": "Your task is to: heat some mug and put it in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_222924_821086/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_222924_821086/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1169,7 +1169,7 @@
     "goal_instruction": "Your task is to: clean some mug and put it in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190909_134634_406636/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190909_134634_406636/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1190,7 +1190,7 @@
     "goal_instruction": "Your task is to: clean some mug and put it in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190909_134710_542972/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190909_134710_542972/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1211,7 +1211,7 @@
     "goal_instruction": "Your task is to: put a clean mug in coffeemachine.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190909_134737_070224/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190909_134737_070224/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1232,7 +1232,7 @@
     "goal_instruction": "Your task is to: heat some mug and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-Shelf-1/trial_T20190907_075332_719026/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-Shelf-1/trial_T20190907_075332_719026/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1253,7 +1253,7 @@
     "goal_instruction": "Your task is to: put a hot mug in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-Shelf-1/trial_T20190907_075404_556171/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-Shelf-1/trial_T20190907_075404_556171/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1274,7 +1274,7 @@
     "goal_instruction": "Your task is to: heat some mug and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-Shelf-1/trial_T20190907_075451_036053/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-Shelf-1/trial_T20190907_075451_036053/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1295,7 +1295,7 @@
     "goal_instruction": "Your task is to: cool some mug and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Shelf-1/trial_T20190908_073555_430020/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Shelf-1/trial_T20190908_073555_430020/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1316,7 +1316,7 @@
     "goal_instruction": "Your task is to: put a cool mug in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Shelf-1/trial_T20190908_073714_857737/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Shelf-1/trial_T20190908_073714_857737/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1337,7 +1337,7 @@
     "goal_instruction": "Your task is to: put a cool mug in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Shelf-1/trial_T20190908_074011_716201/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-Shelf-1/trial_T20190908_074011_716201/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1358,7 +1358,7 @@
     "goal_instruction": "Your task is to: put a clean pan in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Cabinet-1/trial_T20190908_131016_333757/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Cabinet-1/trial_T20190908_131016_333757/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1379,7 +1379,7 @@
     "goal_instruction": "Your task is to: put a clean pan in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Cabinet-1/trial_T20190908_164919_829933/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Cabinet-1/trial_T20190908_164919_829933/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1400,7 +1400,7 @@
     "goal_instruction": "Your task is to: clean some pan and put it in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Fridge-1/trial_T20190908_105408_717097/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Fridge-1/trial_T20190908_105408_717097/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1421,7 +1421,7 @@
     "goal_instruction": "Your task is to: put a clean pan in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Fridge-1/trial_T20190908_105504_396709/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Pan-None-Fridge-1/trial_T20190908_105504_396709/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1442,7 +1442,7 @@
     "goal_instruction": "Your task is to: put a cool pan in stoveburner.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-StoveBurner-1/trial_T20190907_175242_476577/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-StoveBurner-1/trial_T20190907_175242_476577/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1463,7 +1463,7 @@
     "goal_instruction": "Your task is to: cool some pan and put it in stoveburner.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-StoveBurner-1/trial_T20190907_183647_995754/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-StoveBurner-1/trial_T20190907_183647_995754/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1484,7 +1484,7 @@
     "goal_instruction": "Your task is to: cool some pan and put it in stoveburner.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-StoveBurner-1/trial_T20190907_183945_275312/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pan-None-StoveBurner-1/trial_T20190907_183945_275312/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1505,7 +1505,7 @@
     "goal_instruction": "Your task is to: put a hot plate in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-Cabinet-1/trial_T20190908_070802_314312/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-Cabinet-1/trial_T20190908_070802_314312/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1526,7 +1526,7 @@
     "goal_instruction": "Your task is to: put a cool plate in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190906_205231_163340/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190906_205231_163340/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1547,7 +1547,7 @@
     "goal_instruction": "Your task is to: cool some plate and put it in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190906_205552_575275/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190906_205552_575275/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1568,7 +1568,7 @@
     "goal_instruction": "Your task is to: heat some plate and put it in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190909_115633_911483/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190909_115633_911483/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1589,7 +1589,7 @@
     "goal_instruction": "Your task is to: put a hot plate in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190909_115728_885311/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190909_115728_885311/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1610,7 +1610,7 @@
     "goal_instruction": "Your task is to: put a hot plate in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-Fridge-1/trial_T20190908_010540_689076/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-Fridge-1/trial_T20190908_010540_689076/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1631,7 +1631,7 @@
     "goal_instruction": "Your task is to: put a hot plate in fridge.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-Fridge-1/trial_T20190908_010704_977592/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-Fridge-1/trial_T20190908_010704_977592/game.tw-pddl"
     },
     "task_type": "heat",
     "env_name": "pick_heat_then_place",
@@ -1652,7 +1652,7 @@
     "goal_instruction": "Your task is to: clean some plate and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114549_185841/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114549_185841/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1673,7 +1673,7 @@
     "goal_instruction": "Your task is to: clean some plate and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114616_377252/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114616_377252/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1694,7 +1694,7 @@
     "goal_instruction": "Your task is to: clean some plate and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114717_584270/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114717_584270/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -1715,7 +1715,7 @@
     "goal_instruction": "Your task is to: cool some plate and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-Shelf-1/trial_T20190908_012254_327150/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-Shelf-1/trial_T20190908_012254_327150/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1736,7 +1736,7 @@
     "goal_instruction": "Your task is to: cool some plate and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-Shelf-1/trial_T20190908_075027_183662/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-Shelf-1/trial_T20190908_075027_183662/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1757,7 +1757,7 @@
     "goal_instruction": "Your task is to: cool some plate and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-Shelf-1/trial_T20190908_224123_748784/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Plate-None-Shelf-1/trial_T20190908_224123_748784/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1778,7 +1778,7 @@
     "goal_instruction": "Your task is to: put a cool potato in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Potato-None-GarbageCan-1/trial_T20190909_102549_719247/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Potato-None-GarbageCan-1/trial_T20190909_102549_719247/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1799,7 +1799,7 @@
     "goal_instruction": "Your task is to: cool some potato and put it in garbagecan.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Potato-None-GarbageCan-1/trial_T20190909_102706_443288/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Potato-None-GarbageCan-1/trial_T20190909_102706_443288/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1820,7 +1820,7 @@
     "goal_instruction": "Your task is to: put a cool pot in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Cabinet-1/trial_T20190908_184157_888194/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Cabinet-1/trial_T20190908_184157_888194/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1841,7 +1841,7 @@
     "goal_instruction": "Your task is to: cool some pot and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Cabinet-1/trial_T20190908_184232_754519/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Cabinet-1/trial_T20190908_184232_754519/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1862,7 +1862,7 @@
     "goal_instruction": "Your task is to: cool some pot and put it in cabinet.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Cabinet-1/trial_T20190908_184335_961034/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Cabinet-1/trial_T20190908_184335_961034/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1883,7 +1883,7 @@
     "goal_instruction": "Your task is to: cool some pot and put it in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_113238_759245/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_113238_759245/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1904,7 +1904,7 @@
     "goal_instruction": "Your task is to: cool some pot and put it in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_124252_504581/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_124252_504581/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1925,7 +1925,7 @@
     "goal_instruction": "Your task is to: cool some pot and put it in countertop.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_124332_831471/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-CounterTop-1/trial_T20190909_124332_831471/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1946,7 +1946,7 @@
     "goal_instruction": "Your task is to: cool some pot and put it in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1967,7 +1967,7 @@
     "goal_instruction": "Your task is to: put a cool pot in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_235021_524522/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_235021_524522/game.tw-pddl"
     },
     "task_type": "cool",
     "env_name": "pick_cool_then_place",
@@ -1988,7 +1988,7 @@
     "goal_instruction": "Your task is to: put two pot in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190907_210536_883114/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190907_210536_883114/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -2009,7 +2009,7 @@
     "goal_instruction": "Your task is to: put a clean pot in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_001754_526257/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_001754_526257/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -2030,7 +2030,7 @@
     "goal_instruction": "Your task is to: put a clean pot in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_001818_534745/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_001818_534745/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -2051,7 +2051,7 @@
     "goal_instruction": "Your task is to: put a clean pot in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_145243_949385/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_clean_then_place_in_recep-Pot-None-Shelf-1/trial_T20190908_145243_949385/game.tw-pddl"
     },
     "task_type": "clean",
     "env_name": "pick_clean_then_place",
@@ -2072,7 +2072,7 @@
     "goal_instruction": "Your task is to: put two pot in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190908_170636_981445/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190908_170636_981445/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -2093,7 +2093,7 @@
     "goal_instruction": "Your task is to: put two pot in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190908_171357_561933/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190908_171357_561933/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",

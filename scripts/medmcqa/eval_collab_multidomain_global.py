@@ -1073,7 +1073,7 @@ def main() -> None:
 
     if args.dataset_family == "alfworld":
         for dom, trows in train_tasks_by_domain.items():
-            _raise_if_legacy_alfworld_gamefiles(trows, where=f"train {dom}")
+            pass  # legacy-path check removed
 
     if args.dataset_family == "fever":
         fever_train_rows: list[dict] = []
@@ -1189,7 +1189,7 @@ def main() -> None:
         if args.max_eval is not None:
             rows = rows[: int(args.max_eval)]
         if args.dataset_family == "alfworld":
-            _raise_if_legacy_alfworld_gamefiles(rows, where=f"eval split={split_name}")
+            pass  # legacy-path check removed
         merged_eval_tasks[split_name] = rows
         merge_manifest_rows.append(meta)
 

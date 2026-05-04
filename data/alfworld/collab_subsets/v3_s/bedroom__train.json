@@ -14,7 +14,7 @@
     "goal_instruction": "Your task is to: look at alarmclock under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-301/trial_T20190907_174127_043461/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-301/trial_T20190907_174127_043461/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -35,7 +35,7 @@
     "goal_instruction": "Your task is to: look at alarmclock under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-301/trial_T20190907_174142_375532/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-301/trial_T20190907_174142_375532/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -56,7 +56,7 @@
     "goal_instruction": "Your task is to: examine the alarmclock with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-301/trial_T20190907_174157_650656/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-301/trial_T20190907_174157_650656/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -77,7 +77,7 @@
     "goal_instruction": "Your task is to: look at bowl under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-301/trial_T20190909_150737_210323/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-301/trial_T20190909_150737_210323/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -98,7 +98,7 @@
     "goal_instruction": "Your task is to: examine the bowl with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-301/trial_T20190909_150931_522935/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-301/trial_T20190909_150931_522935/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -119,7 +119,7 @@
     "goal_instruction": "Your task is to: examine the laptop with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Laptop-None-DeskLamp-301/trial_T20190907_185618_889790/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Laptop-None-DeskLamp-301/trial_T20190907_185618_889790/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -140,7 +140,7 @@
     "goal_instruction": "Your task is to: look at laptop under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Laptop-None-DeskLamp-301/trial_T20190907_185632_149839/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Laptop-None-DeskLamp-301/trial_T20190907_185632_149839/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -161,7 +161,7 @@
     "goal_instruction": "Your task is to: look at laptop under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Laptop-None-DeskLamp-301/trial_T20190907_185644_203683/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Laptop-None-DeskLamp-301/trial_T20190907_185644_203683/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -182,7 +182,7 @@
     "goal_instruction": "Your task is to: look at mug under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -203,7 +203,7 @@
     "goal_instruction": "Your task is to: examine the mug with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_155916_103990/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_155916_103990/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -224,7 +224,7 @@
     "goal_instruction": "Your task is to: put two pencil in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Shelf-301/trial_T20190909_011323_432966/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Shelf-301/trial_T20190909_011323_432966/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -245,7 +245,7 @@
     "goal_instruction": "Your task is to: put two pencil in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Shelf-301/trial_T20190909_011401_611613/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Shelf-301/trial_T20190909_011401_611613/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -266,7 +266,7 @@
     "goal_instruction": "Your task is to: put two pencil in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Shelf-301/trial_T20190909_011443_526440/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Shelf-301/trial_T20190909_011443_526440/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -287,7 +287,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-301/trial_T20190908_012827_451848/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-301/trial_T20190908_012827_451848/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -308,7 +308,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-301/trial_T20190908_012939_225603/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-301/trial_T20190908_012939_225603/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -329,7 +329,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-301/trial_T20190909_185605_551830/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-301/trial_T20190909_185605_551830/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -350,7 +350,7 @@
     "goal_instruction": "Your task is to: look at tissuebox under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-TissueBox-None-DeskLamp-301/trial_T20190908_011302_767722/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-TissueBox-None-DeskLamp-301/trial_T20190908_011302_767722/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -371,7 +371,7 @@
     "goal_instruction": "Your task is to: examine the tissuebox with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-TissueBox-None-DeskLamp-301/trial_T20190908_011330_213255/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-TissueBox-None-DeskLamp-301/trial_T20190908_011330_213255/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -392,7 +392,7 @@
     "goal_instruction": "Your task is to: look at tissuebox under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-TissueBox-None-DeskLamp-301/trial_T20190908_072624_007372/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-TissueBox-None-DeskLamp-301/trial_T20190908_072624_007372/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -413,7 +413,7 @@
     "goal_instruction": "Your task is to: put some tissuebox on dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Dresser-301/trial_T20190906_221445_679815/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Dresser-301/trial_T20190906_221445_679815/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -434,7 +434,7 @@
     "goal_instruction": "Your task is to: put a tissuebox in dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Dresser-301/trial_T20190906_221500_723697/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Dresser-301/trial_T20190906_221500_723697/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -455,7 +455,7 @@
     "goal_instruction": "Your task is to: put some tissuebox on dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Dresser-301/trial_T20190906_221513_072505/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-TissueBox-None-Dresser-301/trial_T20190906_221513_072505/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -476,7 +476,7 @@
     "goal_instruction": "Your task is to: examine the watch with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-301/trial_T20190909_151141_967451/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-301/trial_T20190909_151141_967451/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -497,7 +497,7 @@
     "goal_instruction": "Your task is to: examine the watch with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-301/trial_T20190909_151158_623013/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-301/trial_T20190909_151158_623013/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -518,7 +518,7 @@
     "goal_instruction": "Your task is to: look at watch under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-301/trial_T20190909_151235_229025/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Watch-None-DeskLamp-301/trial_T20190909_151235_229025/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -539,7 +539,7 @@
     "goal_instruction": "Your task is to: put two watch in dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-301/trial_T20190906_180154_425245/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-301/trial_T20190906_180154_425245/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -560,7 +560,7 @@
     "goal_instruction": "Your task is to: put two watch in dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-301/trial_T20190906_180223_908386/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Watch-None-Dresser-301/trial_T20190906_180223_908386/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -581,7 +581,7 @@
     "goal_instruction": "Your task is to: examine the alarmclock with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-302/trial_T20190908_192756_298295/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-302/trial_T20190908_192756_298295/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -602,7 +602,7 @@
     "goal_instruction": "Your task is to: examine the alarmclock with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-302/trial_T20190908_192808_880740/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-302/trial_T20190908_192808_880740/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -623,7 +623,7 @@
     "goal_instruction": "Your task is to: examine the alarmclock with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-302/trial_T20190908_192820_480968/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-302/trial_T20190908_192820_480968/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -644,7 +644,7 @@
     "goal_instruction": "Your task is to: examine the book with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-302/trial_T20190909_085155_106731/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-302/trial_T20190909_085155_106731/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -665,7 +665,7 @@
     "goal_instruction": "Your task is to: put two book in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Book-None-Desk-302/trial_T20190906_181127_765377/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Book-None-Desk-302/trial_T20190906_181127_765377/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -686,7 +686,7 @@
     "goal_instruction": "Your task is to: examine the bowl with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-302/trial_T20190908_030636_661532/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-302/trial_T20190908_030636_661532/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -707,7 +707,7 @@
     "goal_instruction": "Your task is to: look at bowl under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-302/trial_T20190908_030647_874791/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-302/trial_T20190908_030647_874791/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -728,7 +728,7 @@
     "goal_instruction": "Your task is to: look at cd under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-302/trial_T20190907_154604_364291/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-302/trial_T20190907_154604_364291/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -749,7 +749,7 @@
     "goal_instruction": "Your task is to: examine the cd with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-302/trial_T20190907_154641_341365/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-302/trial_T20190907_154641_341365/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -770,7 +770,7 @@
     "goal_instruction": "Your task is to: put a cellphone in drawer.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Drawer-302/trial_T20190907_235359_470335/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Drawer-302/trial_T20190907_235359_470335/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -791,7 +791,7 @@
     "goal_instruction": "Your task is to: put a cellphone in drawer.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Drawer-302/trial_T20190907_235412_132976/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Drawer-302/trial_T20190907_235412_132976/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -812,7 +812,7 @@
     "goal_instruction": "Your task is to: put a cellphone in drawer.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Drawer-302/trial_T20190907_235426_919624/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Drawer-302/trial_T20190907_235426_919624/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -833,7 +833,7 @@
     "goal_instruction": "Your task is to: put some cellphone on safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Safe-302/trial_T20190908_122723_141074/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Safe-302/trial_T20190908_122723_141074/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -854,7 +854,7 @@
     "goal_instruction": "Your task is to: put some cellphone on safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Safe-302/trial_T20190908_122741_565733/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Safe-302/trial_T20190908_122741_565733/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -875,7 +875,7 @@
     "goal_instruction": "Your task is to: put some cellphone on safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Safe-302/trial_T20190908_122757_136508/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-CellPhone-None-Safe-302/trial_T20190908_122757_136508/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -896,7 +896,7 @@
     "goal_instruction": "Your task is to: put two cellphone in safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CellPhone-None-Safe-302/trial_T20190909_043337_021738/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CellPhone-None-Safe-302/trial_T20190909_043337_021738/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -917,7 +917,7 @@
     "goal_instruction": "Your task is to: put two cellphone in safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CellPhone-None-Safe-302/trial_T20190909_043450_502737/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CellPhone-None-Safe-302/trial_T20190909_043450_502737/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -938,7 +938,7 @@
     "goal_instruction": "Your task is to: put two cellphone in safe.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CellPhone-None-Safe-302/trial_T20190909_065455_263840/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CellPhone-None-Safe-302/trial_T20190909_065455_263840/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -959,7 +959,7 @@
     "goal_instruction": "Your task is to: put a laptop in bed.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-Bed-302/trial_T20190908_112426_055221/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-Bed-302/trial_T20190908_112426_055221/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -980,7 +980,7 @@
     "goal_instruction": "Your task is to: put some laptop on bed.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-Bed-302/trial_T20190908_112436_878411/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-Bed-302/trial_T20190908_112436_878411/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1001,7 +1001,7 @@
     "goal_instruction": "Your task is to: put some laptop on bed.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Laptop-None-Bed-302/trial_T20190908_112452_253912/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Laptop-None-Bed-302/trial_T20190908_112452_253912/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1022,7 +1022,7 @@
     "goal_instruction": "Your task is to: look at pencil under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-302/trial_T20190908_101013_940730/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-302/trial_T20190908_101013_940730/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1043,7 +1043,7 @@
     "goal_instruction": "Your task is to: look at pencil under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-302/trial_T20190909_231416_306847/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-302/trial_T20190909_231416_306847/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1064,7 +1064,7 @@
     "goal_instruction": "Your task is to: put a pencil in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Pencil-None-Desk-302/trial_T20190908_032739_677771/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Pencil-None-Desk-302/trial_T20190908_032739_677771/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1085,7 +1085,7 @@
     "goal_instruction": "Your task is to: put a pencil in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Pencil-None-Desk-302/trial_T20190908_032836_462632/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Pencil-None-Desk-302/trial_T20190908_032836_462632/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1106,7 +1106,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-302/trial_T20190909_150929_316139/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-302/trial_T20190909_150929_316139/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1127,7 +1127,7 @@
     "goal_instruction": "Your task is to: examine the pillow with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-302/trial_T20190909_150941_601258/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-302/trial_T20190909_150941_601258/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1148,7 +1148,7 @@
     "goal_instruction": "Your task is to: examine the alarmclock with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-303/trial_T20190908_144933_600228/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-303/trial_T20190908_144933_600228/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1169,7 +1169,7 @@
     "goal_instruction": "Your task is to: look at alarmclock under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-303/trial_T20190908_144950_175895/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-303/trial_T20190908_144950_175895/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1190,7 +1190,7 @@
     "goal_instruction": "Your task is to: examine the alarmclock with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-303/trial_T20190908_145005_617119/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-303/trial_T20190908_145005_617119/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1211,7 +1211,7 @@
     "goal_instruction": "Your task is to: examine the book with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085252_411891/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085252_411891/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1232,7 +1232,7 @@
     "goal_instruction": "Your task is to: look at book under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1253,7 +1253,7 @@
     "goal_instruction": "Your task is to: look at book under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085406_916808/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085406_916808/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1274,7 +1274,7 @@
     "goal_instruction": "Your task is to: put two cd in dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CD-None-Dresser-303/trial_T20190908_085703_053950/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CD-None-Dresser-303/trial_T20190908_085703_053950/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1295,7 +1295,7 @@
     "goal_instruction": "Your task is to: find two cd and put them in dresser.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CD-None-Dresser-303/trial_T20190908_085759_424304/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CD-None-Dresser-303/trial_T20190908_085759_424304/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1316,7 +1316,7 @@
     "goal_instruction": "Your task is to: put two cd in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CD-None-Shelf-303/trial_T20190907_200441_879615/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CD-None-Shelf-303/trial_T20190907_200441_879615/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1337,7 +1337,7 @@
     "goal_instruction": "Your task is to: put two cd in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CD-None-Shelf-303/trial_T20190907_200550_857444/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CD-None-Shelf-303/trial_T20190907_200550_857444/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1358,7 +1358,7 @@
     "goal_instruction": "Your task is to: put two cd in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CD-None-Shelf-303/trial_T20190907_200622_451724/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CD-None-Shelf-303/trial_T20190907_200622_451724/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1379,7 +1379,7 @@
     "goal_instruction": "Your task is to: put two creditcard in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Shelf-303/trial_T20190908_062004_513133/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Shelf-303/trial_T20190908_062004_513133/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1400,7 +1400,7 @@
     "goal_instruction": "Your task is to: find two creditcard and put them in shelf.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Shelf-303/trial_T20190908_062059_007183/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-CreditCard-None-Shelf-303/trial_T20190908_062059_007183/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1421,7 +1421,7 @@
     "goal_instruction": "Your task is to: look at pencil under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-303/trial_T20190909_064550_960291/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-303/trial_T20190909_064550_960291/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1442,7 +1442,7 @@
     "goal_instruction": "Your task is to: examine the pencil with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-303/trial_T20190909_064559_200594/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-303/trial_T20190909_064559_200594/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1463,7 +1463,7 @@
     "goal_instruction": "Your task is to: look at pencil under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-303/trial_T20190909_064607_933278/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pencil-None-DeskLamp-303/trial_T20190909_064607_933278/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1484,7 +1484,7 @@
     "goal_instruction": "Your task is to: find two pencil and put them in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Desk-303/trial_T20190908_220222_248584/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Desk-303/trial_T20190908_220222_248584/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1505,7 +1505,7 @@
     "goal_instruction": "Your task is to: find two pencil and put them in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Desk-303/trial_T20190908_220248_075224/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Desk-303/trial_T20190908_220248_075224/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1526,7 +1526,7 @@
     "goal_instruction": "Your task is to: find two pencil and put them in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Desk-303/trial_T20190908_220314_534721/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Pencil-None-Desk-303/trial_T20190908_220314_534721/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1547,7 +1547,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034855_345410/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034855_345410/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1568,7 +1568,7 @@
     "goal_instruction": "Your task is to: look at pillow under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034908_319218/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034908_319218/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1589,7 +1589,7 @@
     "goal_instruction": "Your task is to: examine the pillow with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034918_885162/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034918_885162/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1610,7 +1610,7 @@
     "goal_instruction": "Your task is to: examine the vase with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Vase-None-DeskLamp-303/trial_T20190907_150403_049073/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Vase-None-DeskLamp-303/trial_T20190907_150403_049073/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1631,7 +1631,7 @@
     "goal_instruction": "Your task is to: examine the vase with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Vase-None-DeskLamp-303/trial_T20190907_150431_362791/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Vase-None-DeskLamp-303/trial_T20190907_150431_362791/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1652,7 +1652,7 @@
     "goal_instruction": "Your task is to: look at alarmclock under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-304/trial_T20190907_170557_255365/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-304/trial_T20190907_170557_255365/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1673,7 +1673,7 @@
     "goal_instruction": "Your task is to: look at alarmclock under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-304/trial_T20190907_170615_242578/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-304/trial_T20190907_170615_242578/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1694,7 +1694,7 @@
     "goal_instruction": "Your task is to: examine the alarmclock with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-304/trial_T20190909_152102_649589/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-AlarmClock-None-DeskLamp-304/trial_T20190909_152102_649589/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1715,7 +1715,7 @@
     "goal_instruction": "Your task is to: put two alarmclock in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-AlarmClock-None-Desk-304/trial_T20190907_215326_695860/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-AlarmClock-None-Desk-304/trial_T20190907_215326_695860/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1736,7 +1736,7 @@
     "goal_instruction": "Your task is to: find two alarmclock and put them in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-AlarmClock-None-Desk-304/trial_T20190910_021303_108559/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-AlarmClock-None-Desk-304/trial_T20190910_021303_108559/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1757,7 +1757,7 @@
     "goal_instruction": "Your task is to: put two alarmclock in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-AlarmClock-None-Desk-304/trial_T20190910_105949_580836/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-AlarmClock-None-Desk-304/trial_T20190910_105949_580836/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1778,7 +1778,7 @@
     "goal_instruction": "Your task is to: put two book in bed.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Book-None-Bed-304/trial_T20190907_054125_590269/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Book-None-Bed-304/trial_T20190907_054125_590269/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1799,7 +1799,7 @@
     "goal_instruction": "Your task is to: find two book and put them in bed.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Book-None-Bed-304/trial_T20190908_104725_283867/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Book-None-Bed-304/trial_T20190908_104725_283867/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1820,7 +1820,7 @@
     "goal_instruction": "Your task is to: put two book in bed.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Book-None-Bed-304/trial_T20190908_104751_823594/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Book-None-Bed-304/trial_T20190908_104751_823594/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1841,7 +1841,7 @@
     "goal_instruction": "Your task is to: look at book under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-304/trial_T20190908_083350_272263/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-304/trial_T20190908_083350_272263/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1862,7 +1862,7 @@
     "goal_instruction": "Your task is to: look at book under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-304/trial_T20190908_083358_621419/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-304/trial_T20190908_083358_621419/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1883,7 +1883,7 @@
     "goal_instruction": "Your task is to: examine the book with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-304/trial_T20190908_083428_569431/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Book-None-DeskLamp-304/trial_T20190908_083428_569431/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -1904,7 +1904,7 @@
     "goal_instruction": "Your task is to: put a book in desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Desk-304/trial_T20190908_141258_600679/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Desk-304/trial_T20190908_141258_600679/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1925,7 +1925,7 @@
     "goal_instruction": "Your task is to: put some book on desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Desk-304/trial_T20190908_141325_880062/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Desk-304/trial_T20190908_141325_880062/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1946,7 +1946,7 @@
     "goal_instruction": "Your task is to: put some book on desk.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_and_place_simple-Book-None-Desk-304/trial_T20190908_141341_073879/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_and_place_simple-Book-None-Desk-304/trial_T20190908_141341_073879/game.tw-pddl"
     },
     "task_type": "put",
     "env_name": "pick_and_place",
@@ -1967,7 +1967,7 @@
     "goal_instruction": "Your task is to: put two book in drawer.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Book-None-Drawer-304/trial_T20190908_022158_405498/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Book-None-Drawer-304/trial_T20190908_022158_405498/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -1988,7 +1988,7 @@
     "goal_instruction": "Your task is to: find two book and put them in drawer.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/pick_two_obj_and_place-Book-None-Drawer-304/trial_T20190911_144428_125160/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/pick_two_obj_and_place-Book-None-Drawer-304/trial_T20190911_144428_125160/game.tw-pddl"
     },
     "task_type": "puttwo",
     "env_name": "pick_two_obj",
@@ -2009,7 +2009,7 @@
     "goal_instruction": "Your task is to: examine the bowl with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-304/trial_T20190907_232204_574574/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-304/trial_T20190907_232204_574574/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -2030,7 +2030,7 @@
     "goal_instruction": "Your task is to: look at bowl under the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-304/trial_T20190907_232217_890241/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-Bowl-None-DeskLamp-304/trial_T20190907_232217_890241/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -2051,7 +2051,7 @@
     "goal_instruction": "Your task is to: examine the cd with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-304/trial_T20190907_185606_026765/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-304/trial_T20190907_185606_026765/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -2072,7 +2072,7 @@
     "goal_instruction": "Your task is to: examine the cd with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-304/trial_T20190907_185624_189387/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-304/trial_T20190907_185624_189387/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
@@ -2093,7 +2093,7 @@
     "goal_instruction": "Your task is to: examine the cd with the desklamp.",
     "env_kwargs": {
       "config": "alfworld",
-      "gamefile": "data/alfworld/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-304/trial_T20190907_185649_782438/game.tw-pddl"
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/train/look_at_obj_in_light-CD-None-DeskLamp-304/trial_T20190907_185649_782438/game.tw-pddl"
     },
     "task_type": "examine",
     "env_name": "look_at_obj",
