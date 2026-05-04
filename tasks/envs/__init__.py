@@ -4,6 +4,7 @@ import os
 
 from .base_env import BaseEnv, BaseRecorder
 # from .alfworld_env import AlfworldEnv, AlfworldRecorder, get_env_name_from_gamefile, prefixes
+from .bfcl_mt_env import BfclMtEnv, BfclMtRecorder
 from .fever_env import FeverEnv, FeverRecorder
 from .huskyqa_env import HuskyQAEnv, HuskyQARecorder
 from .medmcqa_env import MedMCQAEnv, MedMCQARecorder
@@ -369,11 +370,13 @@ TASK_DATA = {
     'mtmind2web_test_task': None,
     'mtmind2web_test_website': None,
     'mtmind2web_test_subdomain': None,
+    'bfcl_mt': [],
 }
 for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
     TASK_DATA[f"pddl_domain_{_pddl_game}"] = None
 
 ENVS = {
+    'bfcl_mt': BfclMtEnv,
     'fever': FeverEnv,
     'fever_aca_test': FeverEnv,
     'fever_oral_test': FeverEnv,
@@ -404,6 +407,7 @@ if AlfworldEnv is not None:
     ENVS['alfworld'] = AlfworldEnv
 
 RECORDERS = {
+    'bfcl_mt': BfclMtRecorder,
     'fever': FeverRecorder,
     'fever_aca_test': FeverRecorder,
     'fever_oral_test': FeverRecorder,

@@ -8,13 +8,13 @@ import re
 import shutil
 import sys
 import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from tasks.utils import get_model_type
-from scripts.memskill.memskill_assets import prepare_memskill_assets
 
 from scripts.medmcqa.eval_collab_domain_adaptation import (
     CONFIG,
@@ -54,6 +54,21 @@ GM2_RETRIEVAL_MODE_CHOICES: tuple[str, ...] = (
 GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ("base", "local_only", "global_only", "local_plus_global")
 GM3_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
 
+# BFCL family collab：默认路径与 scripts/gorilla/split_bfcl_mt_four_families.py 输出一致；可通过 CLI 覆盖（与 FEVER 多文件参数同模式）。
+_BFCL_FAM_COLLAB_DIR = "data/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/collab_family_split"
+_BFCL_FAM_PA = f"{_BFCL_FAM_COLLAB_DIR}/possible_answer"
+_BFCL_FAM_STEM = "BFCL_v4_multi_turn_base"
+_BFCL_FAM_DEFAULT_TRAIN_QUESTIONS = ",".join(
+    f"{_BFCL_FAM_COLLAB_DIR}/{_BFCL_FAM_STEM}__family_{slug}__train.json"
+    for slug in ("trading", "travel", "vehicle", "fs")
+)
+_BFCL_FAM_DEFAULT_TRAIN_ANSWERS = ",".join(
+    f"{_BFCL_FAM_PA}/{_BFCL_FAM_STEM}__family_{slug}__train.json"
+    for slug in ("trading", "travel", "vehicle", "fs")
+)
+_BFCL_FAM_DEFAULT_TEST_QUESTIONS = f"{_BFCL_FAM_COLLAB_DIR}/{_BFCL_FAM_STEM}__family__test_all.json"
+_BFCL_FAM_DEFAULT_TEST_ANSWERS = f"{_BFCL_FAM_PA}/{_BFCL_FAM_STEM}__family__test_all.json"
+
 
 def parse_csv(value: str) -> list[str]:
     rows = [item.strip() for item in str(value or "").split(",") if item.strip()]
@@ -73,6 +88,187 @@ def parse_eval_splits(value: str) -> list[str]:
     if invalid:
         raise ValueError(f"不支持的 split: {invalid}，仅支持 {sorted(allowed)}")
     return splits
+
+
+def parse_bfcl_eval_splits(value: str) -> list[str]:
+    splits = parse_csv(value)
+    return splits or ["eval"]
+
+
+def bfcl_involved_classes_domain(row: dict) -> str:
+    """Stable signature: sorted API class names, joined by '+', for memory / local grouping."""
+    ic = row.get("involved_classes")
+    if not isinstance(ic, list) or not ic:
+        return "unknown"
+    parts = sorted({str(x).strip() for x in ic if str(x).strip()})
+    return "+".join(parts) if parts else "unknown"
+
+
+def bfcl_family_from_signature(sig: str) -> str:
+    """四族划分（与 scripts/gorilla/split_bfcl_mt_four_families.py 一致）。"""
+    if sig.startswith("GorillaFileSystem") or "GorillaFileSystem+" in sig or "+GorillaFileSystem" in sig:
+        return "fs"
+    if "TravelAPI" in sig:
+        return "travel"
+    if "VehicleControlAPI" in sig:
+        return "vehicle"
+    if "TradingBot" in sig:
+        return "trading"
+    return "other"
+
+
+def bfcl_family_domain(row: dict) -> str:
+    return bfcl_family_from_signature(bfcl_involved_classes_domain(row))
+
+
+def discover_bfcl_domains(rows: list[dict]) -> list[str]:
+    keys = {bfcl_involved_classes_domain(r) for r in rows}
+    keys.discard("")
+    return sorted(keys)
+
+
+def bfcl_split_train_test(
+    rows: list[dict],
+    *,
+    train_ratio: float,
+    domains_filter: frozenset[str] | None,
+) -> tuple[list[dict], list[dict]]:
+    """
+    Per involved_classes domain: sort by id, first floor(train_ratio * n) -> train, rest -> test.
+    Deterministic, no randomness. Single-sample domains go entirely to train.
+    """
+    tr = float(train_ratio)
+    if tr <= 0 or tr >= 1:
+        raise ValueError("bfcl_train_ratio 必须在 (0, 1) 内，例如 0.8 表示每类前 80% 训练、后 20% 测试。")
+    work = list(rows)
+    if domains_filter is not None:
+        work = [r for r in work if bfcl_involved_classes_domain(r) in domains_filter]
+    by_dom: dict[str, list[dict]] = defaultdict(list)
+    for r in work:
+        by_dom[bfcl_involved_classes_domain(r)].append(r)
+    train_all: list[dict] = []
+    test_all: list[dict] = []
+    for dom in sorted(by_dom.keys()):
+        group = sorted(by_dom[dom], key=lambda x: str(x.get("id", "")))
+        n = len(group)
+        if n <= 0:
+            continue
+        if n == 1:
+            train_all.extend(group)
+            continue
+        n_train = int(tr * n)
+        if n_train <= 0:
+            n_train = 1
+        if n_train >= n:
+            n_train = n - 1
+        train_all.extend(group[:n_train])
+        test_all.extend(group[n_train:])
+    return train_all, test_all
+
+
+def load_bfcl_question_rows(path: Path) -> list[dict]:
+    rows: list[dict] = []
+    with path.open("r", encoding="utf-8") as reader:
+        for line in reader:
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(json.loads(line))
+    return rows
+
+
+def load_bfcl_answers_by_id(path: Path) -> dict[str, dict]:
+    by_id: dict[str, dict] = {}
+    with path.open("r", encoding="utf-8") as reader:
+        for line in reader:
+            line = line.strip()
+            if not line:
+                continue
+            obj = json.loads(line)
+            bid = str(obj.get("id", "")).strip()
+            if bid:
+                by_id[bid] = obj
+    return by_id
+
+
+def load_bfcl_family_collab_from_paths(
+    *,
+    family_slugs: list[str],
+    train_question_paths: list[Path],
+    train_answer_paths: list[Path],
+    test_question_path: Path,
+    test_answer_path: Path,
+    require_test: bool = True,
+) -> tuple[dict[str, dict], dict[str, list[dict]], list[dict], list[str]]:
+    """
+    按显式路径加载：train 与 --bfcl_family_domains 逐项对齐；合并 test 题 + 答案。
+    返回 (answers_by_id, train_by_family, test_rows, source_paths)。
+    require_test=False 时跳过测试集文件与行（与 --skip_eval 仅训不评配合）。
+    """
+    n = len(family_slugs)
+    if len(train_question_paths) != n or len(train_answer_paths) != n:
+        raise ValueError(
+            f"BFCL family：--bfcl_family_domains 共 {n} 项，须与 "
+            f"--bfcl_family_train_questions（{len(train_question_paths)} 个文件）及 "
+            f"--bfcl_family_train_answers（{len(train_answer_paths)} 个文件）一一对应。"
+        )
+    answers_by_id: dict[str, dict] = {}
+    train_by_family: dict[str, list[dict]] = {}
+    source_paths: list[str] = []
+    for slug, qf, af in zip(family_slugs, train_question_paths, train_answer_paths):
+        if not qf.is_file():
+            raise FileNotFoundError(f"BFCL family 训练题不存在: {qf}")
+        if not af.is_file():
+            raise FileNotFoundError(f"BFCL family 训练答案不存在: {af}")
+        source_paths.append(str(qf.resolve()))
+        source_paths.append(str(af.resolve()))
+        answers_by_id.update(load_bfcl_answers_by_id(af))
+        rows = load_bfcl_question_rows(qf)
+        for r in rows:
+            got = bfcl_family_domain(r)
+            if got != slug:
+                raise ValueError(
+                    f"BFCL family 文件与签名不一致: 该 train 文件对应 domain={slug!r} 但 id={r.get('id')!r} 归为 {got!r}。"
+                )
+            rid = str(r.get("id", "")).strip()
+            if rid not in answers_by_id:
+                raise KeyError(f"family train 题 id={rid!r} 在对应答案文件中不存在: {af}")
+        train_by_family[slug] = rows
+
+    if not require_test:
+        return answers_by_id, train_by_family, [], source_paths
+
+    if not test_question_path.is_file():
+        raise FileNotFoundError(f"BFCL family 测试题不存在: {test_question_path}")
+    if not test_answer_path.is_file():
+        raise FileNotFoundError(f"BFCL family 测试答案不存在: {test_answer_path}")
+    source_paths.append(str(test_question_path.resolve()))
+    source_paths.append(str(test_answer_path.resolve()))
+    answers_by_id.update(load_bfcl_answers_by_id(test_answer_path))
+    test_rows = load_bfcl_question_rows(test_question_path)
+    for r in test_rows:
+        rid = str(r.get("id", "")).strip()
+        if rid not in answers_by_id:
+            raise KeyError(f"family test 题 id={rid!r} 无 ground_truth 答案条目: {test_answer_path}")
+    return answers_by_id, train_by_family, test_rows, source_paths
+
+
+def build_bfcl_mt_task(row: dict, answers_by_id: dict[str, dict], memory_domain: str) -> dict:
+    bid = str(row.get("id", "")).strip()
+    if not bid:
+        raise ValueError("BFCL 行缺少 id")
+    ans = answers_by_id.get(bid)
+    if not ans or "ground_truth" not in ans:
+        raise KeyError(f"BFCL possible_answer 缺少 id={bid} 的 ground_truth")
+    entry = {k: row[k] for k in ("id", "question", "initial_config", "involved_classes") if k in row}
+    return {
+        "env_name": "bfcl_mt",
+        "bfcl_id": bid,
+        "bfcl_shard_domain": str(memory_domain).strip(),
+        "bfcl_entry": entry,
+        "bfcl_ground_truth": ans["ground_truth"],
+        "gm3_domain": "bfcl_mt",
+    }
 
 
 def _warn_legacy_graph_arg(memory_type: str, legacy_flag: str, new_flag: str, value: object) -> None:
@@ -153,136 +349,6 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
     if gm3_enable_overlay:
         config["gm3_enable_overlay"] = True
     return config
-
-
-def _resolve_memskill_common(args: argparse.Namespace) -> dict[str, Any]:
-    if args.mas_memory != "memskill":
-        return {}
-    config: dict[str, Any] = {}
-    if args.memskill_finalize_local:
-        config.update(
-            {
-                "memskill_finalize_local": True,
-                "memskill_collect_replay": True,
-                "memskill_finalize_rebuild": True,
-            }
-        )
-    if args.memskill_controller:
-        config["memskill_controller"] = args.memskill_controller
-    if args.memskill_operation_bank_path:
-        config["memskill_operation_bank_path"] = args.memskill_operation_bank_path
-    if args.memskill_checkpoint_path:
-        config["memskill_checkpoint_path"] = args.memskill_checkpoint_path
-    if args.memskill_ppo_repo_path:
-        config["memskill_ppo_repo_path"] = args.memskill_ppo_repo_path
-    if args.memskill_state_encoder:
-        config["memskill_state_encoder"] = args.memskill_state_encoder
-    if args.memskill_op_encoder:
-        config["memskill_op_encoder"] = args.memskill_op_encoder
-    if args.memskill_ppo_device:
-        config["memskill_ppo_device"] = args.memskill_ppo_device
-    if args.memskill_action_top_k is not None:
-        config["memskill_action_top_k"] = args.memskill_action_top_k
-    if args.memskill_require_ppo:
-        config["memskill_require_ppo"] = True
-    if args.memskill_retrieve_top_k is not None:
-        config["memskill_retrieve_top_k"] = args.memskill_retrieve_top_k
-    if args.memskill_construction_top_k is not None:
-        config["memskill_construction_top_k"] = args.memskill_construction_top_k
-    if args.memskill_chunk_chars is not None:
-        config["memskill_chunk_chars"] = args.memskill_chunk_chars
-    if args.memskill_train_controller:
-        config["memskill_train_controller"] = True
-    return config
-
-
-def _coerce_saved_message_rows(rows: list[Any]) -> list[Any]:
-    try:
-        from mas.memory.common import MASMessage  # type: ignore
-    except Exception:
-        MASMessage = None  # type: ignore
-
-    out: list[Any] = []
-    for row in rows or []:
-        if MASMessage is not None and isinstance(row, MASMessage):
-            out.append(row)
-        elif MASMessage is not None and isinstance(row, dict):
-            try:
-                out.append(MASMessage.from_dict(row))
-            except Exception:
-                continue
-        else:
-            out.append(row)
-    return out
-
-
-def finalize_memskill_local_memory(
-    *,
-    args: argparse.Namespace,
-    domain: str,
-    local_dir: str,
-    saved_messages: list[Any],
-    memskill_common: dict[str, Any],
-) -> dict[str, Any] | None:
-    if args.mas_memory != "memskill" or not args.memskill_finalize_local:
-        return None
-    _reasoning_cls, mem_cls = module_map(args.reasoning, args.mas_memory)
-    local_mem = mem_cls(
-        namespace=args.mas_memory,
-        global_config={
-            "working_dir": local_dir,
-            **memskill_common,
-            "memskill_finalize_local": True,
-            "memskill_collect_replay": True,
-        },
-        llm_model=GPTChat(model_name=args.model),
-        embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
-    )
-    finalize = getattr(local_mem, "finalize_training", None)
-    if not callable(finalize):
-        return None
-    return finalize(
-        saved_messages=_coerce_saved_message_rows(saved_messages),
-        source_id=domain,
-        train_controller=bool(args.memskill_train_controller),
-        rebuild_memory=True,
-    )
-
-
-def merge_memskill_global_from_local_memories(
-    *,
-    args: argparse.Namespace,
-    domains: list[str],
-    local_root: str,
-    global_mem: Any,
-    memskill_common: dict[str, Any],
-) -> bool:
-    if args.mas_memory != "memskill" or not args.memskill_finalize_local:
-        return False
-    add_items = getattr(global_mem, "add_memory_items_from_peer", None)
-    if not callable(add_items):
-        return False
-    for domain in domains:
-        local_dir = os.path.join(local_root, domain)
-        _reasoning_cls, mem_cls = module_map(args.reasoning, args.mas_memory)
-        local_mem = mem_cls(
-            namespace=args.mas_memory,
-            global_config={
-                "working_dir": local_dir,
-                **memskill_common,
-                "freeze_memory": True,
-            },
-            llm_model=GPTChat(model_name=args.model),
-            embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
-        )
-        export_items = getattr(local_mem, "export_memory_items", None)
-        if callable(export_items):
-            add_items(export_items(), source_id=domain)
-        add_failures = getattr(global_mem, "add_failure_cases_from_peer", None)
-        export_failures = getattr(local_mem, "export_failure_cases", None)
-        if callable(add_failures) and callable(export_failures):
-            add_failures(export_failures(), source_id=domain)
-    return True
 
 
 def pddl_domain_train_jsonl(repo_root: Path, domain: str, override_path: Path | None) -> Path:
@@ -563,6 +629,7 @@ def _dataset_eval_title(dataset_family: str) -> str:
         "fever": "FEVER",
         "pddl": "PDDL",
         "amabench": "AMA-Bench",
+        "bfcl_mt": "BFCL multi_turn_base",
     }.get(dataset_family, dataset_family.replace("_", " ").title())
 
 
@@ -654,17 +721,45 @@ memrl 不需要 --gm2_* / --gm3_*；依赖见仓库根 requirements-memrl.txt）
     --eval_only
 """
 
+_BFCL_MT_FAMILY_GMEMORY_EXAMPLE = r"""
+BFCL 四族 + g-memory（默认 train/test 路径即 argparse 默认值；可先跑 scripts/gorilla/split_bfcl_mt_four_families.py）:
+
+  cd /path/to/nvdamasgm && python scripts/medmcqa/eval_collab_multidomain_global.py \
+    --dataset_family bfcl_mt \
+    --bfcl_use_family_collab_split \
+    --mas_type autogen \
+    --mas_memory g-memory \
+    --reasoning io \
+    --model gpt-4o-mini \
+    --run_id "${RUN_ID}" \
+    --max_trials 30 \
+    --bfcl_train_limit_per_domain 5 \
+    --skip_eval \
+    --batch_size 1 \
+    --tool_mode search \
+    --reset_memory
+
+更长任务可调高步数（例如 --max_trials 96）。仅训每域 5 条且暂不评时用上面 --bfcl_train_limit_per_domain 与 --skip_eval。
+
+自定义文件时与 FEVER 一样传路径，例如:
+  --bfcl_family_domains trading,travel,vehicle,fs \
+  --bfcl_family_train_questions 'path/a.json,path/b.json,...' \
+  --bfcl_family_train_answers 'ans/a.json,...' \
+  --bfcl_family_test_questions path/test_q.json \
+  --bfcl_family_test_answers path/test_a.json
+"""
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="多 domain 协作训练（local）+ global 评测：ALFWorld / AmaBench / FEVER / PDDL。",
+        description="多 domain 协作训练（local）+ global 评测：ALFWorld / AmaBench / FEVER / PDDL / BFCL multi_turn_base。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=_ALFWORLD_MEMRL_EXAMPLE,
+        epilog=_ALFWORLD_MEMRL_EXAMPLE + _BFCL_MT_FAMILY_GMEMORY_EXAMPLE,
     )
     parser.add_argument(
         "--dataset_family",
         type=str,
-        choices=["alfworld", "amabench", "fever", "pddl"],
+        choices=["alfworld", "amabench", "fever", "pddl", "bfcl_mt"],
         default="alfworld",
     )
     parser.add_argument(
@@ -736,6 +831,86 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--bfcl_domains",
+        type=str,
+        default="auto",
+        help=(
+            "BFCL：按 involved_classes 稳定签名分组（排序后 API 名用 '+' 连接，如 GorillaFileSystem+TwitterAPI）。"
+            "填 auto 或留空则从数据中自动列出全部签名；否则为逗号子集，须与数据中的签名完全一致。"
+        ),
+    )
+    parser.add_argument(
+        "--bfcl_train_ratio",
+        type=float,
+        default=0.8,
+        help="BFCL：每个签名组内按 id 字典序划分；前该比例进训练集，余下进测试集（确定性，非随机）。",
+    )
+    parser.add_argument(
+        "--bfcl_questions_jsonl",
+        type=str,
+        default="data/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/BFCL_v4_multi_turn_base.json",
+    )
+    parser.add_argument(
+        "--bfcl_answers_jsonl",
+        type=str,
+        default="data/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_base.json",
+    )
+    parser.add_argument(
+        "--bfcl_eval_split",
+        type=str,
+        default="eval",
+        help="BFCL 仅评测集；逗号多项时对同一批任务重复跑（报告多行），默认 eval。",
+    )
+    parser.add_argument(
+        "--bfcl_use_family_collab_split",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "使用「多文件」四族训练 + 单文件合并测试（路径由 --bfcl_family_train_* / --bfcl_family_test_* 指定，"
+            "与 FEVER 的 fever_train_jsonl / fever_test_jsonl 同模式；默认指向 split_bfcl_mt_four_families.py 产出）。"
+            "开启后忽略 --bfcl_train_ratio；local domain 为 --bfcl_family_domains。"
+        ),
+    )
+    parser.add_argument(
+        "--bfcl_family_domains",
+        type=str,
+        default="trading,travel,vehicle,fs",
+        help="local 域名列表（逗号分隔，顺序须与下面 train 文件列表逐项对齐）。",
+    )
+    parser.add_argument(
+        "--bfcl_family_train_questions",
+        type=str,
+        default=_BFCL_FAM_DEFAULT_TRAIN_QUESTIONS,
+        help="BFCL family：各域训练题目 JSONL 路径，逗号分隔，项数须与 --bfcl_family_domains 一致（相对仓库根）。",
+    )
+    parser.add_argument(
+        "--bfcl_family_train_answers",
+        type=str,
+        default=_BFCL_FAM_DEFAULT_TRAIN_ANSWERS,
+        help="BFCL family：与各域训练题一一对应的 possible_answer JSONL，逗号分隔、顺序与 train_questions 一致。",
+    )
+    parser.add_argument(
+        "--bfcl_family_test_questions",
+        type=str,
+        default=_BFCL_FAM_DEFAULT_TEST_QUESTIONS,
+        help="BFCL family：合并测试集题目 JSONL（单路径，相对仓库根）。",
+    )
+    parser.add_argument(
+        "--bfcl_family_test_answers",
+        type=str,
+        default=_BFCL_FAM_DEFAULT_TEST_ANSWERS,
+        help="BFCL family：合并测试集 possible_answer JSONL（单路径）。",
+    )
+    parser.add_argument(
+        "--bfcl_train_limit_per_domain",
+        type=int,
+        default=5,
+        help=(
+            "仅 dataset_family=bfcl_mt：每域训练题条数上限；<=0 表示不按域截断（仍可用 --max_train）。"
+            "默认 5 用于低成本试跑；全量训练可传 0 或显式大数。"
+        ),
+    )
+    parser.add_argument(
         "--amabench_max_traj_turns",
         type=int,
         default=0,
@@ -755,11 +930,21 @@ def main() -> None:
     )
     parser.add_argument("--reasoning", type=str, default="io")
     parser.add_argument("--model", type=str, default="gpt-4o-mini")
-    parser.add_argument("--max_trials", type=int, default=30)
+    parser.add_argument(
+        "--max_trials",
+        type=int,
+        default=30,
+        help="每 task 最大步数。",
+    )
     parser.add_argument("--batch_size", type=int, default=10)
     parser.add_argument("--tool_mode", choices=["search"], default="search")
     parser.add_argument("--run_id", type=str, default=None)
     parser.add_argument("--eval_only", action="store_true")
+    parser.add_argument(
+        "--skip_eval",
+        action="store_true",
+        help="不跑合并评测阶段（eval_splits 置空；BFCL family 可与 require_test=False 配合不再读测试集文件）。",
+    )
     parser.add_argument("--reset_memory", action="store_true")
     parser.add_argument("--gm2_dynamic_graph", action="store_true")
     parser.add_argument("--gm2_repo_root", type=str, default="")
@@ -795,189 +980,23 @@ def main() -> None:
     parser.add_argument("--gm3_promotion_threshold", type=float, default=None)
     parser.add_argument("--gm3_use_textgrad", action="store_true")
     parser.add_argument("--gm3_textgrad_engine", type=str, default="")
-    parser.add_argument(
-        "--memskill_finalize_local",
-        action="store_true",
-        help=(
-            "MemSkill only: after each local/domain train split, rebuild that local memory from "
-            "its saved train episodes; global memory then merges finalized local memory items."
-        ),
-    )
-    parser.add_argument(
-        "--memskill_train_controller",
-        action="store_true",
-        help=(
-            "MemSkill only: request controller training during finalize. This is opt-in and "
-            "currently requires an external/configured PPO adapter or checkpoint."
-        ),
-    )
-    parser.add_argument(
-        "--memskill_controller",
-        type=str,
-        default="",
-        choices=("", "llm", "heuristic", "ppo"),
-        help="MemSkill controller selector. Empty keeps the memory backend default.",
-    )
-    parser.add_argument("--memskill_operation_bank_path", type=str, default="")
-    parser.add_argument("--memskill_checkpoint_path", type=str, default="")
-    parser.add_argument(
-        "--memskill_models_dir",
-        type=str,
-        default="Models/memskill",
-        help="MemSkill assets directory. Relative paths are resolved from the nvdamas repo root.",
-    )
-    parser.add_argument(
-        "--memskill_auto_download_checkpoint",
-        action="store_true",
-        help="Download an official MemSkill PPO checkpoint from Hugging Face if the checkpoint path is missing.",
-    )
-    parser.add_argument("--memskill_hf_repo_id", type=str, default="XaiverZ/MemSkill")
-    parser.add_argument(
-        "--memskill_hf_filename",
-        type=str,
-        default="",
-        help="Optional exact checkpoint filename inside the Hugging Face repo. Empty scans downloaded files.",
-    )
-    parser.add_argument(
-        "--memskill_force_checkpoint",
-        action="store_true",
-        help="Overwrite existing Models/memskill checkpoint when downloading/training.",
-    )
-    parser.add_argument(
-        "--memskill_train_ppo_from_scratch",
-        action="store_true",
-        help=(
-            "Run the original MemSkill ALFWorld PPO training loop before nvdamas eval, "
-            "then copy the newest controller checkpoint into --memskill_checkpoint_path."
-        ),
-    )
-    parser.add_argument(
-        "--memskill_ppo_offline_data",
-        type=str,
-        default="",
-        help="Original MemSkill ALFWorld offline expert trajectory JSON. Empty uses <repo>/data/alfworld_train_offline.json.",
-    )
-    parser.add_argument(
-        "--memskill_generate_offline_data",
-        action="store_true",
-        help="Generate --memskill_ppo_offline_data via original MemSkill alfworld_replay.py before training.",
-    )
-    parser.add_argument("--memskill_offline_split", type=str, default="train")
-    parser.add_argument("--memskill_force_offline_data", action="store_true")
-    parser.add_argument("--memskill_ppo_save_dir", type=str, default="")
-    parser.add_argument("--memskill_ppo_model", type=str, default="")
-    parser.add_argument("--memskill_ppo_designer_model", type=str, default="")
-    parser.add_argument("--memskill_ppo_api_base", type=str, default="")
-    parser.add_argument("--memskill_ppo_api_key", type=str, default="")
-    parser.add_argument("--memskill_ppo_train_device", type=str, default="")
-    parser.add_argument("--memskill_ppo_inner_epochs", type=int, default=100)
-    parser.add_argument("--memskill_ppo_outer_epochs", type=int, default=10)
-    parser.add_argument("--memskill_ppo_batch_size", type=int, default=16)
-    parser.add_argument("--memskill_ppo_encode_batch_size", type=int, default=8)
-    parser.add_argument("--memskill_ppo_epochs", type=int, default=2)
-    parser.add_argument("--memskill_ppo_mem_top_k", type=int, default=20)
-    parser.add_argument("--memskill_ppo_mem_top_k_eval", type=int, default=20)
-    parser.add_argument("--memskill_ppo_reward_metric", type=str, default="llm_judge", choices=("f1", "llm_judge"))
-    parser.add_argument("--memskill_ppo_enable_designer", action="store_true")
-    parser.add_argument(
-        "--memskill_ppo_train_backend",
-        type=str,
-        default="embedded",
-        choices=("embedded", "subprocess"),
-        help=(
-            "How to run from-scratch MemSkill PPO training. 'embedded' imports the original "
-            "MemSkill trainer into the nvdamas process; 'subprocess' calls original main.py."
-        ),
-    )
-    parser.add_argument(
-        "--memskill_ppo_wandb_mode",
-        type=str,
-        default="disabled",
-        help="WANDB_MODE used for MemSkill PPO training. Default disables network logging.",
-    )
-    parser.add_argument(
-        "--memskill_ppo_alfworld_eval_query_source",
-        type=str,
-        default="objective",
-        choices=("objective", "first_observation"),
-    )
-    parser.add_argument("--memskill_ppo_pair_a_min", type=int, default=40)
-    parser.add_argument("--memskill_ppo_pair_a_max", type=int, default=60)
-    parser.add_argument("--memskill_ppo_pair_b_size", type=int, default=5)
-    parser.add_argument("--memskill_ppo_pair_same_type_prob", type=float, default=1.0)
-    parser.add_argument("--memskill_ppo_pair_chunk_size", type=int, default=2048)
-    parser.add_argument("--memskill_ppo_pair_max_steps", type=int, default=50)
-    parser.add_argument("--memskill_ppo_pair_b_workers", type=int, default=80)
-    parser.add_argument("--memskill_ppo_designer_freq", type=int, default=1)
-    parser.add_argument("--memskill_ppo_new_action_bias_steps", type=int, default=25)
-    parser.add_argument("--memskill_ppo_stage_reward_fraction", type=float, default=0.25)
-    parser.add_argument("--memskill_ppo_designer_reflection_cycles", type=int, default=3)
-    parser.add_argument("--memskill_ppo_designer_max_changes", type=int, default=3)
-    parser.add_argument("--memskill_ppo_designer_failure_window_epochs", type=int, default=100)
-    parser.add_argument("--memskill_ppo_designer_failure_pool_size", type=int, default=2000)
-    parser.add_argument("--memskill_ppo_designer_new_skill_hint", action="store_true")
-    parser.add_argument(
-        "--memskill_ppo_extra_args",
-        type=str,
-        default="",
-        help="Extra arguments appended to original MemSkill main.py, parsed with shlex.",
-    )
-    parser.add_argument(
-        "--memskill_ppo_repo_path",
-        type=str,
-        default="/workspace/MemSkill-main",
-        help="MemSkill PPO adapter: path to the original MemSkill repo containing src/controller.py.",
-    )
-    parser.add_argument(
-        "--memskill_state_encoder",
-        type=str,
-        default="",
-        help="MemSkill PPO adapter: override state encoder from checkpoint config.",
-    )
-    parser.add_argument(
-        "--memskill_op_encoder",
-        type=str,
-        default="",
-        help="MemSkill PPO adapter: override operation encoder from checkpoint config.",
-    )
-    parser.add_argument(
-        "--memskill_ppo_retriever",
-        type=str,
-        default="contriever",
-        choices=("contriever", "dpr", "dragon"),
-        help="Retriever used during PPO training (memory retrieval in ALFWorld pair episodes). Default: contriever.",
-    )
-    parser.add_argument(
-        "--memskill_ppo_device",
-        type=str,
-        default="",
-        help="MemSkill PPO adapter device, e.g. cuda:0 or cpu. Empty uses checkpoint/default.",
-    )
-    parser.add_argument(
-        "--memskill_action_top_k",
-        type=int,
-        default=None,
-        help="MemSkill PPO adapter: override number of skills selected per step.",
-    )
-    parser.add_argument(
-        "--memskill_require_ppo",
-        action="store_true",
-        help="Fail instead of falling back to LLM selection if PPO checkpoint loading/selection fails.",
-    )
-    parser.add_argument("--memskill_retrieve_top_k", type=int, default=None)
-    parser.add_argument("--memskill_construction_top_k", type=int, default=None)
-    parser.add_argument(
-        "--memskill_chunk_chars",
-        type=int,
-        default=None,
-        help="MemSkill construction chunk size in chars. None keeps backend default; 0 means no split.",
-    )
     args = parser.parse_args()
 
     if args.reset_memory and args.eval_only:
         raise ValueError("--reset_memory 不能和 --eval_only 同时使用。")
 
+    if args.dataset_family == "bfcl_mt" and int(args.max_trials) < 20:
+        print(
+            "[bfcl_mt] 提示: 官方 BFCL 多轮每步预算常为 20；子进程/步数仍不足时可显式增大 --max_trials（如 30、64、96）。",
+            flush=True,
+        )
+
+    if args.dataset_family == "bfcl_mt":
+        if not args.bfcl_use_family_collab_split and not (0.0 < float(args.bfcl_train_ratio) < 1.0):
+            raise ValueError("--bfcl_train_ratio 必须在 0 与 1 之间（不含端点），例如 0.8。")
+
     repo_root = Path(__file__).resolve().parents[2]
+    bfcl_runtime: dict[str, Any] = {}
     if args.dataset_family == "alfworld":
         subset_dir = (repo_root / args.alfworld_subset_dir).resolve()
         domains = parse_domains(args.alfworld_domains)
@@ -998,12 +1017,122 @@ def main() -> None:
         eval_splits = ["test"]
         train_task_name = "pddl"
         eval_task_name = "pddl"
-    else:
+    elif args.dataset_family == "fever":
         subset_dir = repo_root / "data" / "fever"
         domains = parse_domains(args.fever_domains)
         eval_splits = ["test"]
         train_task_name = "fever"
         eval_task_name = "fever"
+    elif args.dataset_family == "bfcl_mt":
+        bfcl_data_root = (
+            repo_root / "data" / "gorilla" / "berkeley-function-call-leaderboard" / "bfcl_eval" / "data"
+        ).resolve()
+        if args.bfcl_use_family_collab_split:
+            family_slugs = parse_domains(args.bfcl_family_domains)
+            if len(family_slugs) != len(set(family_slugs)):
+                raise ValueError("--bfcl_family_domains 含重复项。")
+            if len(family_slugs) < 1:
+                raise ValueError("--bfcl_family_domains 至少 1 项。")
+            train_q_paths = [(repo_root / p.strip()).resolve() for p in parse_csv(args.bfcl_family_train_questions)]
+            train_a_paths = [(repo_root / p.strip()).resolve() for p in parse_csv(args.bfcl_family_train_answers)]
+            test_q = (repo_root / str(args.bfcl_family_test_questions).strip()).resolve()
+            test_a = (repo_root / str(args.bfcl_family_test_answers).strip()).resolve()
+            if len(train_q_paths) != len(family_slugs) or len(train_a_paths) != len(family_slugs):
+                raise ValueError(
+                    f"--bfcl_family_train_questions / train_answers 各须有 {len(family_slugs)} 个逗号分隔路径，"
+                    f"与 --bfcl_family_domains 对齐；当前为 {len(train_q_paths)} / {len(train_a_paths)}。"
+                )
+            require_test = not bool(getattr(args, "skip_eval", False))
+            answers_by_id, train_by_fam, test_rows, src_paths = load_bfcl_family_collab_from_paths(
+                family_slugs=family_slugs,
+                train_question_paths=train_q_paths,
+                train_answer_paths=train_a_paths,
+                test_question_path=test_q,
+                test_answer_path=test_a,
+                require_test=require_test,
+            )
+            if require_test and not test_rows:
+                raise ValueError("BFCL family_collab：合并测试集为空。")
+            subset_dir = (test_q if require_test else train_q_paths[0]).parent.resolve()
+            domains = list(family_slugs)
+            n_tr_each = {s: len(train_by_fam[s]) for s in family_slugs}
+            meta_q = test_q if require_test else train_q_paths[0]
+            meta_a = test_a if require_test else train_a_paths[0]
+            bfcl_runtime.update(
+                {
+                    "answers_by_id": answers_by_id,
+                    "train_rows_by_family": train_by_fam,
+                    "test_rows": test_rows,
+                    "qpath": meta_q,
+                    "apath": meta_a,
+                    "bfcl_source_paths": src_paths,
+                    "family_collab": True,
+                    "bfcl_train_ratio": None,
+                    "bfcl_family_train_question_paths": [str(p) for p in train_q_paths],
+                    "bfcl_family_train_answer_paths": [str(p) for p in train_a_paths],
+                    "bfcl_family_test_question_path": str(test_q),
+                    "bfcl_family_test_answer_path": str(test_a),
+                }
+            )
+            print(
+                f"[bfcl_mt] family_collab: locals={domains} train_counts={n_tr_each} test_all={len(test_rows)}",
+                flush=True,
+            )
+        else:
+            subset_dir = bfcl_data_root
+            qpath = (repo_root / str(args.bfcl_questions_jsonl).strip()).resolve()
+            apath = (repo_root / str(args.bfcl_answers_jsonl).strip()).resolve()
+            if not qpath.is_file():
+                raise FileNotFoundError(f"BFCL 题目文件不存在: {qpath}")
+            if not apath.is_file():
+                raise FileNotFoundError(f"BFCL possible_answer 文件不存在: {apath}")
+            all_rows = load_bfcl_question_rows(qpath)
+            answers_by_id = load_bfcl_answers_by_id(apath)
+            filtered = [r for r in all_rows if str(r.get("id", "")).strip() in answers_by_id]
+            if not filtered:
+                raise ValueError("BFCL：题目与 possible_answer 按 id 无交集。")
+            discovered = discover_bfcl_domains(filtered)
+            raw_dom = str(args.bfcl_domains or "").strip()
+            if not raw_dom or raw_dom.lower() == "auto":
+                domains = list(discovered)
+                print(f"[bfcl_mt] auto domains by involved_classes ({len(domains)}): {domains}", flush=True)
+            else:
+                domains = parse_csv(raw_dom)
+                unknown = sorted(set(domains) - set(discovered))
+                if unknown:
+                    raise ValueError(
+                        f"--bfcl_domains 含未知 involved_classes 签名 {unknown}；数据中为: {discovered}"
+                    )
+            train_rows, test_rows = bfcl_split_train_test(
+                filtered,
+                train_ratio=float(args.bfcl_train_ratio),
+                domains_filter=frozenset(domains),
+            )
+            if not test_rows and not bool(getattr(args, "skip_eval", False)):
+                raise ValueError(
+                    "BFCL：按 id 顺序划分后测试集为空（常见原因：各类仅 1 条样本）。"
+                    "请扩充数据或接受部分签名仅参与训练；仅训练可传 --skip_eval。"
+                )
+            bfcl_runtime.update(
+                {
+                    "answers_by_id": answers_by_id,
+                    "train_rows": train_rows,
+                    "test_rows": test_rows,
+                    "qpath": qpath,
+                    "apath": apath,
+                    "bfcl_train_ratio": float(args.bfcl_train_ratio),
+                    "family_collab": False,
+                }
+            )
+        eval_splits = parse_bfcl_eval_splits(str(args.bfcl_eval_split or "eval"))
+        train_task_name = "bfcl_mt"
+        eval_task_name = "bfcl_mt"
+    else:
+        raise ValueError(f"不支持的 dataset_family: {args.dataset_family}")
+
+    if getattr(args, "skip_eval", False):
+        eval_splits = []
+
     merged_eval_dir = (
         Path(args.alfworld_merged_eval_dir).expanduser().resolve()
         if args.alfworld_merged_eval_dir
@@ -1012,20 +1141,6 @@ def main() -> None:
 
     if not subset_dir.exists():
         raise FileNotFoundError(f"subset_dir 不存在: {subset_dir}")
-
-    memskill_asset_report: dict[str, Any] | None = None
-    if args.mas_memory == "memskill":
-        memskill_assets = prepare_memskill_assets(args, repo_root=repo_root)
-        memskill_asset_report = memskill_assets.to_dict()
-        training = (memskill_asset_report.get("ppo_training") or {}).get("training") if memskill_asset_report else None
-        download = memskill_asset_report.get("hf_download") if memskill_asset_report else None
-        failed = []
-        if isinstance(download, dict) and download.get("requested") and download.get("status") == "failed":
-            failed.append(f"Hugging Face checkpoint download failed: {download.get('error') or download.get('status')}")
-        if isinstance(training, dict) and training.get("requested") and training.get("status") == "failed":
-            failed.append(f"MemSkill PPO training failed: {training.get('error') or training.get('status')}")
-        if failed:
-            raise RuntimeError("; ".join(failed))
 
     model_type = get_model_type(args.model)
     run_id = args.run_id or time.strftime("%Y%m%d_%H%M%S")
@@ -1066,7 +1181,7 @@ def main() -> None:
             )
         else:
             rows = []
-        if args.dataset_family not in ("fever", "pddl"):
+        if args.dataset_family not in ("fever", "pddl", "bfcl_mt"):
             if args.max_train is not None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows
@@ -1111,6 +1226,31 @@ def main() -> None:
             if args.max_train is not None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows
+
+    if args.dataset_family == "bfcl_mt":
+        answers_by_id = bfcl_runtime["answers_by_id"]
+        lim = int(getattr(args, "bfcl_train_limit_per_domain", 0) or 0)
+        if bfcl_runtime.get("family_collab"):
+            for domain in domains:
+                rows = list(bfcl_runtime["train_rows_by_family"][domain])
+                if lim > 0:
+                    rows = rows[:lim]
+                if args.max_train is not None:
+                    rows = rows[: int(args.max_train)]
+                train_tasks_by_domain[domain] = [
+                    build_bfcl_mt_task(r, answers_by_id, domain) for r in rows
+                ]
+        else:
+            train_rows = bfcl_runtime["train_rows"]
+            for domain in domains:
+                rows = [r for r in train_rows if bfcl_involved_classes_domain(r) == domain]
+                if lim > 0:
+                    rows = rows[:lim]
+                if args.max_train is not None:
+                    rows = rows[: int(args.max_train)]
+                train_tasks_by_domain[domain] = [
+                    build_bfcl_mt_task(r, answers_by_id, bfcl_involved_classes_domain(r)) for r in rows
+                ]
 
     merged_eval_tasks: dict[str, list[dict]] = {}
     merge_manifest_rows: list[dict[str, Any]] = []
@@ -1168,7 +1308,7 @@ def main() -> None:
                 "pddl_domains": domains,
                 "pddl_test_jsonl": test_rel,
             }
-        else:
+        elif args.dataset_family == "fever":
             eval_path = (repo_root / args.fever_test_jsonl).resolve()
             if not eval_path.exists():
                 raise FileNotFoundError(f"FEVER 测试文件不存在: {eval_path}")
@@ -1186,6 +1326,42 @@ def main() -> None:
                 "num_tasks_dedup": len(rows),
                 "source_files": [str(eval_path)],
             }
+        elif args.dataset_family == "bfcl_mt":
+            answers_by_id = bfcl_runtime["answers_by_id"]
+            test_rows = bfcl_runtime["test_rows"]
+            qpath = bfcl_runtime["qpath"]
+            apath = bfcl_runtime["apath"]
+            if bfcl_runtime.get("family_collab"):
+                rows = [
+                    build_bfcl_mt_task(r, answers_by_id, bfcl_family_domain(r)) for r in test_rows
+                ]
+                src_list = list(bfcl_runtime.get("bfcl_source_paths") or [str(qpath), str(apath)])
+                split_note = "four_family_train_files_plus_test_all"
+                ratio_meta = bfcl_runtime.get("bfcl_train_ratio")
+            else:
+                rows = [
+                    build_bfcl_mt_task(r, answers_by_id, bfcl_involved_classes_domain(r)) for r in test_rows
+                ]
+                src_list = [str(qpath), str(apath)]
+                split_note = "per_involved_classes_sorted_id"
+                ratio_meta = bfcl_runtime.get("bfcl_train_ratio")
+            rows = dedupe_tasks(rows)
+            merged_eval_dir.mkdir(parents=True, exist_ok=True)
+            out_path = merged_eval_dir / f"merged__{split_name}.json"
+            with out_path.open("w", encoding="utf-8") as writer:
+                json.dump(rows, writer, ensure_ascii=False, indent=2)
+            meta = {
+                "split": split_name,
+                "output_file": str(out_path),
+                "num_tasks_raw": len(test_rows),
+                "num_tasks_dedup": len(rows),
+                "source_files": src_list,
+                "bfcl_domains": domains,
+                "bfcl_train_ratio": ratio_meta,
+                "bfcl_split": split_note,
+            }
+        else:
+            raise ValueError(f"merged eval 不支持的 dataset_family: {args.dataset_family}")
         if args.max_eval is not None:
             rows = rows[: int(args.max_eval)]
         if args.dataset_family == "alfworld":
@@ -1205,7 +1381,6 @@ def main() -> None:
         json.dump(merge_manifest, writer, ensure_ascii=False, indent=2)
 
     graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
-    memskill_common = _resolve_memskill_common(args)
     graph_memory_prefix = "gm3" if args.mas_memory == "graph_memory3" else "gm2"
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
@@ -1276,7 +1451,6 @@ def main() -> None:
             manager.tasks = copy.deepcopy(train_tasks_by_domain[domain])
             manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
             manager.mem_config.update(graph_memory_common)
-            manager.mem_config.update(memskill_common)
             train_graph_settings = graph_settings_value
             apply_gm_graph_scene_config(
                 manager,
@@ -1297,13 +1471,6 @@ def main() -> None:
                 manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=isolated_sp
             )
             saved_messages_by_domain[domain] = list(saved_messages or [])
-            finalize_report = finalize_memskill_local_memory(
-                args=args,
-                domain=domain,
-                local_dir=local_dir,
-                saved_messages=saved_messages_by_domain[domain],
-                memskill_common=memskill_common,
-            )
             wall = time.perf_counter() - t0
             persist_fn = getattr(getattr(manager.mas, "meta_memory", None), "persist_entity_graph", None)
             if callable(persist_fn):
@@ -1318,7 +1485,6 @@ def main() -> None:
                     "num_skipped": len(skipped),
                     "num_success": sum(1 for r in rewards if r > 0),
                     "wall_time_sec": wall,
-                    "memskill_finalize": finalize_report,
                 }
             )
     else:
@@ -1351,7 +1517,7 @@ def main() -> None:
             _reasoning_cls, global_mem_cls = module_map(args.reasoning, args.mas_memory)
             global_mem = global_mem_cls(
                 namespace=args.mas_memory,
-                global_config={"working_dir": global_dir, **memskill_common},
+                global_config={"working_dir": global_dir},
                 llm_model=GPTChat(model_name=args.model),
                 embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
             )
@@ -1369,22 +1535,14 @@ def main() -> None:
                     return MASMessage.from_dict(x)
                 return x
 
-            merged_from_local = merge_memskill_global_from_local_memories(
-                args=args,
-                domains=domains,
-                local_root=local_root,
-                global_mem=global_mem,
-                memskill_common=memskill_common,
-            )
-            if not merged_from_local:
-                for domain in domains:
-                    for msg in saved_messages_by_domain.get(domain, []):
-                        m = _coerce_message(msg)
-                        add_peer = getattr(global_mem, "add_memory_from_peer", None)
-                        if callable(add_peer):
-                            add_peer(m, source_id=domain)
-                        else:
-                            global_mem.add_memory(m)
+            for domain in domains:
+                for msg in saved_messages_by_domain.get(domain, []):
+                    m = _coerce_message(msg)
+                    add_peer = getattr(global_mem, "add_memory_from_peer", None)
+                    if callable(add_peer):
+                        add_peer(m, source_id=domain)
+                    else:
+                        global_mem.add_memory(m)
             persist_fn = getattr(global_mem, "persist_entity_graph", None)
             if callable(persist_fn):
                 persist_fn()
@@ -1414,7 +1572,6 @@ def main() -> None:
         manager.tasks = eval_tasks
         manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
         manager.mem_config.update({"freeze_memory": True, **graph_memory_common})
-        manager.mem_config.update(memskill_common)
         graph_memory_settings = graph_settings_value
         if args.mas_memory in _GM_GRAPH_MEMORY:
             apply_gm_graph_scene_config(
@@ -1432,7 +1589,6 @@ def main() -> None:
                 global_config={
                     "working_dir": global_dir,
                     "freeze_memory": True,
-                    **memskill_common,
                 },
                 llm_model=GPTChat(model_name=args.model),
                 embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
@@ -1498,7 +1654,6 @@ def main() -> None:
         "expected_eval_result_count": len(eval_splits) * len(domains),
         "memory_type": args.mas_memory,
         "merged_eval_manifest_path": merge_manifest_path,
-        "memskill_assets": memskill_asset_report,
         "train_results": train_results,
         "eval_results": eval_results,
     }

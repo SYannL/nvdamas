@@ -339,7 +339,7 @@ def build_mas(
 
 
 # Per-episode subprocess isolation (captures stdout/stderr) for long / noisy env families.
-_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl"})
+_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl", "bfcl_mt"})
 
 
 def build_isolated_subprocess_args(
@@ -661,7 +661,7 @@ def run_tasks(
                         [sys.executable, script_path, "--alfworld-worker", args_path, task_path, result_path],
                         stdout=stdout_fh,
                         stderr=stderr_fh,
-                        timeout=600,
+                        timeout=300,
                         cwd=os.path.dirname(os.path.dirname(os.path.dirname(script_path))),
                     )
                 sub_wall_s = time.perf_counter() - t_sub0
