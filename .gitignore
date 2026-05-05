@@ -10,6 +10,7 @@ output/
 __pycache__/
 data/alfworld/json_2.1.1/
 data/alfworld/alfworld_official_042/json_2.1.1/
+data/alfworld/collab_subsets/v3_s/
 data/MT-Mind2Web/
 data/medmcqa/train.json
 .db/
@@ -23,3 +24,5 @@ data/medmcqa/train.json
 .pydeps/
 *.sqlite3
 *.so
+sync_to_container.sh
+data
