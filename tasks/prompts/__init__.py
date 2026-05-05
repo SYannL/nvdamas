@@ -4,6 +4,7 @@ from .fever_prompt import fever_solver_system_prompt, fever_few_shots
 from .huskyqa_prompt import huskyqa_solver_system_prompt, huskyqa_few_shots
 from .medmcqa_prompt import medmcqa_solver_system_prompt, medmcqa_few_shots
 from .mtmind2web_prompt import mtmind2web_solver_system_prompt, mtmind2web_few_shots
+from .pddl_2_prompt import pddl_prompts as pddl_2_prompts
 from .pddl_prompt import pddl_prompts
 from .scienceworld_prompt import scienceworld_solver_system_prompt, scienceworld_few_shots
 
@@ -20,10 +21,15 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
         'huskyqa': huskyqa_solver_system_prompt,
         'huskyqa_aca_test': huskyqa_solver_system_prompt,
         'pddl': pddl_prompts,
+        'pddl_2': pddl_2_prompts,
         'pddl_domain_gripper': pddl_prompts,
         'pddl_domain_blockworld': pddl_prompts,
         'pddl_domain_barman': pddl_prompts,
         'pddl_domain_tyreworld': pddl_prompts,
+        'pddl_2_domain_gripper': pddl_2_prompts,
+        'pddl_2_domain_blockworld': pddl_2_prompts,
+        'pddl_2_domain_barman': pddl_2_prompts,
+        'pddl_2_domain_tyreworld': pddl_2_prompts,
         'bfcl_mt': bfcl_mt_solver_system_prompt,
         'medmcqa_test': medmcqa_solver_system_prompt,
         'medmcqa_physio_30': medmcqa_solver_system_prompt,
@@ -52,10 +58,11 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
     
     if task == "bfcl_mt":
         return str(prompt_map.get(task) or "")
-    if task != 'pddl' and not str(task).startswith('pddl_domain_'):
+    if task not in {'pddl', 'pddl_2'} and not str(task).startswith(('pddl_domain_', 'pddl_2_domain_')):
         return prompt_map.get(task)
     task_type: str = task_config.get('game_name')
-    return pddl_prompts[task_type]['instruction']
+    prompts = pddl_2_prompts if task == 'pddl_2' or str(task).startswith('pddl_2_domain_') else pddl_prompts
+    return prompts[task_type]['instruction']
         
 
 
@@ -97,11 +104,12 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
     elif dataset == "bfcl_mt":
         return []
 
-    elif dataset == 'pddl' or str(dataset).startswith('pddl_domain_'):
+    elif dataset in {'pddl', 'pddl_2'} or str(dataset).startswith(('pddl_domain_', 'pddl_2_domain_')):
         task_type = task_config.get('game_name')
         if task_type is None:
             raise ValueError('The task config must have the `game_name` attribute.')
-        return pddl_prompts[task_type]['examples'][:few_shots_num]
+        prompts = pddl_2_prompts if dataset == 'pddl_2' or str(dataset).startswith('pddl_2_domain_') else pddl_prompts
+        return prompts[task_type]['examples'][:few_shots_num]
     
     elif dataset == 'medmcqa_test':
         return medmcqa_few_shots[:few_shots_num]
@@ -165,4 +173,3 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
     
     else:
         raise ValueError(f'Unsupported dataset type: {dataset}')
-

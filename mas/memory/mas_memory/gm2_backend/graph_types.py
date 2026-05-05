@@ -9,6 +9,7 @@ class Domain(str, Enum):
     ALFWORLD = "alfworld"
     PDDL = "pddl"
     FEVER = "fever"
+    BFCL = "bfcl_mt"
     WEB = "web"
     SCIENCEWORLD = "scienceworld"
 

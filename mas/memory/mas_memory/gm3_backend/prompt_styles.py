@@ -299,6 +299,112 @@ class FeverPromptStyle(BasePromptStyle):
         return "verify the claim using Search, Lookup, then an evidence-grounded Finish label."
 
 
+class BFCLPromptStyle(BasePromptStyle):
+    name = "bfcl_mt"
+
+    def phase_items(self, renderer: Any, *, query: Any, target: str, tool: str, destination: str) -> list[str]:
+        progress = str(getattr(query, "progress_state", "") or "")
+        ctx = _bfcl_context(query)
+        if progress == "tool_result_observed":
+            return [
+                "BFCL stage=tool_result_observed; inspect the latest tool output for the current user turn, then use FinishTurn[] when the turn is answered instead of repeating the same call."
+            ]
+        if progress in {"invalid_action", "tool_error"}:
+            return [
+                "BFCL repair stage; rewrite the next response as valid BFCL Python or Exec[...] using only the current tool definitions and current error."
+            ]
+        if progress == "checker_failed":
+            return ["BFCL checker failed; compare the whole turn sequence against the user requests before adding more calls."]
+        apis = ", ".join(ctx["apis"][:3]) if ctx["apis"] else "current APIs"
+        items = [f"BFCL stage=need_tool_call; choose a minimal current-turn tool call from {apis}, or FinishTurn[] only after the turn is satisfied."]
+        if ctx["authenticated"] is True and _bfcl_turn_mentions_auth(ctx["current_turn"]):
+            items.append("BFCL state says the current API session is already authenticated; do not call login/auth just because the user mentioned login, unless a tool error proves auth is missing.")
+        return items
+
+    def keep_global_text(self, renderer: Any, *, text: str, norm_text: str, task_family: str) -> bool:
+        return "bfcl" in norm_text or "tool" in norm_text or "finishturn" in norm_text
+
+    def keep_local_artifact_text(
+        self,
+        renderer: Any,
+        *,
+        domain: str,
+        task_family: str,
+        text: str,
+        norm_text: str,
+    ) -> bool:
+        return domain.startswith("bfcl") or task_family.startswith("bfcl") or "bfcl" in norm_text
+
+    def phase_label(self, renderer: Any, *, query: Any, macro: str) -> str:
+        progress = str(getattr(query, "progress_state", "") or "")
+        labels = {
+            "need_tool_call": "choose BFCL tool call",
+            "tool_result_observed": "decide next BFCL turn step",
+            "invalid_action": "repair BFCL action format",
+            "tool_error": "repair BFCL tool arguments",
+            "checker_failed": "repair BFCL trajectory",
+            "done": "finished",
+        }
+        return labels.get(progress, progress.replace("_", " ") or "BFCL tool use")
+
+    def state_summary(
+        self,
+        renderer: Any,
+        *,
+        query: Any,
+        target: str,
+        tool: str,
+        destination: str,
+        held: list[str],
+        visible: list[str],
+        exhausted: list[str],
+    ) -> str:
+        ctx = _bfcl_context(query)
+        progress = str(getattr(query, "progress_state", "") or "unknown")
+        parts = [f"stage={progress}"]
+        if ctx["apis"]:
+            parts.append("apis=" + ", ".join(ctx["apis"][:4]))
+        if ctx["last_action"]:
+            parts.append(f"last_action={renderer._gm3_shorten(ctx['last_action'], 70)}")
+        if ctx["authenticated"] is not None:
+            parts.append(f"authenticated={str(ctx['authenticated']).lower()}")
+        if ctx["balance"] is not None:
+            parts.append(f"balance={ctx['balance']}")
+        if ctx["current_turn"]:
+            parts.append(f"turn={renderer._gm3_shorten(ctx['current_turn'], 100)}")
+        if ctx["repeat_count"] >= 2:
+            parts.append(f"repeat_count={ctx['repeat_count']}")
+        if ctx["last_observation"]:
+            parts.append(f"last_output={renderer._gm3_shorten(ctx['last_observation'], 90)}")
+        return "; ".join(parts)
+
+    def next_priority_line(
+        self,
+        renderer: Any,
+        *,
+        query: Any,
+        priority_items: list[str],
+        admissible: list[str],
+    ) -> str:
+        progress = str(getattr(query, "progress_state", "") or "")
+        ctx = _bfcl_context(query)
+        for item in priority_items[:2]:
+            text = str(item or "").strip()
+            if text:
+                return text
+        if progress == "tool_result_observed":
+            if ctx["repeat_count"] >= 2:
+                return "stop repeating the last tool call; emit FinishTurn[] if the latest output answers the user turn, otherwise call a different needed tool."
+            return "if the latest tool output satisfies the current user turn, emit FinishTurn[]; otherwise make one different necessary tool call."
+        if progress in {"invalid_action", "tool_error"}:
+            return "repair with one valid BFCL Python call or Exec[...] grounded in the current tool schema; do not reuse arguments that caused the error."
+        if progress == "checker_failed":
+            return "start the next attempt by matching each user turn to the required tool calls, then FinishTurn[] after each satisfied turn."
+        if ctx["authenticated"] is True and _bfcl_turn_mentions_auth(ctx["current_turn"]):
+            return "the session is already authenticated; skip login/auth unless required by an error, and execute the actual requested operation using current tool outputs."
+        return "make the minimal valid BFCL tool call for the current user turn; avoid thoughts or copied examples."
+
+
 def _fever_search_hint(renderer: Any, query: Any, admissible: list[str]) -> str:
     ctx = _fever_claim_context(query)
     anchor = _fever_entity_text(str(ctx.get("entity", "") or ""))
@@ -442,8 +548,43 @@ def _is_fever_transferable_hint(norm_text: str) -> bool:
     return False
 
 
+def _bfcl_context(query: Any) -> dict[str, Any]:
+    belief = getattr(query, "belief", {}) or {}
+    dynamic = getattr(query, "dynamic_context", {}) or {}
+    apis = belief.get("involved_classes") or dynamic.get("involved_classes") or []
+    if isinstance(apis, str):
+        apis = [apis]
+    api_list = [str(api).strip() for api in apis if str(api).strip()]
+    session = belief.get("session_state") or dynamic.get("session_state") or {}
+    if not isinstance(session, dict):
+        session = {}
+    return {
+        "apis": api_list,
+        "current_turn": str(belief.get("current_user_turn") or "").strip(),
+        "authenticated": _bfcl_first_session_value(session, ".authenticated"),
+        "balance": _bfcl_first_session_value(session, ".balance"),
+        "last_action": str(belief.get("last_action") or dynamic.get("last_action") or "").strip(),
+        "repeat_count": int(belief.get("last_action_repeat_count") or dynamic.get("last_action_repeat_count") or 0),
+        "last_observation": str(belief.get("last_observation") or "").strip(),
+    }
+
+
+def _bfcl_first_session_value(session: dict[str, Any], suffix: str) -> Any:
+    for key, value in session.items():
+        if str(key).endswith(suffix):
+            return value
+    return None
+
+
+def _bfcl_turn_mentions_auth(text: str) -> bool:
+    low = str(text or "").lower()
+    return any(token in low for token in ("login", "log in", "authenticate", "password", "username", "usermame"))
+
+
 def prompt_style_for_env(env_name: str) -> BasePromptStyle:
     env = str(env_name or "").strip().lower()
+    if env.startswith("bfcl") or env.startswith("gorilla"):
+        return BFCLPromptStyle()
     if env.startswith("fever"):
         return FeverPromptStyle()
     if env.startswith("pddl"):
@@ -454,6 +595,8 @@ def prompt_style_for_env(env_name: str) -> BasePromptStyle:
 def prompt_style_for_query(query: Any, task_family: str = "") -> BasePromptStyle:
     scene_id = str(getattr(query, "scene_id", "") or "").strip().lower()
     family = str(task_family or getattr(query, "task_family", "") or "").strip().lower()
+    if scene_id.startswith("bfcl") or family.startswith("bfcl"):
+        return BFCLPromptStyle()
     if scene_id.startswith("fever:") or family.startswith("fever"):
         return FeverPromptStyle()
     if scene_id.startswith("pddl:") or family.startswith("pddl"):

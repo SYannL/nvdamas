@@ -355,7 +355,7 @@ class PDDLEnv(BaseEnv):
             all += 1
         
         return satisfied / all
-    
+
     def _get_goal_and_obs(self, obs):
         goal = obs.goal 
         goal = [self._literal_to_text(literal) for literal in goal.literals]
@@ -430,6 +430,103 @@ class PDDLEnv(BaseEnv):
         literal = Literal(predicate, objects)
         return literal
 
+
+class PDDL2Env(PDDLEnv):
+    """Strict PDDL variant used by the pddl_2 flow.
+
+    The legacy PDDL flow keeps shaped reward semantics. pddl_2 keeps that shaped
+    score as ``Score`` but uses full goal satisfaction for Done/status.
+    """
+
+    def __init__(self, env_config: dict[str, Any], max_trials: int = 50):
+        super().__init__(env_config, max_trials=max_trials)
+        self.gm3_domain = "pddl_2"
+
+    def _update(self, action, obs, reward, done, infos):
+        for k, v in infos.items():
+            self.infos[k] = v
+
+        goal_literals = self.infos["goal_literal"].literals
+        obs_literals = self.last_obs.literals
+        self.won = all(literal in obs_literals for literal in goal_literals)
+
+        self.steps += 1
+        self.reward = reward
+        self.done = bool(done) or bool(self.won)
+
+        if self.won and "goal is satisfied" not in obs.lower():
+            obs += " The goal is satisfied."
+
+        self.history.append(("action", action))
+        self.history.append(("reward", reward))
+        self.history.append(("state", obs))
+        self.states.append(obs)
+        self.current_literals_text = [self._literal_to_text(literal) for literal in self.last_obs.literals]
+        self.last_admissible_commands = self._get_action_space()
+
+        self.infos["goal"] = self.goal
+        self.infos["states"] = self.states
+        self.infos["history"] = self.history
+        self.infos["steps"] = self.steps
+        self.infos["state"] = self.states[-1]
+        self._append_gm3_history(action=action, observation=obs, reward=1 if self.won else 0, valid=True)
+
+    def _update_info(self, action, info, *, valid: bool = True):
+        self.history.append(("action", action))
+        self.history.append(("reward", 0.0))
+        self.history.append(("state", info))
+        self.states.append(info)
+
+        self.steps += 1
+        self.infos["goal"] = self.goal
+        self.infos["states"] = self.states
+        self.infos["history"] = self.history
+        self.infos["steps"] = self.steps
+        self.infos["state"] = self.states[-1]
+        self.current_literals_text = [self._literal_to_text(literal) for literal in self.last_obs.literals]
+        self.last_admissible_commands = self._get_action_space()
+        self._append_gm3_history(action=action, observation=info, reward=0.0, valid=valid)
+
+    def export_gm2_history(
+        self,
+        output_dir: str,
+        *,
+        model_id: str = "",
+        status_override: str | None = None,
+    ) -> str | None:
+        if not self.has_exportable_history():
+            return None
+        final_done = bool(getattr(self, "won", False))
+        final_score = float(self.reward or 0.0)
+        status = status_override or ("success" if final_done else "fail")
+        payload = {
+            "last_updated": __import__("time").strftime("%Y%m%d_%H%M%S"),
+            "game_file": "",
+            "game_name": str(getattr(self, "game_name", "") or "pddl"),
+            "game_index": str(getattr(self, "problem_index", "unknown")),
+            "difficulty": str(getattr(self, "difficulty", "") or ""),
+            "game_task": str(getattr(self, "goal", "") or ""),
+            "goal_literals": list(getattr(self, "goal_literals_text", []) or []),
+            "status": status,
+            "step_count": max(len(self.current_history) - 1, 0),
+            "final_score": final_score,
+            "final_done": final_done,
+            "history": list(self.current_history),
+            "model_id": model_id,
+            "gm3_domain": self.gm3_domain,
+            "task_family": f"pddl_2:{getattr(self, 'game_name', 'unknown')}",
+            "task_config": dict(getattr(self, "config", {}) or {}),
+        }
+        out_dir = os.path.abspath(output_dir)
+        os.makedirs(out_dir, exist_ok=True)
+        safe_game = str(getattr(self, "game_name", "pddl") or "pddl").replace("/", "_")
+        safe_index = str(getattr(self, "problem_index", "unknown")).replace("/", "_")
+        out_path = os.path.join(out_dir, f"history_{safe_game}_{safe_index}_{status}.json")
+        with open(out_path, "w", encoding="utf-8") as writer:
+            json.dump(payload, writer, ensure_ascii=False, indent=2)
+        return out_path
+
+
 @dataclass
 class PDDLRecorder(BaseRecorder): 
     def __post_init__(self):
@@ -484,6 +581,13 @@ class PDDLRecorder(BaseRecorder):
         # Same template as FeverRecorder.task_end for comparable logs.
         message = f"reward: {reward}, ave reward: {avg_r}.\ndone: {done}, ave done: {avg_d}"
         self.log(message)
+
+
+@dataclass
+class PDDL2Recorder(PDDLRecorder):
+    def __post_init__(self):
+        super().__post_init__()
+        self.task = 'pddl_2'
     
         
 # Define the mapping of predicate names to their natural language formats  

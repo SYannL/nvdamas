@@ -186,7 +186,9 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
         try:
             from .gm2_backend.alfworld_adapter import ALFWorldAdapter
+            from .gm2_backend.bfcl_mt_adapter import BfclAdapter
             from .gm2_backend.fever_adapter import FeverAdapter
+            from .gm2_backend.pddl_2_adapter import PDDL2Adapter
             from .gm2_backend.pddl_adapter import PDDLAdapter
             from .gm2_backend.build_memory_graph import _global_to_dict, _local_to_dict
             from .gm2_backend.construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
@@ -222,6 +224,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
         self._external_adapters = {
             "alfworld": ALFWorldAdapter(),
+            "bfcl_mt": BfclAdapter(),
+            "pddl_2": PDDL2Adapter(),
             "pddl": PDDLAdapter(),
             "fever": FeverAdapter(),
         }
@@ -5184,8 +5188,14 @@ class GraphMemory2MASMemory(MASMemoryBase):
             token = value.strip().lower()
             if not token:
                 continue
+            if token.startswith("pddl_2"):
+                return "pddl_2"
             if token.startswith("pddl"):
                 return "pddl"
+            if token.startswith("bfcl"):
+                return "bfcl_mt"
+            if token.startswith("gorilla"):
+                return "bfcl_mt"
             if token.startswith("fever"):
                 return "fever"
             if token.startswith("alfworld"):

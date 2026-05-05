@@ -10,8 +10,10 @@ from .huskyqa_env import HuskyQAEnv, HuskyQARecorder
 from .medmcqa_env import MedMCQAEnv, MedMCQARecorder
 from .mtmind2web_env import MTMind2WebEnv, MTMind2WebRecorder
 try:
-    from .pddl_env.pddl_env import PDDLEnv, PDDLRecorder, get_all_environment_configs
+    from .pddl_env.pddl_env import PDDL2Env, PDDL2Recorder, PDDLEnv, PDDLRecorder, get_all_environment_configs
 except ImportError:
+    PDDL2Env = None
+    PDDL2Recorder = None
     PDDLEnv = None
     PDDLRecorder = None
     get_all_environment_configs = None
@@ -41,6 +43,7 @@ TASKS_PATH = {
     'fever_ab_test_a': 'data/fever/fever_ab_test_A_v3.jsonl',
     'fever_ab_test_b': 'data/fever/fever_ab_test_B_v3.jsonl',
     'pddl': 'data/pddl/test.jsonl',
+    'pddl_2': 'data/pddl/test.jsonl',
     'huskyqa': 'data/HuskyQA/huskyQA.json',
     'huskyqa_aca_test': 'data/HuskyQA/huskyQA_aca_test.json',
     'medmcqa_test': 'data/medmcqa/medmcqa_test.jsonl',
@@ -62,6 +65,7 @@ TASKS_PATH = {
 # Per-game PDDL splits: data/pddl/pddl_domain_<game>.jsonl（由 scripts/pddl/split_pddl_by_gamename.py 生成）
 for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
     TASKS_PATH[f"pddl_domain_{_pddl_game}"] = f"data/pddl/pddl_domain_{_pddl_game}.jsonl"
+    TASKS_PATH[f"pddl_2_domain_{_pddl_game}"] = f"data/pddl/pddl_domain_{_pddl_game}.jsonl"
 
 
 def _load_jsonl_rows(path: str) -> list[dict]:
@@ -351,6 +355,7 @@ TASK_DATA = {
     'fever_ab_test_a': None,
     'fever_ab_test_b': None,
     'pddl': pddl_tasks,
+    'pddl_2': pddl_tasks,
     'huskyqa': huskyqa_tasks,
     'huskyqa_aca_test': huskyqa_aca_test_tasks,
     'medmcqa_test': medmcqa_test_tasks,
@@ -374,6 +379,7 @@ TASK_DATA = {
 }
 for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
     TASK_DATA[f"pddl_domain_{_pddl_game}"] = None
+    TASK_DATA[f"pddl_2_domain_{_pddl_game}"] = None
 
 ENVS = {
     'bfcl_mt': BfclMtEnv,
@@ -385,6 +391,7 @@ ENVS = {
     'fever_ab_test_a': FeverEnv,
     'fever_ab_test_b': FeverEnv,
     'pddl': PDDLEnv,
+    'pddl_2': PDDL2Env,
     'huskyqa': HuskyQAEnv,
     'huskyqa_aca_test': HuskyQAEnv,
     'medmcqa_test': MedMCQAEnv,
@@ -416,6 +423,7 @@ RECORDERS = {
     'fever_ab_test_a': FeverRecorder,
     'fever_ab_test_b': FeverRecorder,
     'pddl': PDDLRecorder,
+    'pddl_2': PDDL2Recorder,
     'huskyqa': HuskyQARecorder,
     'huskyqa_aca_test': HuskyQARecorder,
     'medmcqa_test': MedMCQARecorder,
@@ -443,6 +451,12 @@ if PDDLEnv is not None and PDDLRecorder is not None:
         ENVS[_pddl_task] = PDDLEnv
         RECORDERS[_pddl_task] = PDDLRecorder
 
+if PDDL2Env is not None and PDDL2Recorder is not None:
+    for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
+        _pddl_task = f"pddl_2_domain_{_pddl_game}"
+        ENVS[_pddl_task] = PDDL2Env
+        RECORDERS[_pddl_task] = PDDL2Recorder
+
 
 def get_env(task: str, env_config: dict, max_trials: int) -> BaseEnv:
     
@@ -459,7 +473,7 @@ def get_env(task: str, env_config: dict, max_trials: int) -> BaseEnv:
                 f'  uv pip install alfworld\n'
                 f'Underlying import error: {ALFWORLD_IMPORT_ERROR!r}'
             )
-        if task == 'pddl' or task.startswith('pddl_domain_'):
+        if task in {'pddl', 'pddl_2'} or task.startswith(('pddl_domain_', 'pddl_2_domain_')):
             raise ImportError(
                 'PDDL task is not available. This is likely because gym/pddlgym dependencies are missing.\n'
                 'Please install gym/pddlgym or use a task that does not require it.'
@@ -483,7 +497,7 @@ def get_recorder(task: str, working_dir: str, namespace: str) -> BaseRecorder:
                 f'  uv pip install alfworld\n'
                 f'Underlying import error: {ALFWORLD_IMPORT_ERROR!r}'
             )
-        if task == 'pddl' or task.startswith('pddl_domain_'):
+        if task in {'pddl', 'pddl_2'} or task.startswith(('pddl_domain_', 'pddl_2_domain_')):
             raise ImportError(
                 'PDDL task recorder is not available. This is likely because gym/pddlgym dependencies are missing.\n'
                 'Please install gym/pddlgym or use a task that does not require it.'
@@ -498,10 +512,14 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
         task.startswith('mtmind2web_')
         or task.startswith('fever_ab_')
         or task.startswith('pddl_domain_')
+        or task.startswith('pddl_2_domain_')
     ) and TASK_DATA.get(task) is None:
         data_path = TASKS_PATH.get(task)
         if task.startswith('pddl_domain_') and not data_path:
             _game = task.removeprefix('pddl_domain_')
+            data_path = f"data/pddl/pddl_domain_{_game}.jsonl"
+        if task.startswith('pddl_2_domain_') and not data_path:
+            _game = task.removeprefix('pddl_2_domain_')
             data_path = f"data/pddl/pddl_domain_{_game}.jsonl"
         if not data_path or not os.path.exists(data_path):
             raise FileNotFoundError(
@@ -521,7 +539,7 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
                     }
                 )
             TASK_DATA[task] = converted
-        elif task.startswith('pddl_domain_'):
+        elif task.startswith(('pddl_domain_', 'pddl_2_domain_')):
             TASK_DATA[task] = loaded_rows
         else:
             TASK_DATA[task] = loaded_rows
@@ -539,7 +557,7 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
                 f'  uv pip install alfworld\n'
                 f'Underlying import error: {ALFWORLD_IMPORT_ERROR!r}'
             )
-        if task == 'pddl':
+        if task in {'pddl', 'pddl_2'}:
             raise ImportError(
                 'PDDL task list is not available. This is likely because gym/pddlgym dependencies are missing.\n'
                 'Please install gym/pddlgym or use a task that does not require it.'
@@ -552,7 +570,7 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
             f'ALFWorld tasks list is empty. This is likely because the alfworld package failed to import.\n'
             f'Please check the error message above and install the required dependencies.'
         )
-    if task == 'pddl' and len(task_list) == 0 and get_all_environment_configs is None:
+    if task in {'pddl', 'pddl_2'} and len(task_list) == 0 and get_all_environment_configs is None:
         raise ImportError(
             'PDDL task list is empty. This is likely because gym/pddlgym dependencies are missing.\n'
             'Please install gym/pddlgym or use a task that does not require it.'

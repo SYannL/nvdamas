@@ -439,7 +439,10 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         selected = routed["selected"]
         if not selected:
             return {"prompt": "", "debug": routed}
+        task_family_for_gate = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
         memory_slots = {"local_grounding", "source_roles", "global_workflow", "failure_avoidance"}
+        if task_family_for_gate.startswith("bfcl"):
+            memory_slots.add("phase_policy")
         if not any(str(section.get("slot", "") or "") in memory_slots for section in selected):
             routed["no_graph_memory_prompt"] = True
             return {"prompt": "", "debug": routed}
@@ -583,6 +586,11 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         tool = self._gm3_base(str(goal_roles.get("tool", "") or ""))
         destination = self._gm3_base(str(goal_roles.get("destination", "") or ""))
         slots = {str(section.get("slot", "") or "") for section in selected}
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+
+        if task_family.startswith("bfcl") and "phase_policy" in slots:
+            if progress in {"need_tool_call", "tool_result_observed", "invalid_action", "tool_error", "checker_failed"}:
+                return True, "bfcl_phase_policy"
 
         if priority_items:
             return True, "current_memory_maps_to_admissible_action"
@@ -794,6 +802,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                         "(satisfy operator preconditions, use current valid actions, and never copy arguments from another domain)."
                     )
                 continue
+            if task_family.startswith("bfcl"):
+                if "finishturn" in norm or "closure" in norm:
+                    rendered.append(
+                        "Global BFCL workflow: after a tool result answers the current user turn, use FinishTurn[]; do not copy old tool arguments."
+                    )
+                elif "failure" in norm or "blocked" in norm or "avoid" in norm:
+                    rendered.append(
+                        "Global BFCL recovery: avoid repeating failed or invalid tool calls; repair arguments from the current tool schema."
+                    )
+                else:
+                    rendered.append(
+                        "Global BFCL transfer: reuse only the tool-use discipline (minimal valid call, observe result, then FinishTurn[] when satisfied)."
+                    )
+                continue
             marker_ok = any(
                 marker in norm
                 for marker in (
@@ -876,7 +898,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             payload = getattr(artifact, "payload", {}) or {}
             anchor = getattr(artifact, "anchor", {}) or {}
             domain = self._gm3_norm(str(anchor.get("domain", "") or payload.get("domain", "") or ""))
-            if domain not in {"pddl", "fever"} and not task_family.startswith(("pddl_", "fever_")):
+            if domain not in {"pddl", "fever", "bfcl_mt", "bfcl"} and not task_family.startswith(("pddl_", "fever_", "bfcl_")):
                 continue
             artifact_family = self._gm3_norm(str(anchor.get("task_family", "") or ""))
             family_matches = not task_family or not artifact_family or artifact_family == task_family
@@ -925,6 +947,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 if line:
                     rendered.append(line)
                 continue
+            if domain.startswith("bfcl") or task_family.startswith("bfcl"):
+                if "finishturn" in self._gm3_norm(text) or "closure" in pattern_kind:
+                    rendered.append(
+                        "Local BFCL graph: consider FinishTurn[] after the current tool output satisfies this turn; never repeat the same completed call."
+                    )
+                elif mapped:
+                    rendered.append(
+                        f"Local BFCL graph saw workflow shape `{mapped}` before; reuse the shape only if it matches this user turn and current tool schema."
+                    )
+                elif pattern_kind in {"workflow", "closure", "rule", "precondition", "failure", "repair"}:
+                    rendered.append(
+                        "Local BFCL graph: use prior tool-call workflow only as a phase cue; choose arguments from the current user request."
+                    )
+                continue
             if self._gm3_should_suppress_fever_workflow_for_phase(
                 text=text,
                 task_family=task_family,
@@ -946,13 +982,13 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             ):
                 continue
             if mapped:
-                if domain == "pddl":
+                if domain.startswith("pddl"):
                     rendered.append(
                         f"Local PDDL graph maps prior workflow to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
                     )
                     continue
                 rendered.append(f"{text} Current admissible grounding: `{mapped}`.")
-            elif domain == "pddl":
+            elif domain.startswith("pddl"):
                 if hint := self._gm3_pddl_current_action_hint(query, admissible):
                     rendered.append(
                         f"Local PDDL graph cannot copy old arguments; current grounded operator candidate is `{hint}` because it overlaps unsatisfied goal literals."
@@ -2022,6 +2058,12 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if "global_workflow" in slots:
                 return "medium-low; FEVER global memory is procedural only and must not provide a label prior."
             return "low; decide from current evidence, not memory priors."
+        if str(task_family or "").startswith("bfcl"):
+            if "local_grounding" in slots:
+                return "medium; BFCL memory is a workflow cue only, tool arguments must come from the current user turn."
+            if "global_workflow" in slots:
+                return "medium-low; BFCL global memory transfers tool-use discipline, not old argument values."
+            return "low; current BFCL tool output and checker semantics have priority."
         if "local_grounding" in slots and concrete:
             return "high; local grounding maps to a current admissible action."
         if "source_roles" in slots and concrete:

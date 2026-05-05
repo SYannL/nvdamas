@@ -376,11 +376,12 @@ class MemoryService:
             )
             os.makedirs(qdrant_dir, exist_ok=True)
             self._qdrant_dir = qdrant_dir
+            _vec_dim = int(os.environ.get("MEMRL_EMBEDDING_DIM", "3072"))
             vector_db_cfg = {
                 "backend": "qdrant",
                 "config": {
                     "collection_name": f"memp_{self.user_id}_{ts_str}",
-                    "vector_dimension": 3072,
+                    "vector_dimension": _vec_dim,
                     "distance_metric": "cosine",
                     "path": qdrant_dir,
                 },
@@ -1839,7 +1840,7 @@ class MemoryService:
                         "backend": "qdrant",
                         "config": {
                             "collection_name": f"memp_{self.user_id}_snapshot",
-                            "vector_dimension": 3072,
+                            "vector_dimension": int(os.environ.get("MEMRL_EMBEDDING_DIM", "3072")),
                             "distance_metric": "cosine",
                             "path": qdrant_dir,
                         },

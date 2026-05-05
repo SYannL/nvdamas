@@ -339,7 +339,7 @@ def build_mas(
 
 
 # Per-episode subprocess isolation (captures stdout/stderr) for long / noisy env families.
-_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl", "bfcl_mt"})
+_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl", "pddl_2", "bfcl_mt"})
 
 
 def build_isolated_subprocess_args(
@@ -557,6 +557,7 @@ def run_tasks(
     per_task_mt: list[dict[str, float]] = []
     start_time = time.time()
     successes = 0
+    full_successes = 0
     # For ALFWorld, some tasks can hard-crash in TextWorld PDDL parsing ("tw-pddl", KeyError 'val1').
     # User requested: do not count those as attempted samples; exclude them from denominators.
     effective_total = max(0, int(end) - int(start))
@@ -599,7 +600,7 @@ def run_tasks(
             "goal": task_config.get("task_main") or task_config.get("task_description"),
             "reward": float(reward),
             "done": bool(done),
-            "success": bool(float(reward) > 0),
+            "success": bool(done) if str(task_manager.task_name).startswith("pddl_2") else bool(float(reward) > 0),
             "skipped": bool(skipped),
             "pddl_crash": bool(pddl_crash),
             "error_type": error_type,
@@ -618,6 +619,16 @@ def run_tasks(
         except Exception:
             # Diagnostics must never alter task execution, scoring, or memory updates.
             pass
+
+    def _format_progress_line() -> str:
+        partial_rate = (successes / attempted) if attempted else 0.0
+        if str(task_manager.task_name).startswith("pddl_2"):
+            full_rate = (full_successes / attempted) if attempted else 0.0
+            return (
+                f"{progress_msg} full_success_rate={full_rate:.2%} ({full_successes}/{attempted}) "
+                f"partial_progress_rate={partial_rate:.2%} ({successes}/{attempted})"
+            )
+        return f"{progress_msg} success_rate={partial_rate:.2%} ({successes}/{attempted})"
 
     for task_id in range(start, end):
         task_config = copy.deepcopy(task_manager.tasks[task_id])
@@ -728,6 +739,8 @@ def run_tasks(
                 elapsed = time.time() - start_time
                 if float(reward) > 0:
                     successes += 1
+                if bool(done):
+                    full_successes += 1
                 _append_task_record(
                     task_id=task_id,
                     task_config=task_config,
@@ -745,11 +758,7 @@ def run_tasks(
                 else:
                     # Print progress (and success rate) every 10 tasks.
                     if (attempted % 10 == 0) or (task_id == end - 1):
-                        rate = (successes / attempted) if attempted else 0.0
-                        print(
-                            f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
-                            flush=True,
-                        )
+                        print(_format_progress_line(), flush=True)
                 # Worker already logged task_begin/task_end to same log_dir
             except subprocess.TimeoutExpired as exc:
                 try:
@@ -838,11 +847,7 @@ def run_tasks(
                     progress_hook(done_count, effective_total, successes, attempted)
                 else:
                     if (attempted % 10 == 0) or (task_id == end - 1):
-                        rate = (successes / attempted) if attempted else 0.0
-                        print(
-                            f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
-                            flush=True,
-                        )
+                        print(_format_progress_line(), flush=True)
             except RuntimeError as exc:
                 # 子进程非 0 退出等：父进程已在上面写过 timing（含 subprocess_nonzero_exit）
                 gamefile = (task_config.get("env_kwargs") or {}).get("gamefile")
@@ -976,6 +981,8 @@ def run_tasks(
 
             if float(reward) > 0:
                 successes += 1
+            if bool(done):
+                full_successes += 1
             _append_task_record(
                 task_id=task_id,
                 task_config=task_config,
@@ -997,11 +1004,7 @@ def run_tasks(
                 progress_hook(done_count, effective_total, successes, attempted)
             else:
                 if (attempted % 10 == 0) or (task_id == end - 1):
-                    rate = (successes / attempted) if attempted else 0.0
-                    print(
-                        f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
-                        flush=True,
-                    )
+                    print(_format_progress_line(), flush=True)
             if timing_profile_enabled(global_config=task_manager.mem_config):
                 _ilog = getattr(task_manager.recorder, "working_dir", None) or task_manager.mem_config.get(
                     "working_dir", "."
@@ -1094,11 +1097,7 @@ def run_tasks(
                 progress_hook(done_count, effective_total, successes, attempted)
             else:
                 if (attempted % 10 == 0) or (task_id == end - 1):
-                    rate = (successes / attempted) if attempted else 0.0
-                    print(
-                        f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
-                        flush=True,
-                    )
+                    print(_format_progress_line(), flush=True)
             continue
 
     task_manager.recorder.dataset_end()

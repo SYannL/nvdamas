@@ -628,6 +628,7 @@ def _dataset_eval_title(dataset_family: str) -> str:
         "alfworld": "ALFWorld",
         "fever": "FEVER",
         "pddl": "PDDL",
+        "pddl_2": "PDDL_2",
         "amabench": "AMA-Bench",
         "bfcl_mt": "BFCL multi_turn_base",
     }.get(dataset_family, dataset_family.replace("_", " ").title())
@@ -636,6 +637,34 @@ def _dataset_eval_title(dataset_family: str) -> str:
 def _report_file_stem(dataset_family: str) -> str:
     safe_family = re.sub(r"[^a-z0-9_]+", "_", str(dataset_family or "").strip().lower()).strip("_")
     return f"{safe_family or 'dataset'}_multidomain_global_eval"
+
+
+def compute_family_metrics(
+    *,
+    dataset_family: str,
+    rewards: list[float],
+    dones: list[bool],
+    per_task_mt: list[dict[str, float]] | None,
+) -> dict[str, float]:
+    metrics = compute_metrics(rewards, per_task_mt)
+    if dataset_family != "pddl_2":
+        return metrics
+    partial_success = sum(1 for r in rewards if r > 0)
+    full_success = sum(1 for d in dones if d)
+    total = len(dones) if len(dones) == len(rewards) else len(rewards)
+    metrics["partial_progress_rate"] = partial_success / total if total else 0.0
+    metrics["num_partial_success"] = float(partial_success)
+    metrics["full_success_rate"] = full_success / total if total else 0.0
+    metrics["accuracy"] = metrics["full_success_rate"]
+    if per_task_mt is not None and len(per_task_mt) == len(dones):
+        success_steps = [
+            float(row["trajectory_steps"])
+            for row, done in zip(per_task_mt, dones)
+            if done and isinstance(row, dict) and "trajectory_steps" in row
+        ]
+        if success_steps:
+            metrics["avg_trajectory_steps_success"] = sum(success_steps) / len(success_steps)
+    return metrics
 
 
 def _print_multidomain_run_summary(
@@ -649,23 +678,24 @@ def _print_multidomain_run_summary(
     print(f"=== {dataset_title} Multi-domain Global Eval | summary ===", flush=True)
     print("-- Eval --", flush=True)
     for row in eval_results:
-        print(
-            f"  split={row['split']} scope={row['memory_scope']} | "
-            f"accuracy={float(row.get('accuracy', 0.0)):.4f} "
-            f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
-            f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
-            f"tasks={int(row.get('num_tasks', 0))} "
-            f"completed={int(row.get('num_completed', 0))} "
-            f"skipped={int(row.get('num_skipped', 0))} "
-            f"success={int(row.get('num_success', 0))} | "
-            f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
-            flush=True,
-        )
-    if train_results:
-        print("-- Train (per-domain local) --", flush=True)
-        for row in train_results:
+        if dataset_title == "PDDL_2":
             print(
-                f"  domain={row['domain']} | "
+                f"  split={row['split']} scope={row['memory_scope']} | "
+                f"full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
+                f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
+                f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
+                f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                f"tasks={int(row.get('num_tasks', 0))} "
+                f"completed={int(row.get('num_completed', 0))} "
+                f"skipped={int(row.get('num_skipped', 0))} "
+                f"full_success={int(row.get('num_success', 0))} "
+                f"partial_progress={int(row.get('num_partial_success', 0) or 0)} | "
+                f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
+                flush=True,
+            )
+        else:
+            print(
+                f"  split={row['split']} scope={row['memory_scope']} | "
                 f"accuracy={float(row.get('accuracy', 0.0)):.4f} "
                 f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
                 f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
@@ -676,6 +706,37 @@ def _print_multidomain_run_summary(
                 f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
                 flush=True,
             )
+    if train_results:
+        print("-- Train (per-domain local) --", flush=True)
+        for row in train_results:
+            if dataset_title == "PDDL_2":
+                print(
+                    f"  domain={row['domain']} | "
+                    f"full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
+                    f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
+                    f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
+                    f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                    f"tasks={int(row.get('num_tasks', 0))} "
+                    f"completed={int(row.get('num_completed', 0))} "
+                    f"skipped={int(row.get('num_skipped', 0))} "
+                    f"full_success={int(row.get('num_success', 0))} "
+                    f"partial_progress={int(row.get('num_partial_success', 0) or 0)} | "
+                    f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"  domain={row['domain']} | "
+                    f"accuracy={float(row.get('accuracy', 0.0)):.4f} "
+                    f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
+                    f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                    f"tasks={int(row.get('num_tasks', 0))} "
+                    f"completed={int(row.get('num_completed', 0))} "
+                    f"skipped={int(row.get('num_skipped', 0))} "
+                    f"success={int(row.get('num_success', 0))} | "
+                    f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
+                    flush=True,
+                )
 
 
 _ALFWORLD_MEMRL_EXAMPLE = r"""
@@ -759,7 +820,7 @@ def main() -> None:
     parser.add_argument(
         "--dataset_family",
         type=str,
-        choices=["alfworld", "amabench", "fever", "pddl", "bfcl_mt"],
+        choices=["alfworld", "amabench", "fever", "pddl", "pddl_2", "bfcl_mt"],
         default="alfworld",
     )
     parser.add_argument(
@@ -1009,14 +1070,14 @@ def main() -> None:
         eval_splits = [args.amabench_eval_split]
         train_task_name = "huskyqa"
         eval_task_name = "huskyqa"
-    elif args.dataset_family == "pddl":
+    elif args.dataset_family in {"pddl", "pddl_2"}:
         subset_dir = (repo_root / "data" / "pddl").resolve()
         domains = parse_domains(args.pddl_domains)
         if len(domains) < 1:
-            raise ValueError("dataset_family=pddl 需要至少 1 个 --pddl_domains。")
+            raise ValueError("dataset_family=pddl/pddl_2 需要至少 1 个 --pddl_domains。")
         eval_splits = ["test"]
-        train_task_name = "pddl"
-        eval_task_name = "pddl"
+        train_task_name = args.dataset_family
+        eval_task_name = args.dataset_family
     elif args.dataset_family == "fever":
         subset_dir = repo_root / "data" / "fever"
         domains = parse_domains(args.fever_domains)
@@ -1181,7 +1242,7 @@ def main() -> None:
             )
         else:
             rows = []
-        if args.dataset_family not in ("fever", "pddl", "bfcl_mt"):
+        if args.dataset_family not in ("fever", "pddl", "pddl_2", "bfcl_mt"):
             if args.max_train is not None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows
@@ -1205,7 +1266,7 @@ def main() -> None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows
 
-    if args.dataset_family == "pddl":
+    if args.dataset_family in {"pddl", "pddl_2"}:
         override_paths: list[Path | None] = []
         if str(args.pddl_train_jsonl or "").strip():
             override_paths = [(repo_root / item).resolve() for item in parse_csv(args.pddl_train_jsonl)]
@@ -1221,8 +1282,12 @@ def main() -> None:
                 )
             rows = [copy.deepcopy(r) for r in load_jsonl_rows(path)]
             for row in rows:
-                row.setdefault("env_name", "pddl")
-                row.setdefault("task_type", "pddl")
+                if args.dataset_family == "pddl_2":
+                    row["env_name"] = "pddl_2"
+                    row["task_type"] = "pddl_2"
+                else:
+                    row.setdefault("env_name", "pddl")
+                    row.setdefault("task_type", "pddl")
             if args.max_train is not None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows
@@ -1281,13 +1346,16 @@ def main() -> None:
                 "num_tasks_dedup": len(rows),
                 "source_files": source_files,
             }
-        elif args.dataset_family == "pddl":
+        elif args.dataset_family in {"pddl", "pddl_2"}:
             test_rel = str(args.pddl_test_jsonl or "").strip() or "data/pddl/test.jsonl"
             test_path = (repo_root / test_rel).resolve()
             if not test_path.is_file():
                 raise FileNotFoundError(f"PDDL 测试集不存在: {test_path}")
             raw_test = load_jsonl_rows(test_path)
             merged_rows = normalize_pddl_test_jsonl_rows(raw_test)
+            for row in merged_rows:
+                row["env_name"] = args.dataset_family
+                row["task_type"] = args.dataset_family
             if not merged_rows:
                 raise ValueError(
                     f"PDDL 测试集未解析出有效任务: {test_path}。"
@@ -1429,8 +1497,9 @@ def main() -> None:
     saved_messages_by_domain: dict[str, list[Any]] = {}
     if not args.eval_only:
         for domain_idx, domain in enumerate(domains):
-            if args.dataset_family == "pddl":
-                task_name = f"pddl_domain_{domains[domain_idx]}"
+            if args.dataset_family in {"pddl", "pddl_2"}:
+                prefix = "pddl_2_domain" if args.dataset_family == "pddl_2" else "pddl_domain"
+                task_name = f"{prefix}_{domains[domain_idx]}"
             else:
                 task_name = train_task_name
             local_dir = os.path.join(local_root, domain)
@@ -1467,7 +1536,7 @@ def main() -> None:
                 alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
             )
             t0 = time.perf_counter()
-            rewards, _, saved_messages, skipped, per_task_mt = run_tasks(
+            rewards, dones, saved_messages, skipped, per_task_mt = run_tasks(
                 manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=isolated_sp
             )
             saved_messages_by_domain[domain] = list(saved_messages or [])
@@ -1479,11 +1548,17 @@ def main() -> None:
                 {
                     "domain": domain,
                     "graph_memory_settings": train_graph_settings if args.mas_memory in _GM_GRAPH_MEMORY else None,
-                    **compute_metrics(rewards, per_task_mt),
+                    **compute_family_metrics(
+                        dataset_family=args.dataset_family,
+                        rewards=rewards,
+                        dones=dones,
+                        per_task_mt=per_task_mt,
+                    ),
                     "num_tasks": len(manager.tasks),
                     "num_completed": len(rewards),
                     "num_skipped": len(skipped),
-                    "num_success": sum(1 for r in rewards if r > 0),
+                    "num_success": sum(1 for d in dones if d) if args.dataset_family == "pddl_2" else sum(1 for r in rewards if r > 0),
+                    "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family == "pddl_2" else None,
                     "wall_time_sec": wall,
                 }
             )
@@ -1604,7 +1679,7 @@ def main() -> None:
             alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
         )
         t0 = time.perf_counter()
-        rewards, _, saved_messages, skipped, per_task_mt = run_tasks(
+        rewards, dones, saved_messages, skipped, per_task_mt = run_tasks(
             manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=isolated_sp
         )
         wall = time.perf_counter() - t0
@@ -1624,11 +1699,17 @@ def main() -> None:
             "memory_scope": memory_scope,
             "memory_dir": memory_dir,
             "graph_memory_settings": graph_memory_settings if args.mas_memory in _GM_GRAPH_MEMORY else None,
-            **compute_metrics(rewards, per_task_mt),
+            **compute_family_metrics(
+                dataset_family=args.dataset_family,
+                rewards=rewards,
+                dones=dones,
+                per_task_mt=per_task_mt,
+            ),
             "num_tasks": len(manager.tasks),
             "num_completed": len(rewards),
             "num_skipped": len(skipped),
-            "num_success": sum(1 for r in rewards if r > 0),
+            "num_success": sum(1 for d in dones if d) if args.dataset_family == "pddl_2" else sum(1 for r in rewards if r > 0),
+            "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family == "pddl_2" else None,
             "wall_time_sec": wall,
         }
 
@@ -1676,28 +1757,56 @@ def main() -> None:
     with open(md_path, "w", encoding="utf-8") as writer:
         writer.write(f"# {dataset_title} Multi-domain Global Eval\n\n")
         writer.write("## Eval Results\n\n")
-        writer.write("| Split | Memory Scope | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
-        writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+        if args.dataset_family == "pddl_2":
+            writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+            writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+        else:
+            writer.write("| Split | Memory Scope | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
+            writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         for row in eval_results:
-            writer.write(
-                f"| {row['split']} | {row['memory_scope']} | {float(row.get('accuracy', 0.0)):.4f} | "
-                f"{float(row.get('avg_reward', 0.0)):.4f} | {float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
-                f"{int(row.get('num_tasks', 0))} | "
-                f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
-                f"{int(row.get('num_success', 0))} | {float(row.get('wall_time_sec', 0.0)):.2f} |\n"
-            )
-        if train_results:
-            writer.write("\n## Train Results (Per Domain Local)\n\n")
-            writer.write("| Domain | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
-            writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
-            for row in train_results:
+            if args.dataset_family == "pddl_2":
                 writer.write(
-                    f"| {row['domain']} | {float(row.get('accuracy', 0.0)):.4f} | "
+                    f"| {row['split']} | {row['memory_scope']} | {float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} | "
+                    f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {float(row.get('avg_reward', 0.0)):.4f} | "
+                    f"{float(row.get('avg_trajectory_steps', 0.0)):.2f} | {int(row.get('num_tasks', 0))} | "
+                    f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
+                    f"{int(row.get('num_success', 0))} | {int(row.get('num_partial_success', 0) or 0)} | "
+                    f"{float(row.get('wall_time_sec', 0.0)):.2f} |\n"
+                )
+            else:
+                writer.write(
+                    f"| {row['split']} | {row['memory_scope']} | {float(row.get('accuracy', 0.0)):.4f} | "
                     f"{float(row.get('avg_reward', 0.0)):.4f} | {float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
                     f"{int(row.get('num_tasks', 0))} | "
                     f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
                     f"{int(row.get('num_success', 0))} | {float(row.get('wall_time_sec', 0.0)):.2f} |\n"
                 )
+        if train_results:
+            writer.write("\n## Train Results (Per Domain Local)\n\n")
+            if args.dataset_family == "pddl_2":
+                writer.write("| Domain | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+                writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+            else:
+                writer.write("| Domain | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
+                writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+            for row in train_results:
+                if args.dataset_family == "pddl_2":
+                    writer.write(
+                        f"| {row['domain']} | {float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} | "
+                        f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {float(row.get('avg_reward', 0.0)):.4f} | "
+                        f"{float(row.get('avg_trajectory_steps', 0.0)):.2f} | {int(row.get('num_tasks', 0))} | "
+                        f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
+                        f"{int(row.get('num_success', 0))} | {int(row.get('num_partial_success', 0) or 0)} | "
+                        f"{float(row.get('wall_time_sec', 0.0)):.2f} |\n"
+                    )
+                else:
+                    writer.write(
+                        f"| {row['domain']} | {float(row.get('accuracy', 0.0)):.4f} | "
+                        f"{float(row.get('avg_reward', 0.0)):.4f} | {float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                        f"{int(row.get('num_tasks', 0))} | "
+                        f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
+                        f"{int(row.get('num_success', 0))} | {float(row.get('wall_time_sec', 0.0)):.2f} |\n"
+                    )
 
     print(json.dumps({"report_json": json_path, "report_md": md_path}, ensure_ascii=False, indent=2))
     _print_multidomain_run_summary(

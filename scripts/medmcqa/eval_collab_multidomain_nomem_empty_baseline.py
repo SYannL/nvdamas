@@ -26,12 +26,12 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     build_mas,
     build_task_manager,
     collab_report_run_dir,
-    compute_metrics,
     ensure_dir,
     run_tasks,
 )
 from scripts.medmcqa.eval_collab_multidomain_global import (
     build_fever_task,
+    compute_family_metrics,
     dedupe_tasks,
     load_jsonl_rows,
     merge_eval_split,
@@ -61,7 +61,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--dataset_family",
         type=str,
-        choices=["alfworld", "pddl", "fever", "all"],
+        choices=["alfworld", "pddl", "pddl_2", "fever", "all"],
         default="all",
         help="all 表示按顺序跑 alfworld → pddl → fever。",
     )
@@ -106,16 +106,21 @@ def _load_merged_eval_alfworld(
     return merged_eval_tasks, manifest_rows, merged_eval_dir, domains
 
 
-def _load_merged_eval_pddl(repo_root: Path, args: argparse.Namespace) -> tuple[list[dict], dict[str, Any]]:
+def _load_merged_eval_pddl(
+    repo_root: Path, args: argparse.Namespace, *, dataset_family: str = "pddl"
+) -> tuple[list[dict], dict[str, Any]]:
     domains = parse_domains(args.pddl_domains)
     if len(domains) < 1:
-        raise ValueError("dataset_family=pddl 需要至少 1 个 --pddl_domains。")
+        raise ValueError("dataset_family=pddl/pddl_2 需要至少 1 个 --pddl_domains。")
     test_rel = str(args.pddl_test_jsonl or "").strip() or "data/pddl/test.jsonl"
     test_path = (repo_root / test_rel).resolve()
     if not test_path.is_file():
         raise FileNotFoundError(f"PDDL 测试集不存在: {test_path}")
     raw_test = load_jsonl_rows(test_path)
     merged_rows = normalize_pddl_test_jsonl_rows(raw_test)
+    for row in merged_rows:
+        row["env_name"] = dataset_family
+        row["task_type"] = dataset_family
     if not merged_rows:
         raise ValueError(
             f"PDDL 测试集未解析出有效任务: {test_path}。"
@@ -164,7 +169,9 @@ def _run_eval_split(
     log_eval: str,
     report_base: str,
 ) -> dict[str, Any]:
-    eval_task_name = {"alfworld": "alfworld", "pddl": "pddl", "fever": "fever"}[dataset_family]
+    eval_task_name = {"alfworld": "alfworld", "pddl": "pddl", "pddl_2": "pddl_2", "fever": "fever"}[
+        dataset_family
+    ]
     ensure_dir(memory_working_dir)
     ensure_dir(log_eval)
 
@@ -191,11 +198,16 @@ def _run_eval_split(
         alfworld_game_root=str(getattr(args, "alfworld_game_root", "") or ""),
     )
     t0 = time.perf_counter()
-    rewards, _, _saved, skipped, per_task_mt = run_tasks(
+    rewards, dones, _saved, skipped, per_task_mt = run_tasks(
         manager, 0, len(manager.tasks), str(args.tool_mode), alfworld_subprocess_args=isolated_sp
     )
     wall = time.perf_counter() - t0
-    metrics = compute_metrics(rewards, per_task_mt)
+    metrics = compute_family_metrics(
+        dataset_family=dataset_family,
+        rewards=rewards,
+        dones=dones,
+        per_task_mt=per_task_mt,
+    )
     return {
         "dataset_family": dataset_family,
         "split": split_name,
@@ -209,7 +221,8 @@ def _run_eval_split(
         "num_tasks": len(manager.tasks),
         "num_completed": len(rewards),
         "num_skipped": len(skipped),
-        "num_success": sum(1 for r in rewards if r > 0),
+        "num_success": sum(1 for d in dones if d) if dataset_family == "pddl_2" else sum(1 for r in rewards if r > 0),
+        "num_partial_success": sum(1 for r in rewards if r > 0) if dataset_family == "pddl_2" else None,
         "wall_time_sec": wall,
     }
 
@@ -255,8 +268,8 @@ def _run_one_family(repo_root: Path, args: argparse.Namespace, dataset_family: s
                     report_base=report_base,
                 )
             )
-    elif dataset_family == "pddl":
-        rows, meta = _load_merged_eval_pddl(repo_root, args)
+    elif dataset_family in {"pddl", "pddl_2"}:
+        rows, meta = _load_merged_eval_pddl(repo_root, args, dataset_family=dataset_family)
         merge_manifest = {"rows": [meta], "pddl_domains": parse_domains(args.pddl_domains)}
         log_eval = os.path.join(log_base, "eval", "empty_merged", "test")
         eval_summaries.append(
@@ -315,15 +328,28 @@ def _run_one_family(repo_root: Path, args: argparse.Namespace, dataset_family: s
     print("", flush=True)
     print(f"=== {dataset_family} | empty memory baseline | summary ===", flush=True)
     for row in eval_summaries:
-        print(
-            f"  split={row['split']} | accuracy={float(row.get('accuracy', 0.0)):.4f} "
-            f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
-            f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
-            f"tasks={int(row.get('num_tasks', 0))} completed={int(row.get('num_completed', 0))} "
-            f"skipped={int(row.get('num_skipped', 0))} success={int(row.get('num_success', 0))} | "
-            f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
-            flush=True,
-        )
+        if dataset_family == "pddl_2":
+            print(
+                f"  split={row['split']} | full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
+                f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
+                f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
+                f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                f"tasks={int(row.get('num_tasks', 0))} completed={int(row.get('num_completed', 0))} "
+                f"skipped={int(row.get('num_skipped', 0))} full_success={int(row.get('num_success', 0))} "
+                f"partial_progress={int(row.get('num_partial_success', 0) or 0)} | "
+                f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
+                flush=True,
+            )
+        else:
+            print(
+                f"  split={row['split']} | accuracy={float(row.get('accuracy', 0.0)):.4f} "
+                f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
+                f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
+                f"tasks={int(row.get('num_tasks', 0))} completed={int(row.get('num_completed', 0))} "
+                f"skipped={int(row.get('num_skipped', 0))} success={int(row.get('num_success', 0))} | "
+                f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
+                flush=True,
+            )
     print(json.dumps({"report_json": json_path}, ensure_ascii=False, indent=2), flush=True)
     return out
 
@@ -345,7 +371,7 @@ def main() -> None:
             subset_dir = (repo_root / args.alfworld_subset_dir).resolve()
             if not subset_dir.exists():
                 raise FileNotFoundError(f"subset_dir 不存在: {subset_dir}")
-        elif fam == "pddl":
+        elif fam in {"pddl", "pddl_2"}:
             if not (repo_root / "data" / "pddl").exists():
                 raise FileNotFoundError(f"data/pddl 不存在: {repo_root / 'data' / 'pddl'}")
         all_outputs.append(_run_one_family(repo_root, args, fam))
