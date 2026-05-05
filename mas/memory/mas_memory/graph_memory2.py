@@ -190,6 +190,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             from .gm2_backend.fever_adapter import FeverAdapter
             from .gm2_backend.pddl_2_adapter import PDDL2Adapter
             from .gm2_backend.pddl_adapter import PDDLAdapter
+            from .gm2_backend.scienceworld_adapter import ScienceWorldAdapter
             from .gm2_backend.build_memory_graph import _global_to_dict, _local_to_dict
             from .gm2_backend.construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
             from .gm2_backend.graph_types import CandidateType, GlobalGraphMemory, LocalGraphMemory, MemoryQuery
@@ -228,6 +229,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             "pddl_2": PDDL2Adapter(),
             "pddl": PDDLAdapter(),
             "fever": FeverAdapter(),
+            "scienceworld": ScienceWorldAdapter(),
         }
         self._external_adapter = self._external_adapters.get(self._infer_external_domain(), self._external_adapters["alfworld"])
         self._external_empty_local = empty_local
@@ -5198,6 +5200,8 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 return "bfcl_mt"
             if token.startswith("fever"):
                 return "fever"
+            if token.startswith("scienceworld"):
+                return "scienceworld"
             if token.startswith("alfworld"):
                 return "alfworld"
         return "alfworld"

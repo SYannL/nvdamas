@@ -1,4 +1,6 @@
+import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -32,6 +34,14 @@ class ScienceWorldEnv(BaseEnv):
         self.last_score = 0.0
         self.last_completed = False
         self.has_positive_progress = False
+        self.sw_task: str = ""
+        self.sw_task_name: str = ""
+        self.sw_scene_room: str = ""
+        self.sw_task_desc: str = ""
+        self._task_config: dict = {}
+        self._step_count: int = 0
+        self.current_history: list = []
+        self.last_admissible_commands: list = []
 
     def set_env(self, configs: dict) -> tuple[str, str]:
         task_name = str(
@@ -65,6 +75,21 @@ class ScienceWorldEnv(BaseEnv):
         self.last_reward = 0.0
         self.last_completed = False
         self.has_positive_progress = self.last_score > 0
+
+        self.sw_task = task_name
+        self.sw_task_name = str(getattr(self.env, "taskName", "") or configs.get("sw_task_name", task_name))
+        self.sw_scene_room = str(configs.get("sw_scene_room", ""))
+        self.sw_task_desc = str(configs.get("sw_task_desc", "") or self.env.get_task_description())
+        self._task_config = dict(configs)
+        self._step_count = 0
+        self.last_admissible_commands = []
+        self.current_history = [{
+            "Step": 0,
+            "Observation": self.last_observation,
+            "Score": self.last_score,
+            "Done": self.last_completed,
+            "Admissible Commands": [],
+        }]
 
         task_main = f"scienceworld-{self.task_name}-v{self.variation_idx}"
         task_description = (
@@ -104,7 +129,64 @@ class ScienceWorldEnv(BaseEnv):
         self.last_completed = bool(completed)
         if self.last_reward > 0 or self.last_score > 0:
             self.has_positive_progress = True
+        self._step_count += 1
+        self.current_history.append({
+            "Step": self._step_count,
+            "Action": env_action,
+            "Observation": self.last_observation,
+            "Reward": self.last_reward,
+            "Score": self.last_score,
+            "Done": self.last_completed,
+            "Admissible Commands": [],
+        })
         return self.last_observation, self.last_reward, self.last_completed
+
+    def has_exportable_history(self) -> bool:
+        return bool(getattr(self, "current_history", None))
+
+    def export_gm2_history(
+        self,
+        output_dir: str,
+        *,
+        model_id: str = "",
+        status_override: str | None = None,
+    ) -> str | None:
+        if not self.has_exportable_history():
+            return None
+        final_score = float(getattr(self, "last_score", 0.0) or 0.0)
+        success = bool(getattr(self, "last_completed", False) and final_score > 0)
+        status = status_override or ("success" if success else "fail")
+        sw_task = str(getattr(self, "sw_task", "") or "unknown")
+        sw_task_name = str(getattr(self, "sw_task_name", "") or sw_task)
+        room = str(getattr(self, "sw_scene_room", "") or "unknown")
+        variation_idx = int(getattr(self, "variation_idx", 0) or 0)
+        payload = {
+            "last_updated": time.strftime("%Y%m%d_%H%M%S"),
+            "sw_task": sw_task,
+            "sw_task_name": sw_task_name,
+            "sw_scene_room": room,
+            "variation_idx": variation_idx,
+            "sw_task_desc": str(getattr(self, "sw_task_desc", "") or ""),
+            "game_task": str(getattr(self, "sw_task_desc", "") or ""),
+            "status": status,
+            "step_count": max(len(self.current_history) - 1, 0),
+            "final_score": final_score,
+            "history": list(self.current_history),
+            "model_id": model_id,
+            "gm3_domain": "scienceworld",
+            "task_config": dict(getattr(self, "_task_config", {}) or {}),
+        }
+        os.makedirs(os.path.abspath(output_dir), exist_ok=True)
+        safe_room = re.sub(r"[^a-z0-9]+", "_", str(room).lower()).strip("_") or "unknown"
+        safe_task = re.sub(r"[^a-z0-9]+", "_", str(sw_task_name).lower()).strip("_") or "task"
+        out_path = os.path.join(
+            os.path.abspath(output_dir),
+            f"history_scienceworld_{safe_room}_{safe_task}_v{variation_idx}_{status}.json",
+        )
+        with open(out_path, "w", encoding="utf-8") as writer:
+            import json as _json
+            _json.dump(payload, writer, ensure_ascii=False, indent=2)
+        return out_path
 
     def feedback(self) -> tuple[float, bool, str]:
         # ScienceWorld true completion may happen with negative/zero score in some failures.

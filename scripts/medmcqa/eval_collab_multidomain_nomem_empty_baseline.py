@@ -1,6 +1,6 @@
 """
 多数据集评测基线：与 ``eval_collab_multidomain_global.py`` 使用相同的数据加载与调用链
-（ALFWorld / PDDL / FEVER），固定 ``autogen`` + ``gpt-4o-mini`` + ``reasoning=io``，
+（ALFWorld / PDDL / FEVER / ScienceWorld），固定 ``autogen`` + ``gpt-4o-mini`` + ``reasoning=io``，
 ``mas_memory=empty``（无持久化记忆、无训练阶段），对测试集样本依次跑 ``run_tasks``。
 
 PDDL/FEVER 与 multidomain 脚本一致；ALFWorld 对每个 eval split 合并各 domain 子集后
@@ -61,7 +61,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--dataset_family",
         type=str,
-        choices=["alfworld", "pddl", "pddl_2", "fever", "all"],
+        choices=["alfworld", "pddl", "pddl_2", "fever", "scienceworld", "all"],
         default="all",
         help="all 表示按顺序跑 alfworld → pddl → fever。",
     )
@@ -74,6 +74,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--fever_test_jsonl", type=str, default="data/fever/fever_ab_test_v3.jsonl")
     p.add_argument("--pddl_domains", type=str, default="gripper,blockworld,barman,tyreworld")
     p.add_argument("--pddl_test_jsonl", type=str, default="data/pddl/test.jsonl")
+    p.add_argument("--scienceworld_subset_dir", type=str, default="data/ScienceWorld/collab_subsets/v2_room")
+    p.add_argument("--scienceworld_domains", type=str, default="hallway")
+    p.add_argument("--scienceworld_eval_split", type=str, default="test")
     p.add_argument("--max_eval", type=int, default=None, help="每个 split 最多评测前 N 条；默认全量。")
     p.add_argument("--max_trials", type=int, default=30)
     p.add_argument("--batch_size", type=int, default=10, help="仅写入报告元数据，与 multidomain 对齐。")
@@ -159,6 +162,44 @@ def _load_merged_eval_fever(repo_root: Path, args: argparse.Namespace) -> tuple[
     return rows, meta
 
 
+def _load_merged_eval_scienceworld(repo_root: Path, args: argparse.Namespace) -> tuple[list[dict], dict[str, Any]]:
+    subset_dir = (repo_root / str(args.scienceworld_subset_dir or "")).resolve()
+    if not subset_dir.exists():
+        raise FileNotFoundError(f"ScienceWorld subset_dir 不存在: {subset_dir}")
+    domains = parse_domains(args.scienceworld_domains)
+    if not domains:
+        raise ValueError("dataset_family=scienceworld 需要至少 1 个 --scienceworld_domains。")
+    eval_split = str(args.scienceworld_eval_split or "test").strip() or "test"
+    merged_rows: list[dict] = []
+    source_files: list[str] = []
+    for domain in domains:
+        src = subset_dir / f"{domain}__{eval_split}.json"
+        if not src.is_file():
+            raise FileNotFoundError(f"ScienceWorld split 文件不存在: {src}")
+        rows = json.load(open(src, "r", encoding="utf-8"))
+        if not isinstance(rows, list):
+            raise ValueError(f"ScienceWorld split 文件必须是 JSON list: {src}")
+        for row in rows:
+            item = copy.deepcopy(row)
+            item["env_name"] = "scienceworld"
+            item["task_type"] = "scienceworld"
+            item.setdefault("gm3_domain", "scienceworld")
+            merged_rows.append(item)
+        source_files.append(str(src))
+    rows = dedupe_tasks(merged_rows)
+    if args.max_eval is not None:
+        rows = rows[: int(args.max_eval)]
+    meta = {
+        "split": eval_split,
+        "num_tasks_raw": len(merged_rows),
+        "num_tasks_dedup": len(rows),
+        "source_files": source_files,
+        "scienceworld_subset_dir": str(subset_dir),
+        "scienceworld_domains": domains,
+    }
+    return rows, meta
+
+
 def _run_eval_split(
     *,
     dataset_family: str,
@@ -169,9 +210,13 @@ def _run_eval_split(
     log_eval: str,
     report_base: str,
 ) -> dict[str, Any]:
-    eval_task_name = {"alfworld": "alfworld", "pddl": "pddl", "pddl_2": "pddl_2", "fever": "fever"}[
-        dataset_family
-    ]
+    eval_task_name = {
+        "alfworld": "alfworld",
+        "pddl": "pddl",
+        "pddl_2": "pddl_2",
+        "fever": "fever",
+        "scienceworld": "scienceworld_test",
+    }[dataset_family]
     ensure_dir(memory_working_dir)
     ensure_dir(log_eval)
 
@@ -283,7 +328,7 @@ def _run_one_family(repo_root: Path, args: argparse.Namespace, dataset_family: s
                 report_base=report_base,
             )
         )
-    else:
+    elif dataset_family == "fever":
         rows, meta = _load_merged_eval_fever(repo_root, args)
         merge_manifest = {"rows": [meta], "fever_domains": parse_domains(args.fever_domains)}
         log_eval = os.path.join(log_base, "eval", "empty_merged", "test")
@@ -291,6 +336,22 @@ def _run_one_family(repo_root: Path, args: argparse.Namespace, dataset_family: s
             _run_eval_split(
                 dataset_family=dataset_family,
                 split_name="test",
+                eval_tasks=rows,
+                args=args,
+                memory_working_dir=memory_working_dir,
+                log_eval=log_eval,
+                report_base=report_base,
+            )
+        )
+    else:
+        rows, meta = _load_merged_eval_scienceworld(repo_root, args)
+        merge_manifest = {"rows": [meta], "scienceworld_domains": parse_domains(args.scienceworld_domains)}
+        split_name = str(args.scienceworld_eval_split or "test").strip() or "test"
+        log_eval = os.path.join(log_base, "eval", "empty_merged", split_name)
+        eval_summaries.append(
+            _run_eval_split(
+                dataset_family=dataset_family,
+                split_name=split_name,
                 eval_tasks=rows,
                 args=args,
                 memory_working_dir=memory_working_dir,
@@ -374,6 +435,10 @@ def main() -> None:
         elif fam in {"pddl", "pddl_2"}:
             if not (repo_root / "data" / "pddl").exists():
                 raise FileNotFoundError(f"data/pddl 不存在: {repo_root / 'data' / 'pddl'}")
+        elif fam == "scienceworld":
+            subset_dir = (repo_root / str(args.scienceworld_subset_dir or "")).resolve()
+            if not subset_dir.exists():
+                raise FileNotFoundError(f"ScienceWorld subset_dir 不存在: {subset_dir}")
         all_outputs.append(_run_one_family(repo_root, args, fam))
 
     if len(all_outputs) > 1:

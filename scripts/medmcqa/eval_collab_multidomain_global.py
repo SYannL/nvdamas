@@ -623,6 +623,14 @@ def merge_eval_split(
     return str(out_path), deduped, meta
 
 
+def build_scienceworld_task(row: dict) -> dict:
+    """Normalize a ScienceWorld task row for the collab eval pipeline."""
+    task = dict(row)
+    task.setdefault("env_name", "scienceworld")
+    task.setdefault("gm3_domain", "scienceworld")
+    return task
+
+
 def _dataset_eval_title(dataset_family: str) -> str:
     return {
         "alfworld": "ALFWorld",
@@ -631,6 +639,7 @@ def _dataset_eval_title(dataset_family: str) -> str:
         "pddl_2": "PDDL_2",
         "amabench": "AMA-Bench",
         "bfcl_mt": "BFCL multi_turn_base",
+        "scienceworld": "ScienceWorld",
     }.get(dataset_family, dataset_family.replace("_", " ").title())
 
 
@@ -647,7 +656,7 @@ def compute_family_metrics(
     per_task_mt: list[dict[str, float]] | None,
 ) -> dict[str, float]:
     metrics = compute_metrics(rewards, per_task_mt)
-    if dataset_family != "pddl_2":
+    if dataset_family not in {"pddl_2", "scienceworld"}:
         return metrics
     partial_success = sum(1 for r in rewards if r > 0)
     full_success = sum(1 for d in dones if d)
@@ -820,7 +829,7 @@ def main() -> None:
     parser.add_argument(
         "--dataset_family",
         type=str,
-        choices=["alfworld", "amabench", "fever", "pddl", "pddl_2", "bfcl_mt"],
+        choices=["alfworld", "amabench", "fever", "pddl", "pddl_2", "bfcl_mt", "scienceworld"],
         default="alfworld",
     )
     parser.add_argument(
@@ -890,6 +899,24 @@ def main() -> None:
             "PDDL 评测 JSONL（相对仓库根）；默认 data/pddl/test.jsonl。"
             "载入完整列表；每个 --pddl_domains 均在「该域 local + 共享 global」下跑同一批任务（不按 game_name 拆分到各域）。"
         ),
+    )
+    parser.add_argument(
+        "--sw_domains",
+        type=str,
+        default="art_studio,bathroom,greenhouse,hallway,kitchen,living_room",
+        help="ScienceWorld：按初始房间分组的 domain 列表，逗号分隔（与 v2_room subset 目录对应）。",
+    )
+    parser.add_argument(
+        "--sw_subset_dir",
+        type=str,
+        default="data/ScienceWorld/collab_subsets/v2_room",
+        help="ScienceWorld collab subset 目录（含 {room}__train.json 和 merged__test.json）。",
+    )
+    parser.add_argument(
+        "--sw_test_json",
+        type=str,
+        default="",
+        help="ScienceWorld 测试集 JSON；留空则用 sw_subset_dir/merged__test.json。",
     )
     parser.add_argument(
         "--bfcl_domains",
@@ -1084,6 +1111,12 @@ def main() -> None:
         eval_splits = ["test"]
         train_task_name = "fever"
         eval_task_name = "fever"
+    elif args.dataset_family == "scienceworld":
+        subset_dir = (repo_root / args.sw_subset_dir).resolve()
+        domains = parse_domains(args.sw_domains)
+        eval_splits = ["test"]
+        train_task_name = "scienceworld"
+        eval_task_name = "scienceworld"
     elif args.dataset_family == "bfcl_mt":
         bfcl_data_root = (
             repo_root / "data" / "gorilla" / "berkeley-function-call-leaderboard" / "bfcl_eval" / "data"
@@ -1240,6 +1273,8 @@ def main() -> None:
                 episodes,
                 max_turns=int(args.amabench_max_traj_turns or 0),
             )
+        elif args.dataset_family == "scienceworld":
+            rows = [build_scienceworld_task(r) for r in load_subset_file(subset_dir, domain, "train")]
         else:
             rows = []
         if args.dataset_family not in ("fever", "pddl", "pddl_2", "bfcl_mt"):
@@ -1427,6 +1462,30 @@ def main() -> None:
                 "bfcl_domains": domains,
                 "bfcl_train_ratio": ratio_meta,
                 "bfcl_split": split_note,
+            }
+        elif args.dataset_family == "scienceworld":
+            sw_test_rel = str(args.sw_test_json or "").strip()
+            if sw_test_rel:
+                sw_test_path = (repo_root / sw_test_rel).resolve()
+            else:
+                sw_test_path = (subset_dir / "merged__test.json").resolve()
+            if not sw_test_path.is_file():
+                raise FileNotFoundError(f"ScienceWorld 测试集不存在: {sw_test_path}")
+            with sw_test_path.open("r", encoding="utf-8") as reader:
+                raw_test = json.load(reader)
+            rows = [build_scienceworld_task(r) for r in (raw_test if isinstance(raw_test, list) else [])]
+            rows = dedupe_tasks(rows)
+            merged_eval_dir.mkdir(parents=True, exist_ok=True)
+            out_path = merged_eval_dir / "merged__test.json"
+            with out_path.open("w", encoding="utf-8") as writer:
+                json.dump(rows, writer, ensure_ascii=False, indent=2)
+            meta = {
+                "split": split_name,
+                "output_file": str(out_path),
+                "num_tasks_raw": len(raw_test) if isinstance(raw_test, list) else 0,
+                "num_tasks_dedup": len(rows),
+                "source_files": [str(sw_test_path)],
+                "sw_domains": domains,
             }
         else:
             raise ValueError(f"merged eval 不支持的 dataset_family: {args.dataset_family}")
@@ -1757,14 +1816,15 @@ def main() -> None:
     with open(md_path, "w", encoding="utf-8") as writer:
         writer.write(f"# {dataset_title} Multi-domain Global Eval\n\n")
         writer.write("## Eval Results\n\n")
-        if args.dataset_family == "pddl_2":
+        _use_partial_table = args.dataset_family in {"pddl_2", "scienceworld"}
+        if _use_partial_table:
             writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
             writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         else:
             writer.write("| Split | Memory Scope | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
             writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         for row in eval_results:
-            if args.dataset_family == "pddl_2":
+            if _use_partial_table:
                 writer.write(
                     f"| {row['split']} | {row['memory_scope']} | {float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} | "
                     f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {float(row.get('avg_reward', 0.0)):.4f} | "
@@ -1783,14 +1843,14 @@ def main() -> None:
                 )
         if train_results:
             writer.write("\n## Train Results (Per Domain Local)\n\n")
-            if args.dataset_family == "pddl_2":
+            if _use_partial_table:
                 writer.write("| Domain | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
                 writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             else:
                 writer.write("| Domain | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
                 writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             for row in train_results:
-                if args.dataset_family == "pddl_2":
+                if _use_partial_table:
                     writer.write(
                         f"| {row['domain']} | {float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} | "
                         f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {float(row.get('avg_reward', 0.0)):.4f} | "

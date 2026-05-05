@@ -9,6 +9,7 @@ from .fever_env import FeverEnv, FeverRecorder
 from .huskyqa_env import HuskyQAEnv, HuskyQARecorder
 from .medmcqa_env import MedMCQAEnv, MedMCQARecorder
 from .mtmind2web_env import MTMind2WebEnv, MTMind2WebRecorder
+from .scienceworld_env import ScienceWorldEnv, ScienceWorldRecorder
 try:
     from .pddl_env.pddl_env import PDDL2Env, PDDL2Recorder, PDDLEnv, PDDLRecorder, get_all_environment_configs
 except ImportError:
@@ -61,11 +62,16 @@ TASKS_PATH = {
     'mtmind2web_test_task': 'data/MT-Mind2Web/mtmind2web_test_task_eval.jsonl',
     'mtmind2web_test_website': 'data/MT-Mind2Web/mtmind2web_test_website_eval.jsonl',
     'mtmind2web_test_subdomain': 'data/MT-Mind2Web/mtmind2web_test_subdomain_eval.jsonl',
+    'scienceworld_test': 'data/ScienceWorld/collab_subsets/v2_room/merged__test.json',
+    'scienceworld': 'data/ScienceWorld/collab_subsets/v2_room/merged__test.json',
 }
 # Per-game PDDL splits: data/pddl/pddl_domain_<game>.jsonl（由 scripts/pddl/split_pddl_by_gamename.py 生成）
 for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
     TASKS_PATH[f"pddl_domain_{_pddl_game}"] = f"data/pddl/pddl_domain_{_pddl_game}.jsonl"
     TASKS_PATH[f"pddl_2_domain_{_pddl_game}"] = f"data/pddl/pddl_domain_{_pddl_game}.jsonl"
+# Per-room ScienceWorld splits：data/ScienceWorld/collab_subsets/v2_room/{room}__train.json
+for _sw_room in ("art_studio", "bathroom", "greenhouse", "hallway", "kitchen", "living_room"):
+    TASKS_PATH[f"scienceworld_domain_{_sw_room}"] = f"data/ScienceWorld/collab_subsets/v2_room/{_sw_room}__train.json"
 
 
 def _load_jsonl_rows(path: str) -> list[dict]:
@@ -375,11 +381,15 @@ TASK_DATA = {
     'mtmind2web_test_task': None,
     'mtmind2web_test_website': None,
     'mtmind2web_test_subdomain': None,
+    'scienceworld_test': [],
+    'scienceworld': [],
     'bfcl_mt': [],
 }
 for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
     TASK_DATA[f"pddl_domain_{_pddl_game}"] = None
     TASK_DATA[f"pddl_2_domain_{_pddl_game}"] = None
+for _sw_room in ("art_studio", "bathroom", "greenhouse", "hallway", "kitchen", "living_room"):
+    TASK_DATA[f"scienceworld_domain_{_sw_room}"] = None
 
 ENVS = {
     'bfcl_mt': BfclMtEnv,
@@ -409,9 +419,13 @@ ENVS = {
     'mtmind2web_test_task': MTMind2WebEnv,
     'mtmind2web_test_website': MTMind2WebEnv,
     'mtmind2web_test_subdomain': MTMind2WebEnv,
+    'scienceworld_test': ScienceWorldEnv,
+    'scienceworld': ScienceWorldEnv,
 }
 if AlfworldEnv is not None:
     ENVS['alfworld'] = AlfworldEnv
+for _sw_room in ("art_studio", "bathroom", "greenhouse", "hallway", "kitchen", "living_room"):
+    ENVS[f"scienceworld_domain_{_sw_room}"] = ScienceWorldEnv
 
 RECORDERS = {
     'bfcl_mt': BfclMtRecorder,
@@ -441,9 +455,13 @@ RECORDERS = {
     'mtmind2web_test_task': MTMind2WebRecorder,
     'mtmind2web_test_website': MTMind2WebRecorder,
     'mtmind2web_test_subdomain': MTMind2WebRecorder,
+    'scienceworld_test': ScienceWorldRecorder,
+    'scienceworld': ScienceWorldRecorder,
 }
 if AlfworldRecorder is not None:
     RECORDERS['alfworld'] = AlfworldRecorder
+for _sw_room in ("art_studio", "bathroom", "greenhouse", "hallway", "kitchen", "living_room"):
+    RECORDERS[f"scienceworld_domain_{_sw_room}"] = ScienceWorldRecorder
 
 if PDDLEnv is not None and PDDLRecorder is not None:
     for _pddl_game in ("gripper", "blockworld", "barman", "tyreworld"):
@@ -513,6 +531,7 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
         or task.startswith('fever_ab_')
         or task.startswith('pddl_domain_')
         or task.startswith('pddl_2_domain_')
+        or task.startswith('scienceworld_domain_')
     ) and TASK_DATA.get(task) is None:
         data_path = TASKS_PATH.get(task)
         if task.startswith('pddl_domain_') and not data_path:
@@ -521,12 +540,20 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
         if task.startswith('pddl_2_domain_') and not data_path:
             _game = task.removeprefix('pddl_2_domain_')
             data_path = f"data/pddl/pddl_domain_{_game}.jsonl"
+        if task.startswith('scienceworld_domain_') and not data_path:
+            _room = task.removeprefix('scienceworld_domain_')
+            data_path = f"data/ScienceWorld/collab_subsets/v2_room/{_room}__train.json"
         if not data_path or not os.path.exists(data_path):
             raise FileNotFoundError(
                 f"Dataset file for task '{task}' not found: {data_path}. "
                 "This task is optional and loaded lazily; please make sure the file exists before running it."
             )
-        loaded_rows = _load_jsonl_rows(data_path)
+        # scienceworld subset files are JSON arrays, not JSONL
+        if task.startswith('scienceworld_domain_') and data_path.endswith('.json'):
+            with open(data_path, 'r', encoding='utf-8') as _f:
+                loaded_rows = json.load(_f)
+        else:
+            loaded_rows = _load_jsonl_rows(data_path)
         if task.startswith('fever_ab_'):
             # FEVER env expects keys: task/answer/env_name.
             converted = []

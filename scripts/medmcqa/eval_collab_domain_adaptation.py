@@ -339,7 +339,7 @@ def build_mas(
 
 
 # Per-episode subprocess isolation (captures stdout/stderr) for long / noisy env families.
-_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl", "pddl_2", "bfcl_mt"})
+_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl", "pddl_2", "scienceworld", "bfcl_mt"})
 
 
 def build_isolated_subprocess_args(
@@ -609,7 +609,11 @@ def run_tasks(
         for key in ("_source_index_1based", "_smoke_source_index_1based", "_regression_label"):
             if key in task_config:
                 record[key] = task_config.get(key)
-        for key in ("trajectory_steps", "max_trials", "step_budget_used"):
+        for key in (
+            "trajectory_steps",
+            "max_trials",
+            "step_budget_used",
+        ):
             if task_metrics and key in task_metrics:
                 record[key] = float(task_metrics[key])
         try:
@@ -1108,7 +1112,15 @@ def _mt_metrics_from_saved(d: Any) -> dict[str, float]:
     if not isinstance(d, dict):
         return {}
     out: dict[str, float] = {}
-    for k in ("ele_acc", "op_f1", "ssr", "tsr", "trajectory_steps", "max_trials", "step_budget_used"):
+    for k in (
+        "ele_acc",
+        "op_f1",
+        "ssr",
+        "tsr",
+        "trajectory_steps",
+        "max_trials",
+        "step_budget_used",
+    ):
         if k not in d:
             continue
         try:

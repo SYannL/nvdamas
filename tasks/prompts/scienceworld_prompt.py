@@ -6,6 +6,9 @@ Rules:
 - Do not add explanations.
 - Prefer actions that make measurable task progress.
 - If the environment asks to resolve ambiguity, reply with one index number only.
+- Use exact room and object names from the observation.
+- Do not invent container-door commands like "open door to cupboard". For containers, open the object itself, for example "open large cupboard" or "open cupboard".
+- If the last observation says "No known action matches that input.", choose a different command form.
 """
 
 

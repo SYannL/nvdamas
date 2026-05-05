@@ -183,6 +183,11 @@ mtmind2web_test_subdomain:
   max_steps: 4
   few_shots_num: 1
 
+scienceworld:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
 scienceworld_train:
   env_config_path: tasks/env_configs/scienceworld_config.yaml
   max_steps: 50
@@ -194,6 +199,36 @@ scienceworld_dev:
   few_shots_num: 1
 
 scienceworld_test:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_art_studio:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_bathroom:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_greenhouse:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_hallway:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_kitchen:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_living_room:
   env_config_path: tasks/env_configs/scienceworld_config.yaml
   max_steps: 50
   few_shots_num: 1

@@ -51,7 +51,11 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
         'scienceworld_domain_b_train': scienceworld_solver_system_prompt,
         'scienceworld_domain_a_test': scienceworld_solver_system_prompt,
         'scienceworld_domain_b_test': scienceworld_solver_system_prompt,
+        'scienceworld': scienceworld_solver_system_prompt,
     }
+    # Per-room scienceworld domains registered dynamically
+    for _sw_room in ("art_studio", "bathroom", "greenhouse", "hallway", "kitchen", "living_room"):
+        prompt_map[f"scienceworld_domain_{_sw_room}"] = scienceworld_solver_system_prompt
 
     if prompt_map.get(task) is None:
         raise ValueError(f'Unsupported task type: {task}')
@@ -170,6 +174,9 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
 
     elif dataset == 'scienceworld_domain_b_test':
         return scienceworld_few_shots[:few_shots_num]
-    
+
+    elif dataset == 'scienceworld' or dataset.startswith('scienceworld_domain_'):
+        return scienceworld_few_shots[:few_shots_num]
+
     else:
         raise ValueError(f'Unsupported dataset type: {dataset}')

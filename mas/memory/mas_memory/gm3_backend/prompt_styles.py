@@ -589,6 +589,9 @@ def prompt_style_for_env(env_name: str) -> BasePromptStyle:
         return FeverPromptStyle()
     if env.startswith("pddl"):
         return PDDLPromptStyle()
+    # ScienceWorld shares the interactive exploration style with ALFWorld.
+    if env.startswith("scienceworld"):
+        return ALFWorldPromptStyle()
     return ALFWorldPromptStyle()
 
 
@@ -601,4 +604,7 @@ def prompt_style_for_query(query: Any, task_family: str = "") -> BasePromptStyle
         return FeverPromptStyle()
     if scene_id.startswith("pddl:") or family.startswith("pddl"):
         return PDDLPromptStyle()
+    # ScienceWorld: interactive exploration matches ALFWorld style.
+    if scene_id.startswith("scienceworld:") or family.startswith("scienceworld"):
+        return ALFWorldPromptStyle()
     return ALFWorldPromptStyle()

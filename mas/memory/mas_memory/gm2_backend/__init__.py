@@ -7,6 +7,7 @@ from .bfcl_mt_adapter import BfclAdapter
 from .fever_adapter import FeverAdapter
 from .pddl_adapter import PDDLAdapter
 from .pddl_2_adapter import PDDL2Adapter
+from .scienceworld_adapter import ScienceWorldAdapter
 from .construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
 from .retrieval_graph import QueryBasedRetriever
 from .phasee_retrieval import PhaseECompatRetriever
@@ -23,6 +24,7 @@ __all__ = [
     "FeverAdapter",
     "PDDLAdapter",
     "PDDL2Adapter",
+    "ScienceWorldAdapter",
     "EpisodeGraphBuilder",
     "GlobalPromoter",
     "LocalGraphMaintainer",
