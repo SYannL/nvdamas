@@ -212,7 +212,13 @@ class BfclMtEnv(BaseEnv):
             low = text.lower()
             if "execturn" not in low:
                 text = text.split(":", 1)[-1].strip()
-        return text.strip()
+        text = text.strip()
+        # Some models occasionally emit malformed FinishTurn tokens (e.g. `nishTurn[]`).
+        # Normalize them so the runtime protocol doesn't hard-crash.
+        compact = re.sub(r"\s+", "", text.lower())
+        if compact in ("finishturn[]", "nishturn[]", "ishturn[]"):
+            return "FinishTurn[]"
+        return text
 
     def step(self, action: str) -> tuple[str, float, bool]:
         self.steps += 1

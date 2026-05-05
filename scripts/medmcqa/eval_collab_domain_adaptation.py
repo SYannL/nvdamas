@@ -847,49 +847,82 @@ def run_tasks(
                 # 子进程非 0 退出等：父进程已在上面写过 timing（含 subprocess_nonzero_exit）
                 gamefile = (task_config.get("env_kwargs") or {}).get("gamefile")
                 pddl_crash = _is_pddl_crash(gamefile, exc)
-                skip_info = {
-                    "task_id": task_id,
-                    "task_index_1based": task_id + 1,
-                    "task_name": task_manager.task_name,
-                    "env_name": task_config.get("env_name"),
-                    "gamefile": gamefile,
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                    "pddl_crash": bool(pddl_crash),
-                }
-                skipped_tasks.append(skip_info)
-                _append_task_record(
-                    task_id=task_id,
-                    task_config=task_config,
-                    reward=0.0,
-                    done=False,
-                    skipped=True,
-                    pddl_crash=bool(pddl_crash),
-                    error_type=skip_info["error_type"],
-                    error_message=skip_info["error_message"],
-                )
-                err_preview = (skip_info.get("error_message") or "")[:500]
-                task_manager.recorder.log(
-                    f"{progress_msg} Task {task_id + 1} skipped (subprocess crash/error): {gamefile}. "
-                    f"{skip_info['error_type']}: {err_preview}. Continuing."
-                )
-                if pddl_crash:
-                    effective_total = max(0, effective_total - 1)
-                else:
+                err_msg = str(exc)
+                # 对 BFCL multi-turn（bfcl_mt），将这类错误视为一次“尝试且失败”的 episode，
+                # 而不是整体样本跳过，以便在 multidomain 统计中正常计入分母。
+                if task_manager.task_name == "bfcl_mt" and not pddl_crash:
+                    task_manager.recorder.log(
+                        f"{progress_msg} Task {task_id + 1} treated as failed episode "
+                        f"(bfcl_mt worker error): {type(exc).__name__}: {err_msg[:500]}"
+                    )
                     attempted += 1
                     done_count += 1
                     rewards.append(0.0)
                     dones.append(False)
                     per_task_mt.append({})
-                if progress_hook is not None:
-                    progress_hook(done_count, effective_total, successes, attempted)
+                    _append_task_record(
+                        task_id=task_id,
+                        task_config=task_config,
+                        reward=0.0,
+                        done=False,
+                        skipped=False,
+                        pddl_crash=False,
+                        error_type=type(exc).__name__,
+                        error_message=err_msg,
+                    )
+                    if progress_hook is not None:
+                        progress_hook(done_count, effective_total, successes, attempted)
+                    else:
+                        if (attempted % 10 == 0) or (task_id == end - 1):
+                            rate = (successes / attempted) if attempted else 0.0
+                            print(
+                                f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
+                                flush=True,
+                            )
                 else:
-                    if (attempted % 10 == 0) or (task_id == end - 1):
-                        rate = (successes / attempted) if attempted else 0.0
-                        print(
-                            f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
-                            flush=True,
-                        )
+                    skip_info = {
+                        "task_id": task_id,
+                        "task_index_1based": task_id + 1,
+                        "task_name": task_manager.task_name,
+                        "env_name": task_config.get("env_name"),
+                        "gamefile": gamefile,
+                        "error_type": type(exc).__name__,
+                        "error_message": err_msg,
+                        "pddl_crash": bool(pddl_crash),
+                    }
+                    skipped_tasks.append(skip_info)
+                    _append_task_record(
+                        task_id=task_id,
+                        task_config=task_config,
+                        reward=0.0,
+                        done=False,
+                        skipped=True,
+                        pddl_crash=bool(pddl_crash),
+                        error_type=skip_info["error_type"],
+                        error_message=skip_info["error_message"],
+                    )
+                    err_preview = (skip_info.get("error_message") or "")[:500]
+                    task_manager.recorder.log(
+                        f"{progress_msg} Task {task_id + 1} skipped (subprocess crash/error): {gamefile}. "
+                        f"{skip_info['error_type']}: {err_preview}. Continuing."
+                    )
+                    if pddl_crash:
+                        effective_total = max(0, effective_total - 1)
+                    else:
+                        attempted += 1
+                        done_count += 1
+                        rewards.append(0.0)
+                        dones.append(False)
+                        per_task_mt.append({})
+                    if progress_hook is not None:
+                        progress_hook(done_count, effective_total, successes, attempted)
+                    else:
+                        if (attempted % 10 == 0) or (task_id == end - 1):
+                            rate = (successes / attempted) if attempted else 0.0
+                            print(
+                                f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
+                                flush=True,
+                            )
             finally:
                 for p in (args_path, task_path, result_path):
                     try:
