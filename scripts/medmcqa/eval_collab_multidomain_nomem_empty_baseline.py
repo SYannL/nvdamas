@@ -200,6 +200,24 @@ def _load_merged_eval_scienceworld(repo_root: Path, args: argparse.Namespace) ->
     return rows, meta
 
 
+def _weighted_global_avg_score(rows: list[dict[str, Any]]) -> float | None:
+    weighted_sum = 0.0
+    total_weight = 0
+    for row in rows:
+        if "global_avg_score" not in row and "avg_final_score" not in row:
+            continue
+        try:
+            score = float(row.get("global_avg_score", row.get("avg_final_score", 0.0)) or 0.0)
+            weight = int(row.get("num_completed", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if weight <= 0:
+            continue
+        weighted_sum += score * weight
+        total_weight += weight
+    return (weighted_sum / total_weight) if total_weight > 0 else None
+
+
 def _run_eval_split(
     *,
     dataset_family: str,
@@ -266,8 +284,8 @@ def _run_eval_split(
         "num_tasks": len(manager.tasks),
         "num_completed": len(rewards),
         "num_skipped": len(skipped),
-        "num_success": sum(1 for d in dones if d) if dataset_family == "pddl_2" else sum(1 for r in rewards if r > 0),
-        "num_partial_success": sum(1 for r in rewards if r > 0) if dataset_family == "pddl_2" else None,
+        "num_success": sum(1 for d in dones if d) if dataset_family in {"pddl_2", "scienceworld"} else sum(1 for r in rewards if r > 0),
+        "num_partial_success": sum(1 for r in rewards if r > 0) if dataset_family in {"pddl_2", "scienceworld"} else None,
         "wall_time_sec": wall,
     }
 
@@ -369,6 +387,7 @@ def _run_one_family(repo_root: Path, args: argparse.Namespace, dataset_family: s
             indent=2,
         )
 
+    global_avg_score = _weighted_global_avg_score(eval_summaries) if dataset_family == "scienceworld" else None
     out = {
         "dataset_family": dataset_family,
         "run_id": run_id,
@@ -382,6 +401,8 @@ def _run_one_family(repo_root: Path, args: argparse.Namespace, dataset_family: s
         "merged_eval_manifest_path": manifest_path,
         "note": "无训练；mas_memory=empty；每 split 一批次顺序评测。",
     }
+    if global_avg_score is not None:
+        out["global_avg_score"] = global_avg_score
     json_path = os.path.join(report_base, f"{dataset_family}_nomem_empty_baseline.json")
     with open(json_path, "w", encoding="utf-8") as writer:
         json.dump(out, writer, ensure_ascii=False, indent=2)
@@ -389,10 +410,11 @@ def _run_one_family(repo_root: Path, args: argparse.Namespace, dataset_family: s
     print("", flush=True)
     print(f"=== {dataset_family} | empty memory baseline | summary ===", flush=True)
     for row in eval_summaries:
-        if dataset_family == "pddl_2":
+        if dataset_family in {"pddl_2", "scienceworld"}:
             print(
                 f"  split={row['split']} | full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
                 f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
+                f"global_avg_score={float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} "
                 f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
                 f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
                 f"tasks={int(row.get('num_tasks', 0))} completed={int(row.get('num_completed', 0))} "

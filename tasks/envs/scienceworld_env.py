@@ -2,6 +2,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Any
 
 from .base_env import BaseEnv, BaseRecorder
@@ -82,13 +83,13 @@ class ScienceWorldEnv(BaseEnv):
         self.sw_task_desc = str(configs.get("sw_task_desc", "") or self.env.get_task_description())
         self._task_config = dict(configs)
         self._step_count = 0
-        self.last_admissible_commands = []
+        self._refresh_admissible_commands()
         self.current_history = [{
             "Step": 0,
             "Observation": self.last_observation,
             "Score": self.last_score,
             "Done": self.last_completed,
-            "Admissible Commands": [],
+            "Admissible Commands": list(self.last_admissible_commands),
         }]
 
         task_main = f"scienceworld-{self.task_name}-v{self.variation_idx}"
@@ -117,11 +118,61 @@ class ScienceWorldEnv(BaseEnv):
             return f"wait{wait_match.group(1)}"
         return first_line
 
+    def _refresh_admissible_commands(self) -> None:
+        """Refresh current valid ScienceWorld actions from the engine."""
+        actions: list[str] = []
+        if self.env is None:
+            self.last_admissible_commands = []
+            return
+        try:
+            raw_actions = self.env.get_valid_action_object_combinations()
+        except Exception:
+            raw_actions = []
+        for action in raw_actions or []:
+            text = str(action or "").strip()
+            if text:
+                actions.append(text)
+        self.last_admissible_commands = actions
+
+    @staticmethod
+    def _normalize_action_for_match(action: str) -> str:
+        return re.sub(r"\s+", " ", str(action or "").strip()).lower()
+
+    def _repair_action_to_admissible(self, action: str) -> tuple[str, dict[str, Any] | None]:
+        """Project a proposed action to the closest current valid engine action."""
+        self._refresh_admissible_commands()
+        candidates = list(self.last_admissible_commands)
+        if not action or not candidates:
+            return action, None
+
+        norm_action = self._normalize_action_for_match(action)
+        by_norm = {self._normalize_action_for_match(candidate): candidate for candidate in candidates}
+        exact = by_norm.get(norm_action)
+        if exact is not None:
+            return exact, None
+
+        best_action = ""
+        best_score = -1.0
+        for candidate in candidates:
+            score = SequenceMatcher(None, norm_action, self._normalize_action_for_match(candidate)).ratio()
+            if score > best_score:
+                best_action = candidate
+                best_score = score
+        if not best_action:
+            return action, None
+        return best_action, {
+            "original_action": action,
+            "repaired_action": best_action,
+            "match_score": best_score,
+            "num_candidates": len(candidates),
+        }
+
     def step(self, action: str) -> tuple[str, float, bool]:
         if self.env is None:
             raise RuntimeError("ScienceWorld environment is not initialized. Call set_env first.")
 
-        env_action = self.process_action(action)
+        proposed_action = self.process_action(action)
+        env_action, repair_info = self._repair_action_to_admissible(proposed_action)
         observation, reward, completed, step_info = self.env.step(env_action)
         self.last_observation = observation or ""
         self.last_reward = float(reward)
@@ -130,6 +181,7 @@ class ScienceWorldEnv(BaseEnv):
         if self.last_reward > 0 or self.last_score > 0:
             self.has_positive_progress = True
         self._step_count += 1
+        self._refresh_admissible_commands()
         self.current_history.append({
             "Step": self._step_count,
             "Action": env_action,
@@ -137,7 +189,8 @@ class ScienceWorldEnv(BaseEnv):
             "Reward": self.last_reward,
             "Score": self.last_score,
             "Done": self.last_completed,
-            "Admissible Commands": [],
+            "Admissible Commands": list(self.last_admissible_commands),
+            "Action Repair": repair_info,
         })
         return self.last_observation, self.last_reward, self.last_completed
 

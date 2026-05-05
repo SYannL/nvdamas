@@ -312,6 +312,11 @@ def _snapshot_env_task_metrics(env: Any) -> dict[str, float]:
                 out["step_budget_used"] = out["trajectory_steps"] / max_trials
     except (TypeError, ValueError):
         pass
+    try:
+        final_score = float(getattr(env, "last_score", 0.0) or 0.0)
+        out["final_score"] = final_score
+    except (TypeError, ValueError):
+        pass
     return out
 
 
@@ -613,6 +618,7 @@ def run_tasks(
             "trajectory_steps",
             "max_trials",
             "step_budget_used",
+            "final_score",
         ):
             if task_metrics and key in task_metrics:
                 record[key] = float(task_metrics[key])
@@ -1171,6 +1177,14 @@ def compute_metrics(
         ]
         if budget_vals:
             out["avg_step_budget_used"] = sum(budget_vals) / len(budget_vals)
+        score_vals = [
+            float(row["final_score"])
+            for row in per_task_mt
+            if isinstance(row, dict) and "final_score" in row
+        ]
+        if score_vals:
+            out["avg_final_score"] = sum(score_vals) / len(score_vals)
+            out["global_avg_score"] = out["avg_final_score"]
     return out
 
 

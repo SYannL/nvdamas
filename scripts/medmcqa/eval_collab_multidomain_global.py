@@ -676,6 +676,24 @@ def compute_family_metrics(
     return metrics
 
 
+def _weighted_global_avg_score(rows: list[dict[str, Any]]) -> float | None:
+    weighted_sum = 0.0
+    total_weight = 0
+    for row in rows:
+        if "global_avg_score" not in row and "avg_final_score" not in row:
+            continue
+        try:
+            score = float(row.get("global_avg_score", row.get("avg_final_score", 0.0)) or 0.0)
+            weight = int(row.get("num_completed", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if weight <= 0:
+            continue
+        weighted_sum += score * weight
+        total_weight += weight
+    return (weighted_sum / total_weight) if total_weight > 0 else None
+
+
 def _print_multidomain_run_summary(
     *,
     dataset_title: str,
@@ -687,11 +705,12 @@ def _print_multidomain_run_summary(
     print(f"=== {dataset_title} Multi-domain Global Eval | summary ===", flush=True)
     print("-- Eval --", flush=True)
     for row in eval_results:
-        if dataset_title == "PDDL_2":
+        if dataset_title in {"PDDL_2", "ScienceWorld"}:
             print(
                 f"  split={row['split']} scope={row['memory_scope']} | "
                 f"full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
                 f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
+                f"global_avg_score={float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} "
                 f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
                 f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
                 f"tasks={int(row.get('num_tasks', 0))} "
@@ -718,11 +737,12 @@ def _print_multidomain_run_summary(
     if train_results:
         print("-- Train (per-domain local) --", flush=True)
         for row in train_results:
-            if dataset_title == "PDDL_2":
+            if dataset_title in {"PDDL_2", "ScienceWorld"}:
                 print(
                     f"  domain={row['domain']} | "
                     f"full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
                     f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
+                    f"global_avg_score={float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} "
                     f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
                     f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
                     f"tasks={int(row.get('num_tasks', 0))} "
@@ -1616,8 +1636,8 @@ def main() -> None:
                     "num_tasks": len(manager.tasks),
                     "num_completed": len(rewards),
                     "num_skipped": len(skipped),
-                    "num_success": sum(1 for d in dones if d) if args.dataset_family == "pddl_2" else sum(1 for r in rewards if r > 0),
-                    "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family == "pddl_2" else None,
+                    "num_success": sum(1 for d in dones if d) if args.dataset_family in {"pddl_2", "scienceworld"} else sum(1 for r in rewards if r > 0),
+                    "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family in {"pddl_2", "scienceworld"} else None,
                     "wall_time_sec": wall,
                 }
             )
@@ -1767,8 +1787,8 @@ def main() -> None:
             "num_tasks": len(manager.tasks),
             "num_completed": len(rewards),
             "num_skipped": len(skipped),
-            "num_success": sum(1 for d in dones if d) if args.dataset_family == "pddl_2" else sum(1 for r in rewards if r > 0),
-            "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family == "pddl_2" else None,
+            "num_success": sum(1 for d in dones if d) if args.dataset_family in {"pddl_2", "scienceworld"} else sum(1 for r in rewards if r > 0),
+            "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family in {"pddl_2", "scienceworld"} else None,
             "wall_time_sec": wall,
         }
 
@@ -1784,6 +1804,7 @@ def main() -> None:
                 )
             )
 
+    global_avg_score = _weighted_global_avg_score(eval_results) if args.dataset_family == "scienceworld" else None
     output = {
         "dataset_family": args.dataset_family,
         "run_id": run_id,
@@ -1797,6 +1818,8 @@ def main() -> None:
         "train_results": train_results,
         "eval_results": eval_results,
     }
+    if global_avg_score is not None:
+        output["global_avg_score"] = global_avg_score
     if args.dataset_family == "amabench":
         output["amabench_episode_outputs"] = amabench_episode_outputs
 
@@ -1815,19 +1838,32 @@ def main() -> None:
 
     with open(md_path, "w", encoding="utf-8") as writer:
         writer.write(f"# {dataset_title} Multi-domain Global Eval\n\n")
+        if global_avg_score is not None:
+            writer.write(f"Global average score: {global_avg_score:.4f}\n\n")
         writer.write("## Eval Results\n\n")
         _use_partial_table = args.dataset_family in {"pddl_2", "scienceworld"}
+        _include_score_col = args.dataset_family == "scienceworld"
         if _use_partial_table:
-            writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
-            writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+            if _include_score_col:
+                writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Global Avg Score | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+                writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+            else:
+                writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+                writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         else:
             writer.write("| Split | Memory Scope | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
             writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         for row in eval_results:
             if _use_partial_table:
+                score_cell = (
+                    f"{float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} | "
+                    if _include_score_col
+                    else ""
+                )
                 writer.write(
                     f"| {row['split']} | {row['memory_scope']} | {float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} | "
-                    f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {float(row.get('avg_reward', 0.0)):.4f} | "
+                    f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {score_cell}"
+                    f"{float(row.get('avg_reward', 0.0)):.4f} | "
                     f"{float(row.get('avg_trajectory_steps', 0.0)):.2f} | {int(row.get('num_tasks', 0))} | "
                     f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
                     f"{int(row.get('num_success', 0))} | {int(row.get('num_partial_success', 0) or 0)} | "
@@ -1844,16 +1880,26 @@ def main() -> None:
         if train_results:
             writer.write("\n## Train Results (Per Domain Local)\n\n")
             if _use_partial_table:
-                writer.write("| Domain | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
-                writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+                if _include_score_col:
+                    writer.write("| Domain | Full Success Rate | Partial Progress Rate | Global Avg Score | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+                    writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+                else:
+                    writer.write("| Domain | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+                    writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             else:
                 writer.write("| Domain | Accuracy | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Success | Wall Time(s) |\n")
                 writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             for row in train_results:
                 if _use_partial_table:
+                    score_cell = (
+                        f"{float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} | "
+                        if _include_score_col
+                        else ""
+                    )
                     writer.write(
                         f"| {row['domain']} | {float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} | "
-                        f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {float(row.get('avg_reward', 0.0)):.4f} | "
+                        f"{float(row.get('partial_progress_rate', 0.0)):.4f} | {score_cell}"
+                        f"{float(row.get('avg_reward', 0.0)):.4f} | "
                         f"{float(row.get('avg_trajectory_steps', 0.0)):.2f} | {int(row.get('num_tasks', 0))} | "
                         f"{int(row.get('num_completed', 0))} | {int(row.get('num_skipped', 0))} | "
                         f"{int(row.get('num_success', 0))} | {int(row.get('num_partial_success', 0) or 0)} | "
