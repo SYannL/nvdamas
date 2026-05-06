@@ -118,12 +118,6 @@ class AMemMASMemory(MASMemoryBase):
     """
     Simplified Agentic-Memory-style backend integrated into MASMemoryBase.
 
-    设计目标：
-    - 完全遵守 MASMemoryBase 生命周期（init_task_context / move_memory_state /
-      save_task_context / retrieve_prompt_payload）。
-    - 复用项目已有的 EmbeddingFunc，而不是重新加载 sentence-transformers。
-    - 保持实现轻量级、可跨任务泛化（alfworld / pddl / fever 等）。
-
     配置（通过 global_config）：
         amem_k_success: successful_topk（默认 2）
         amem_k_failed: failed_topk（当前实现不区分正负例，默认 0）
@@ -281,10 +275,6 @@ class AMemMASMemory(MASMemoryBase):
 
     # ----------------------------- utilities ----------------------------- #
     def _extract_keywords_and_tags(self, text: str) -> tuple[list[str], list[str]]:
-        """
-        极简 keyword/tag 提取：不额外调用 LLM，仅做基于 token 的过滤。
-        对比其它 memory backend，这里更像“弱化版 A-mem”，但保证代价小且稳定。
-        """
         import re
 
         raw_tokens = re.split(r"[^a-zA-Z0-9_]+", text.lower())
@@ -305,7 +295,6 @@ class AMemMASMemory(MASMemoryBase):
             "into",
         }
         tokens = [t for t in tokens if t not in stop]
-        # 前若干个 token 作为 keywords/tags（保持 deterministic）
         uniq: list[str] = []
         for t in tokens:
             if t not in uniq:
