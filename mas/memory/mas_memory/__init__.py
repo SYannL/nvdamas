@@ -7,6 +7,7 @@ from .memorybank import MemoryBankMASMemory
 from .memorybank_graph import MemoryBankGraphMASMemory
 from .gmemory_graph import GMemoryGraphMASMemory
 from .GMemory import GMemory
+from .amem import AMemMASMemory
 from .selectivemem import SelectiveMemMASMemory
 from .graph_memory2 import GraphMemory2MASMemory
 from .graph_memory3 import GraphMemory3MASMemory
@@ -23,6 +24,7 @@ __all__ = [
     'MemoryBankGraphMASMemory',
     'GMemoryGraphMASMemory',
     'GMemory',
+    'AMemMASMemory',
     'SelectiveMemMASMemory',
     'GraphMemory2MASMemory',
     'GraphMemory3MASMemory',
