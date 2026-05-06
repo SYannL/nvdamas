@@ -2390,6 +2390,47 @@ class LocalGraphMaintainer:
         search_steps = [step for step in episode.steps if _fever_is_search(step)]
         lookup_steps = [step for step in episode.steps if _fever_is_lookup(step)]
         finish_steps = [step for step in episode.steps if _fever_is_finish(step)]
+        if episode_success and search_steps and finish_steps:
+            search_arg = _fever_action_arg(search_steps[0])
+            lookup_arg = _fever_action_arg(lookup_steps[0]) if lookup_steps else ""
+            observed_lookup = _fever_relation_keyword_hint(claim, search_arg=search_arg, lookup_arg=lookup_arg)
+            route_shape = "search_lookup_finish" if lookup_steps else "search_finish"
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    f"FEVER content search route ({claim_type}): successful verification starts by searching "
+                    f"the claim's {claim_profile.get('search_role', 'primary entity')}; "
+                    + (
+                        "then lookup a claim-relation keyword before finishing from evidence."
+                        if lookup_steps
+                        else "finish directly if the searched page already settles the claim."
+                    )
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "need_search",
+                    "artifact_role": "fever_content_search_route",
+                    "domain": domain,
+                    "claim_type": claim_type,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "content_search_route",
+                    "claim_type": claim_type,
+                    "search_role": claim_profile.get("search_role", "primary entity"),
+                    "lookup_keywords": lookup_keywords,
+                    "observed_lookup_role": observed_lookup,
+                    "route_shape": route_shape,
+                    "action_patterns": [
+                        "Search[current claim primary entity]",
+                        "Lookup[current claim relation keyword]",
+                    ],
+                },
+                success=True,
+                utility_delta=0.16 if lookup_steps else 0.12,
+            )
         if episode_success and search_steps and finish_steps and not lookup_steps:
             upsert_artifact(
                 kind=ArtifactKind.PROTOTYPE,

@@ -814,8 +814,10 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         raw_items = (
             list(getattr(bundle, "global_task_plan_items", []) or [])
             + list(getattr(bundle, "global_promoted_contribution", []) or [])
-            + list(getattr(bundle, "global_items", []) or [])
         )
+        if task_family.startswith("fever"):
+            raw_items += list(getattr(bundle, "global_promoted_items", []) or [])
+        raw_items += list(getattr(bundle, "global_items", []) or [])
         rendered: list[str] = []
         for item in raw_items:
             if not self._gm3_keep_global_item_for_owner(item, global_memory=global_memory, owner_scene=owner_scene):
@@ -1106,6 +1108,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             ):
                 if not str(getattr(item, "source", "") or "").startswith("local"):
                     continue
+                if not self._gm3_fever_item_has_positive_transfer_signal(item):
+                    continue
                 text = self._gm3_clean(str(getattr(item, "summary", "") or ""))
                 if not text:
                     continue
@@ -1156,8 +1160,30 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         is_recovery = "no_results_recovery" in fever_pattern or "recovery" in fever_pattern
         is_premature_finish = "premature_finish_failure" in fever_pattern or "failure" in fever_pattern
         is_stop_rule = "evidence_sufficiency_stop" in fever_pattern or "stop" in fever_pattern
-        if not (is_recovery or is_premature_finish or is_stop_rule):
+        is_content_route = "content_search_route" in fever_pattern
+        if not (is_recovery or is_premature_finish or is_stop_rule or is_content_route):
             return ""
+
+        if is_content_route and progress == "need_search":
+            action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
+            if not action:
+                return ""
+            search_role = str(payload.get("search_role", "") or "claim subject")
+            lookup_hint = self._gm3_fever_payload_keyword(payload) or ctx["lookup_keyword"]
+            tail = f"; if the page is broad, lookup `{lookup_hint}` next" if lookup_hint else ""
+            return (
+                f"{source_label} FEVER content search route ({ctx['claim_type']}): successful routes search the "
+                f"current claim's {search_role}; use `{action}`{tail}, then finish only from evidence."
+            )
+
+        if is_content_route and progress == "need_lookup_or_finish":
+            action = self._gm3_fever_grounded_action("lookup", ctx["lookup_keyword"], admissible)
+            if not action:
+                return ""
+            return (
+                f"{source_label} FEVER content search route ({ctx['claim_type']}): after the content page is found, "
+                f"use relation-grounded lookup `{action}` only if the page does not already settle the claim."
+            )
 
         if is_recovery and progress in {"search_failed", "invalid_action"}:
             action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
@@ -1222,12 +1248,11 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             return ""
         ctx = self._gm3_fever_claim_context(query)
         if is_search_workflow and progress == "need_search":
-            action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
-            if action:
-                return (
-                    f"Local FEVER workflow ({ctx['claim_type']}): prior local states used the Search phase; "
-                    f"ground it to the current claim with `{action}`."
-                )
+            # Search[current entity] is already part of the FEVER action space.
+            # Rendering old local search transitions as advice adds no evidence
+            # and can turn failed entity-specific examples into false positive
+            # transfer signals.
+            return ""
         if is_lookup_workflow and progress == "need_lookup_or_finish":
             action = self._gm3_fever_grounded_action("lookup", ctx["lookup_keyword"], admissible)
             if action:
@@ -1495,6 +1520,23 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         if m:
             return m.group(1).strip()
         return ""
+
+    def _gm3_fever_item_has_positive_transfer_signal(self, item: Any) -> bool:
+        """Only let successful local FEVER transitions become positive hints."""
+        branch = self._gm3_norm(str(getattr(item, "branch_tag", "") or ""))
+        if branch in {"failure_branch", "repair_branch"}:
+            return False
+        try:
+            positive = int(float(getattr(item, "positive", 0) or 0))
+            negative = int(float(getattr(item, "negative", 0) or 0))
+            stalled = int(float(getattr(item, "stalled", 0) or 0))
+        except (TypeError, ValueError):
+            positive = negative = stalled = 0
+        if negative > 0 and positive <= negative:
+            return False
+        if stalled > 0 and positive <= stalled:
+            return False
+        return True
 
     def _gm3_should_suppress_fever_workflow_for_phase(self, *, text: str, task_family: str, progress: str) -> bool:
         """Avoid carrying evidence-acquisition hints into FEVER final-label decisions."""
@@ -3077,15 +3119,13 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     loss -= 0.22
                     dimensions["actionability"] += 0.22
                     reasons.append("pddl-global-goal-grounded")
+                    if progress in {"search_preconditions", "advance_goal_literals"}:
+                        loss -= 0.10
+                        dimensions["transfer_value"] += 0.10
+                        reasons.append("pddl-global-goal-grounded-phase-boost")
                 else:
-                    abstract_penalty = 0.42
-                    if progress == "initial_planning" and not self._gm3_is_concrete_location_text(text):
-                        abstract_penalty = 0.16
-                        loss -= 0.12
-                        dimensions["transfer_value"] += 0.12
-                        reasons.append("pddl-global-abstract-planning")
-                    loss += abstract_penalty
-                    dimensions["noise"] += abstract_penalty
+                    loss += 0.42
+                    dimensions["noise"] += 0.42
                     reasons.append("pddl-global-not-goal-grounded")
         if slot == "local_grounding":
             loss -= 0.35

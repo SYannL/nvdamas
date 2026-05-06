@@ -534,6 +534,7 @@ def _is_fever_transferable_hint(norm_text: str) -> bool:
             " global fever workflow ",
             " local fever workflow ",
             " fever lookup workflow ",
+            " fever content search route ",
             " fever recovery workflow ",
             " fever stop rule ",
             " fever failure avoidance ",

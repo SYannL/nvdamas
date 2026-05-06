@@ -746,6 +746,39 @@ def _artifact_relevance(
         pattern_kind=pattern_kind,
         workflow_stage=progress_state,
     )
+    is_fever_query = str(query.task_family or "").startswith("fever")
+    is_fever_artifact = str(anchor.get("domain", "") or payload.get("domain", "")) == "fever" or task_family.startswith("fever")
+    if is_fever_query and is_fever_artifact:
+        fever_pattern = str(payload.get("fever_pattern", "") or "")
+        if task_family and task_family == _query_task_family(query):
+            task_relevance += 0.35
+        elif task_family:
+            task_relevance -= 0.35
+        if progress_state and progress_state == query.progress_state:
+            state_relevance += 0.25
+        if "evidence_sufficiency_stop" in fever_pattern:
+            if query.progress_state == "need_lookup_or_finish":
+                task_relevance += 0.35
+            else:
+                task_relevance -= 0.25
+        if "content_search_route" in fever_pattern:
+            if query.progress_state == "need_search":
+                task_relevance += 0.45
+                state_relevance += 0.20
+            elif query.progress_state == "need_lookup_or_finish":
+                task_relevance += 0.20
+            else:
+                task_relevance -= 0.15
+        if "no_results_recovery" in fever_pattern:
+            if query.progress_state in {"search_failed", "invalid_action"} or query.failure_label:
+                task_relevance += 0.35
+            else:
+                task_relevance -= 0.25
+        if "premature_finish_failure" in fever_pattern:
+            if query.progress_state in {"search_failed", "invalid_action"} or query.failure_label:
+                task_relevance += 0.25
+            else:
+                task_relevance -= 0.35
     goal_relevance = _goal_relevance_from_text(query, blob)
     goal_relevance += _goal_role_bonus(query, blob, task_family=task_family, pattern_kind=pattern_kind)
 
