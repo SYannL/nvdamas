@@ -3,6 +3,9 @@ Report/
 reports/
 log/
 logs/
+*.log
+ALFWORLD_DATA/
+__MACOSX/
 data/
 output/
 .env

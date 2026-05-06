@@ -42,16 +42,22 @@ from scripts.medmcqa.eval_collab_multidomain_global import (
 )
 
 
-def _raise_if_legacy_alfworld_gamefiles(rows: list[dict], *, where: str = "") -> None:
-    """Reject old in-repo ALFWorld gamefile paths that bypass --alfworld_game_root remapping."""
+def _raise_if_legacy_alfworld_gamefiles(
+    rows: list[dict],
+    *,
+    where: str = "",
+    alfworld_game_root: str = "",
+) -> None:
+    """Reject legacy ALFWorld paths only when no external remap root is provided."""
+    has_remap_root = bool(str(alfworld_game_root or "").strip())
     for idx, row in enumerate(rows):
         env_kwargs = row.get("env_kwargs") if isinstance(row, dict) else {}
         gamefile = str((env_kwargs or {}).get("gamefile") or row.get("gamefile", "") or "")
-        if gamefile.startswith("data/alfworld/json_2.1.1/"):
+        if gamefile.startswith("data/alfworld/json_2.1.1/") and not has_remap_root:
             prefix = f"{where}: " if where else ""
             raise ValueError(
                 f"{prefix}ALFWorld task {idx} uses legacy gamefile path {gamefile!r}; "
-                "use collab_subsets/v3_s with --alfworld_game_root remapping."
+                "provide --alfworld_game_root for remapping, or regenerate the subset JSON."
             )
 
 
@@ -109,12 +115,34 @@ def _load_merged_eval_alfworld(
     manifest_rows: list[dict[str, Any]] = []
     for split_name in eval_splits:
         _path, rows, meta = merge_eval_split(subset_dir, merged_eval_dir, domains, split_name)
+        raw_count = len(rows)
         if args.max_eval is not None:
             rows = rows[: int(args.max_eval)]
-        _raise_if_legacy_alfworld_gamefiles(rows, where=f"eval split={split_name}")
+        _raise_if_legacy_alfworld_gamefiles(
+            rows,
+            where=f"eval split={split_name}",
+            alfworld_game_root=str(args.alfworld_game_root or ""),
+        )
+        print(
+            f"[alfworld debug] split={split_name} merged_raw={raw_count} "
+            f"after_max_eval={len(rows)} subset_dir={subset_dir}",
+            flush=True,
+        )
         merged_eval_tasks[split_name] = rows
         manifest_rows.append(meta)
     return merged_eval_tasks, manifest_rows, merged_eval_dir, domains
+
+
+def _resolve_alfworld_gamefile(gamefile: str, alfworld_game_root: str) -> str:
+    value = str(gamefile or "").replace("\\", "/").strip()
+    if not value:
+        return value
+    root = str(alfworld_game_root or "").strip().rstrip("/")
+    legacy_prefix = "data/alfworld/json_2.1.1/"
+    if root and value.startswith(legacy_prefix):
+        suffix = value[len(legacy_prefix):]
+        return str(Path(root) / suffix)
+    return value
 
 
 def _load_merged_eval_pddl(
@@ -298,6 +326,18 @@ def _run_eval_split(
         alfworld_game_root=str(args.alfworld_game_root or "") if dataset_family == "alfworld" else "",
     )
     manager.tasks = copy.deepcopy(eval_tasks)
+    if dataset_family == "alfworld":
+        first_gamefile = ""
+        if manager.tasks:
+            first_gamefile = str((manager.tasks[0].get("env_kwargs") or {}).get("gamefile") or "")
+        resolved_gamefile = _resolve_alfworld_gamefile(first_gamefile, str(getattr(args, "alfworld_game_root", "") or ""))
+        print(
+            f"[alfworld debug] run split={split_name} tasks={len(manager.tasks)} "
+            f"first_gamefile={first_gamefile or '<none>'} "
+            f"resolved_gamefile={resolved_gamefile or '<none>'} "
+            f"exists={Path(resolved_gamefile).is_file() if resolved_gamefile else False}",
+            flush=True,
+        )
     manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
     manager.mem_config.update({"freeze_memory": True})
 

@@ -45,6 +45,18 @@ def get_env_name_from_gamefile(gamefile: str) -> Union[str, None]:
     return None
 
 
+def _resolve_gamefile_with_external_root(gamefile: str, env_config: dict[str, Any]) -> str:
+    value = str(gamefile or "").replace("\\", "/").strip()
+    if not value:
+        return value
+    root = str((env_config or {}).get("external_game_root") or "").strip().rstrip("/")
+    legacy_prefix = "data/alfworld/json_2.1.1/"
+    if root and value.startswith(legacy_prefix):
+        suffix = value[len(legacy_prefix):]
+        return str(Path(root) / suffix)
+    return value
+
+
 class AlfworldEnv(BaseEnv):
     def __init__(
         self, 
@@ -67,10 +79,12 @@ class AlfworldEnv(BaseEnv):
         self.initial_observation: str = ""
         self.current_history: list[dict[str, Any]] = []
         self.last_admissible_commands: list[str] = []
-        self.reset()
+        # Delay env reset until a concrete task/gamefile is selected in set_env().
+        self.env = None
     
     def set_env(self, configs: dict) -> tuple[str, str]:  
-        self.gamefile = configs['env_kwargs']['gamefile']
+        raw_gamefile = configs['env_kwargs']['gamefile']
+        self.gamefile = _resolve_gamefile_with_external_root(raw_gamefile, self.env_config)
         self.env_name: str = configs['env_name']
         self.main_env.game_files = [self.gamefile]
 
