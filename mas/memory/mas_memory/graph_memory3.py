@@ -3078,8 +3078,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     dimensions["actionability"] += 0.22
                     reasons.append("pddl-global-goal-grounded")
                 else:
-                    loss += 0.42
-                    dimensions["noise"] += 0.42
+                    abstract_penalty = 0.42
+                    if progress == "initial_planning" and not self._gm3_is_concrete_location_text(text):
+                        abstract_penalty = 0.16
+                        loss -= 0.12
+                        dimensions["transfer_value"] += 0.12
+                        reasons.append("pddl-global-abstract-planning")
+                    loss += abstract_penalty
+                    dimensions["noise"] += abstract_penalty
                     reasons.append("pddl-global-not-goal-grounded")
         if slot == "local_grounding":
             loss -= 0.35
