@@ -118,11 +118,11 @@ class AMemMASMemory(MASMemoryBase):
     """
     Simplified Agentic-Memory-style backend integrated into MASMemoryBase.
 
-    配置（通过 global_config）：
-        amem_k_success: successful_topk（默认 2）
-        amem_k_failed: failed_topk（当前实现不区分正负例，默认 0）
-        amem_k_insight: insight_topk（默认 4）
-        amem_enable_insights: bool，是否把 context/tags 暴露为 insights（默认 True）
+    Configuration (via ``global_config``):
+        amem_k_success: default successful_topk (default: 2)
+        amem_k_failed: default failed_topk (default: 0; this implementation does not truly distinguish failures)
+        amem_k_insight: default insight_topk (default: 4)
+        amem_enable_insights: whether to expose context/keywords/tags as insights (default: True)
     """
 
     def __post_init__(self) -> None:
@@ -188,10 +188,10 @@ class AMemMASMemory(MASMemoryBase):
     # --------------------------- MAS lifecycle --------------------------- #
     def add_memory(self, mas_message: MASMessage) -> None:
         """
-        把一次完整任务压缩成一条 note：
-        - content: 任务描述 + 轨迹（execution pattern）
-        - context: 任务主描述
-        - keywords/tags: 通过简单启发式从文本中提取 token
+        Compress one completed task into a single note:
+        - content: task description + trajectory (execution pattern)
+        - context: the task description (as plain text)
+        - keywords/tags: extracted from text via simple heuristics (no extra LLM calls)
         """
         if self.global_config.get("freeze_memory", False):
             return
@@ -211,7 +211,7 @@ class AMemMASMemory(MASMemoryBase):
         note_index = len(self._notes)
         self._notes.append(note)
 
-        # 索引中同时使用 content + metadata（context/keywords/tags）
+        # Index both content and metadata (context/keywords/tags).
         retr_text = f"{note.content}\n{note.context}\n{' '.join(note.keywords)}\n{' '.join(note.tags)}"
         self._retriever.add(note_index, retr_text)
         self._flush_to_disk()
@@ -245,7 +245,7 @@ class AMemMASMemory(MASMemoryBase):
             msg.task_trajectory = note.content
             successful.append(msg)
 
-        # 当前实现不区分 failed，保持接口兼容
+        # This implementation does not truly distinguish failed cases; keep the interface compatible.
         if failed_topk > 0:
             for idx in top_indices[successful_topk : successful_topk + failed_topk]:
                 note = self._notes[idx]
@@ -279,7 +279,7 @@ class AMemMASMemory(MASMemoryBase):
 
         raw_tokens = re.split(r"[^a-zA-Z0-9_]+", text.lower())
         tokens = [t for t in raw_tokens if len(t) >= 3]
-        # 去掉非常高频的停用词（只做一个小黑名单）
+        # Drop a small set of high-frequency stopwords (minimal blacklist).
         stop = {
             "the",
             "and",
