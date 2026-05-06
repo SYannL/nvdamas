@@ -84,9 +84,12 @@ class FeverAdapter:
         return f"{self.derive_scene_id(domain, history_path)}:{task_id if task_id is not None else 'unknown'}"
 
     def infer_task_family(self, claim: str, domain: str | None = None) -> str:
-        if domain:
-            return f"fever:{_normalize(domain)}"
-        return "fever:claim_verification"
+        # ALFWorld uses task_family for the abstract task class, while scene_id
+        # carries the concrete domain/layout.  FEVER should follow the same
+        # split: scene_id remains A_film_tv/B_music, and task_family is the
+        # claim-verification pattern used by global artifacts/routing.
+        claim_type = str(self._claim_profile(claim).get("claim_type", "") or "general_fact")
+        return f"fever:{_normalize(claim_type)}"
 
     def goal_slots(self, goal: str) -> dict[str, str]:
         entity = self._claim_anchor(goal)

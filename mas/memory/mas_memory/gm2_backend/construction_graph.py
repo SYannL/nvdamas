@@ -2355,6 +2355,7 @@ class LocalGraphMaintainer:
             if str(keyword).strip()
         ][:5]
         family = f"fever:{claim_type}"
+        generic_family = "fever:claim_verification"
         artifacts: dict[str, MemoryArtifact] = {}
 
         def upsert_artifact(
@@ -2416,6 +2417,31 @@ class LocalGraphMaintainer:
                 success=True,
                 utility_delta=0.18,
             )
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER stop rule (claim_verification): when the searched page already settles "
+                    "the current claim, finish from evidence instead of forcing an extra Lookup."
+                ),
+                anchor={
+                    "task_family": generic_family,
+                    "goal_arity": 1,
+                    "progress_state": "need_lookup_or_finish",
+                    "artifact_role": "fever_generic_evidence_sufficiency_stop",
+                    "domain": domain,
+                    "claim_type": "claim_verification",
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "generic_evidence_sufficiency_stop",
+                    "claim_type": "claim_verification",
+                    "stop_rule": "finish if current evidence directly supports, refutes, or shows missing evidence",
+                    "avoid_patterns": ["Lookup[generic relation keyword]"],
+                },
+                success=True,
+                utility_delta=0.12,
+            )
 
         if any(_fever_no_results(step) for step in episode.steps):
             upsert_artifact(
@@ -2445,6 +2471,33 @@ class LocalGraphMaintainer:
                 },
                 success=True,
                 utility_delta=0.14,
+            )
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER recovery workflow (claim_verification): if Search or Lookup returns No Results, "
+                    "reformulate to a shorter current entity/relation keyword before giving a final label."
+                ),
+                anchor={
+                    "task_family": generic_family,
+                    "goal_arity": 1,
+                    "progress_state": "search_failed",
+                    "artifact_role": "fever_generic_no_results_recovery",
+                    "domain": domain,
+                    "claim_type": "claim_verification",
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "generic_no_results_recovery",
+                    "claim_type": "claim_verification",
+                    "repair_patterns": [
+                        "Search[shorter current claim entity]",
+                        "Lookup[shorter current claim relation keyword]",
+                    ],
+                },
+                success=True,
+                utility_delta=0.10,
             )
 
         first_finish_idx = finish_steps[0].step_idx if finish_steps else None
@@ -2477,7 +2530,7 @@ class LocalGraphMaintainer:
                 },
                 payload={
                     "source": "fever_episode_graph",
-                    "pattern_kind": "workflow",
+                    "pattern_kind": "failure",
                     "fever_pattern": "claim_type_premature_finish_failure",
                     "claim_type": claim_type,
                     "lookup_keywords": lookup_keywords,

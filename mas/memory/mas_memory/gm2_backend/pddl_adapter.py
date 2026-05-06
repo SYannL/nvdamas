@@ -147,6 +147,11 @@ class PDDLAdapter:
             step_count=int(getattr(env_ref, "steps", 0) or 0),
             done=bool(getattr(env_ref, "done", False)),
         )
+        current_norm = {_normalize(item) for item in current_literals}
+        unsatisfied_goal_literals = [
+            literal for literal in goal_literals
+            if _normalize(literal) not in current_norm
+        ]
         desired_types = [CandidateType.PRECONDITION, CandidateType.WORKFLOW]
         if str((getattr(env_ref, "infos", {}) or {}).get("action_is_valid", "")) == "False":
             desired_types.append(CandidateType.FAILURE)
@@ -179,11 +184,13 @@ class PDDLAdapter:
             belief={
                 "goal_literals": goal_literals,
                 "current_literals": current_literals,
+                "unsatisfied_goal_literals": unsatisfied_goal_literals,
                 "game_name": game_name,
                 "problem_index": getattr(env_ref, "problem_index", None),
             },
             dynamic_context={
                 "visible_objects": list(state.visible_objects),
+                "unsatisfied_goal_literals": unsatisfied_goal_literals,
                 "layout_id": self.derive_layout_id(game_name, getattr(env_ref, "problem_index", None)),
                 "task_config_env_name": str(task_config.get("env_name", "")),
                 "gm3_domain": self.domain_name,

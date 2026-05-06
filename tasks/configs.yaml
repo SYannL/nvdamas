@@ -13,6 +13,16 @@ fever:
   max_steps: 12
   few_shots_num: 3
 
+fever_aca_test:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_oral_test:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
 fever_ab_train_a:
   env_config_path: tasks/env_configs/fever_config.yaml
   max_steps: 12

@@ -643,6 +643,23 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if progress in {"need_tool_call", "tool_result_observed", "invalid_action", "tool_error", "checker_failed"}:
                 return True, "bfcl_phase_policy"
 
+        if task_family.startswith("pddl"):
+            if priority_items:
+                for item in priority_items[:3]:
+                    mapped = self._gm3_first_admissible_action_in_text(str(item or ""), admissible)
+                    if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
+                        return True, "pddl_memory_maps_to_goal_action"
+            if self._gm3_pddl_current_action_hint(query, admissible):
+                return True, "pddl_current_state_action_grounding"
+            if "failure_avoidance" in slots and self._gm3_selected_slot_has_real_item(selected, "failure_avoidance"):
+                return True, "pddl_failure_memory"
+            if "global_workflow" in slots:
+                global_line = self._gm3_summary_slot(selected, "global_workflow", default="")
+                mapped = self._gm3_first_admissible_action_in_text(global_line, admissible)
+                if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
+                    return True, "pddl_global_workflow_grounded"
+                return False, "pddl_global_workflow_not_current_goal_grounded"
+
         if priority_items:
             return True, "current_memory_maps_to_admissible_action"
         if visible_match and self._gm3_take_priority_actions(target=target, admissible=admissible):
@@ -751,7 +768,18 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         if source_items:
             sections.append({"slot": "source_roles", "title": "Current graph search priority", "items": source_items[:3], "source": "mixed"})
 
-        failure_items = self._gm3_failure_items(bundle=bundle, target=target, progress=progress, exhausted=exhausted)
+        failure_items = self._gm3_failure_items(
+            bundle=bundle,
+            target=target,
+            progress=progress,
+            exhausted=exhausted,
+            query=query,
+            local_memory=local_memory,
+            global_memory=global_memory,
+            task_family=task_family,
+            owner_scene=owner_scene,
+            admissible=admissible,
+        )
         if failure_items:
             sections.append({"slot": "failure_avoidance", "title": "Failure patterns to avoid", "items": failure_items[:3], "source": "mixed"})
 
@@ -788,14 +816,6 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             + list(getattr(bundle, "global_promoted_contribution", []) or [])
             + list(getattr(bundle, "global_items", []) or [])
         )
-        if task_family.startswith("fever") and global_memory is not None:
-            # FEVER global memory is intentionally stored as a tiny set of
-            # procedural artifacts.  The generic artifact retriever can score
-            # them too weakly because they avoid claim/entity/label specifics,
-            # so expose them here and let the FEVER prompt style/textloss gate
-            # decide whether they fit the current phase.
-            artifacts = getattr(global_memory, "artifacts_by_id", {}) or {}
-            raw_items += list(artifacts.values() if isinstance(artifacts, dict) else artifacts)
         rendered: list[str] = []
         for item in raw_items:
             if not self._gm3_keep_global_item_for_owner(item, global_memory=global_memory, owner_scene=owner_scene):
@@ -838,16 +858,34 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             ):
                 continue
             if task_family.startswith("pddl"):
+                item_family = self._gm3_item_task_family(item)
+                current_sub = task_family.split(":", 1)[-1] if ":" in task_family else ""
+                item_sub = item_family.split(":", 1)[-1] if ":" in item_family else ""
+                is_cross_domain = bool(current_sub and item_sub and item_sub != current_sub)
                 mapped = self._gm3_first_admissible_action_in_text(text, admissible)
-                if mapped:
+                # "check valid actions" is a universal PDDL meta-action that is
+                # always admissible but never advances a goal literal.  Gripper
+                # repair items that contain "check_valid_actions" in their text
+                # would always map to it, flooding every domain with a useless
+                # cross-domain grounding signal.  Strip it out here.
+                if mapped and self._gm3_norm(mapped) in {"check_valid_actions", "check valid actions", "look", "look around"}:
+                    mapped = ""
+                if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
                     rendered.append(
                         f"Global PDDL memory maps to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
                     )
-                elif hint := self._gm3_pddl_current_action_hint(query, admissible):
+                elif mapped:
+                    continue
+                elif not is_cross_domain:
                     rendered.append(
-                        f"Global PDDL workflow: rank current valid operators by unsatisfied goal literals; candidate `{hint}` has the best current goal-token overlap."
+                        "Global PDDL transfer: reuse abstract planning discipline only "
+                        "(satisfy operator preconditions, use current valid actions, and never copy arguments from another domain)."
                     )
                 else:
+                    # Cross-domain, un-groundable: still emit a domain-agnostic cue.
+                    # This avoids triggering the all-none early-return gate in
+                    # _gm3_render_decision_summary, which would suppress even the
+                    # phase/state summary the LLM needs to navigate the task.
                     rendered.append(
                         "Global PDDL transfer: reuse abstract planning discipline only "
                         "(satisfy operator preconditions, use current valid actions, and never copy arguments from another domain)."
@@ -908,6 +946,13 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         rendered: list[str] = []
         admissible_norm = {self._gm3_norm(cmd): cmd for cmd in admissible}
         visible_norm = " ".join(self._gm3_norm(x) for x in visible)
+        if task_family.startswith("pddl"):
+            hint, literal = self._gm3_pddl_current_action_hint_with_literal(query, admissible)
+            if hint:
+                detail = f" for unsatisfied goal `{self._gm3_shorten(literal, 70)}`" if literal else ""
+                rendered.append(
+                    f"current PDDL state/action grounding{detail}: admissible operator `{hint}` directly matches the remaining goal."
+                )
         if target and target in visible_norm:
             for command_norm, command in admissible_norm.items():
                 if command_norm.startswith("take ") and target in command_norm:
@@ -1034,6 +1079,12 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 continue
             if mapped:
                 if domain.startswith("pddl"):
+                    if not self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
+                        if hint := self._gm3_pddl_current_action_hint(query, admissible):
+                            rendered.append(
+                                f"Local PDDL graph cannot reuse old operator `{mapped}` for the current unsatisfied goal; current grounded operator is `{hint}`."
+                            )
+                        continue
                     rendered.append(
                         f"Local PDDL graph maps prior workflow to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
                     )
@@ -1077,6 +1128,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         admissible: list[str],
         progress: str,
         source_label: str,
+        allow_claim_type_fallback: bool = False,
     ) -> str:
         payload = getattr(item, "payload", {}) or {}
         anchor = getattr(item, "anchor", {}) or {}
@@ -1095,7 +1147,10 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         )
         current_claim_type = self._gm3_norm(ctx["claim_type"])
         if item_claim_type and item_claim_type not in {"claim_verification"} and item_claim_type != current_claim_type:
-            return ""
+            if not allow_claim_type_fallback:
+                return ""
+            if "premature_finish_failure" in fever_pattern or "failure" in fever_pattern:
+                return ""
         if progress == "ready_finish":
             return ""
         is_recovery = "no_results_recovery" in fever_pattern or "recovery" in fever_pattern
@@ -1113,7 +1168,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 f"using `{action}`; finish NOT ENOUGH INFO only after evidence search is exhausted."
             )
 
-        if is_premature_finish and progress in {"need_search", "need_lookup_or_finish", "search_failed", "invalid_action"}:
+        if is_premature_finish and progress in {"search_failed", "invalid_action"}:
             return (
                 f"{source_label} FEVER correction ({ctx['claim_type']}): avoid Finish before evidence settles the "
                 "claim; use the current page/search result, not memory, to decide the label."
@@ -1145,9 +1200,41 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         is_recovery = any(marker in norm for marker in ("no results", "not found", "reformulat", "recover", "invalid"))
         is_stop_rule = any(marker in norm for marker in ("stop rule", "already settles", "settles the claim", "sufficient", "forcing an extra lookup"))
         is_premature_finish = any(marker in norm for marker in ("premature finish", "avoid finish", "before evidence"))
-        if not (is_recovery or is_stop_rule or is_premature_finish):
+        is_search_workflow = (
+            "search" in norm
+            and (
+                "need_search" in norm
+                or "need search" in norm
+                or "try_search" in norm
+                or "try search" in norm
+            )
+        )
+        is_lookup_workflow = (
+            "lookup" in norm
+            and (
+                "need_lookup_or_finish" in norm
+                or "need lookup or finish" in norm
+                or "try_lookup" in norm
+                or "try lookup" in norm
+            )
+        )
+        if not (is_recovery or is_stop_rule or is_premature_finish or is_search_workflow or is_lookup_workflow):
             return ""
         ctx = self._gm3_fever_claim_context(query)
+        if is_search_workflow and progress == "need_search":
+            action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
+            if action:
+                return (
+                    f"Local FEVER workflow ({ctx['claim_type']}): prior local states used the Search phase; "
+                    f"ground it to the current claim with `{action}`."
+                )
+        if is_lookup_workflow and progress == "need_lookup_or_finish":
+            action = self._gm3_fever_grounded_action("lookup", ctx["lookup_keyword"], admissible)
+            if action:
+                return (
+                    f"Local FEVER workflow ({ctx['claim_type']}): prior local states used Lookup only when the "
+                    f"current page needed a relation keyword; current grounded option is `{action}`."
+                )
         if is_recovery and progress in {"search_failed", "invalid_action"}:
             action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
             if action:
@@ -1160,7 +1247,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 f"Local FEVER stop rule ({ctx['claim_type']}): if the current evidence already settles the claim, "
                 "finish from evidence instead of adding a generic Lookup."
             )
-        if is_premature_finish and progress in {"need_search", "need_lookup_or_finish", "search_failed", "invalid_action"}:
+        if is_premature_finish and progress in {"search_failed", "invalid_action"}:
             return (
                 f"Local FEVER correction ({ctx['claim_type']}): avoid label guesses before evidence; memory is a "
                 "failure warning, not a label prior."
@@ -1234,42 +1321,180 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         return ""
 
     def _gm3_pddl_current_action_hint(self, query: Any, admissible: list[str]) -> str:
+        hint, _literal = self._gm3_pddl_current_action_hint_with_literal(query, admissible)
+        return hint
+
+    def _gm3_pddl_current_action_hint_with_literal(self, query: Any, admissible: list[str]) -> tuple[str, str]:
         belief = getattr(query, "belief", {}) or {}
         goal_literals = [str(item or "") for item in (belief.get("goal_literals") or []) if str(item or "").strip()]
         current_literals = [str(item or "") for item in (belief.get("current_literals") or []) if str(item or "").strip()]
         current_norm = {self._gm3_norm(item) for item in current_literals}
         unsatisfied = [literal for literal in goal_literals if self._gm3_norm(literal) not in current_norm]
         if not admissible or not unsatisfied:
-            return ""
+            return "", ""
 
-        goal_tokens: set[str] = set()
-        for literal in unsatisfied[:8]:
-            for token in re.findall(r"[a-z0-9_]+", self._gm3_norm(literal)):
-                if len(token) > 1 and token not in {"and", "or", "not", "goal", "true"}:
-                    goal_tokens.add(token)
-        if not goal_tokens:
-            return ""
-
-        best: tuple[float, str] = (0.0, "")
+        best: tuple[float, str, str] = (0.0, "", "")
         for command in admissible:
-            command_text = str(command or "").strip()
-            command_tokens = {
-                token
-                for token in re.findall(r"[a-z0-9_]+", self._gm3_norm(command_text))
-                if len(token) > 1
-            }
-            if not command_tokens:
-                continue
-            overlap = len(goal_tokens & command_tokens)
-            if overlap <= 0:
-                continue
-            # Prefer actions that mention multiple unsatisfied goal objects, but
-            # keep the score simple and deterministic to avoid overfitting PDDL
-            # domain names.
-            score = float(overlap) + 0.05 * min(len(command_tokens), 8)
+            score, literal = self._gm3_pddl_action_goal_alignment(query, command, unsatisfied_literals=unsatisfied)
             if score > best[0]:
-                best = (score, command_text)
-        return best[1]
+                best = (score, str(command or "").strip(), literal)
+        return best[1], best[2]
+
+    def _gm3_pddl_action_advances_unsatisfied_goal(self, query: Any, action: str) -> bool:
+        score, _literal = self._gm3_pddl_action_goal_alignment(query, action)
+        return score >= 1.0
+
+    def _gm3_pddl_action_goal_alignment(
+        self,
+        query: Any,
+        action: str,
+        *,
+        unsatisfied_literals: list[str] | None = None,
+    ) -> tuple[float, str]:
+        action_text = str(action or "").strip()
+        action_norm = self._gm3_norm(action_text)
+        if not action_norm or action_norm in {"check valid actions", "look", "look around", "check valid action"}:
+            return 0.0, ""
+        belief = getattr(query, "belief", {}) or {}
+        if unsatisfied_literals is None:
+            goal_literals = [str(item or "") for item in (belief.get("goal_literals") or []) if str(item or "").strip()]
+            current_literals = [str(item or "") for item in (belief.get("current_literals") or []) if str(item or "").strip()]
+            current_norm = {self._gm3_norm(item) for item in current_literals}
+            unsatisfied_literals = [literal for literal in goal_literals if self._gm3_norm(literal) not in current_norm]
+        if not unsatisfied_literals:
+            return 0.0, ""
+
+        action_tokens = self._gm3_pddl_tokens(action_text)
+        if not action_tokens:
+            return 0.0, ""
+        action_token_set = set(action_tokens)
+        action_verb = action_tokens[0]
+        best: tuple[float, str] = (0.0, "")
+        for literal in unsatisfied_literals[:8]:
+            object_tokens, predicate_tokens = self._gm3_pddl_literal_features(literal)
+            if not object_tokens:
+                continue
+            hits = [tok for tok in object_tokens if tok in action_token_set]
+            coverage = len(hits) / max(len(object_tokens), 1)
+            ordered = self._gm3_pddl_ordered_token_match(object_tokens, action_tokens)
+            if len(object_tokens) == 1:
+                object_ok = coverage >= 1.0
+            elif len(object_tokens) == 2:
+                object_ok = coverage >= 1.0 and ordered
+            else:
+                object_ok = len(hits) >= 2 and coverage >= 0.66 and ordered
+            if not object_ok:
+                continue
+            predicate_score = self._gm3_pddl_predicate_action_score(
+                predicate_tokens=predicate_tokens,
+                action_norm=action_norm,
+                action_verb=action_verb,
+                action_tokens=action_tokens,
+            )
+            if predicate_tokens and predicate_score <= 0.0 and len(object_tokens) <= 1:
+                continue
+            score = 0.65 + coverage + 0.12 * min(len(hits), 3) + predicate_score
+            if ordered:
+                score += 0.18
+            if score > best[0]:
+                best = (score, literal)
+        return best
+
+    @staticmethod
+    def _gm3_pddl_tokens(text: str) -> list[str]:
+        return [tok for tok in re.findall(r"[a-z0-9]+", str(text or "").lower()) if tok]
+
+    def _gm3_pddl_literal_features(self, literal: str) -> tuple[list[str], set[str]]:
+        tokens = self._gm3_pddl_tokens(literal)
+        stop = {
+            "and", "or", "not", "goal", "true", "is", "are", "the", "a", "an",
+            "some", "of", "to", "from", "with", "your", "you", "have", "has",
+            "be", "been", "being", "condition", "conditions",
+        }
+        predicates = {
+            "on", "in", "at", "clear", "empty", "handempty", "holding", "inflated",
+            "intact", "loose", "tight", "tightened", "fastened", "open", "closed",
+            "locked", "unlocked", "ground", "table",
+        }
+        generic_nouns = {
+            "wheel", "wheels", "hub", "hubs", "nut", "nuts", "block", "blocks",
+            "ball", "balls", "room", "rooms", "arm", "arms",
+        }
+        predicate_tokens = {tok for tok in tokens if tok in predicates}
+        object_tokens = [
+            tok for tok in tokens
+            if tok not in stop and tok not in predicates and tok not in generic_nouns
+        ]
+        if not object_tokens:
+            object_tokens = [tok for tok in tokens if tok not in stop and tok not in predicates]
+        return list(dict.fromkeys(object_tokens)), predicate_tokens
+
+    @staticmethod
+    def _gm3_pddl_ordered_token_match(needles: list[str], haystack: list[str]) -> bool:
+        pos = 0
+        for token in needles:
+            try:
+                idx = haystack.index(token, pos)
+            except ValueError:
+                return False
+            pos = idx + 1
+        return True
+
+    @staticmethod
+    def _gm3_pddl_predicate_action_score(
+        *,
+        predicate_tokens: set[str],
+        action_norm: str,
+        action_verb: str,
+        action_tokens: list[str],
+    ) -> float:
+        score = 0.0
+        token_set = set(action_tokens)
+        if "inflated" in predicate_tokens and ("inflate" in token_set or action_verb == "inflate"):
+            score += 0.95
+        if "in" in predicate_tokens and (
+            action_norm.startswith("put away ")
+            or action_norm.startswith("putaway ")
+            or action_verb in {"put", "insert", "load"}
+        ):
+            score += 0.75
+        if "on" in predicate_tokens:
+            if action_verb in {"stack", "putdown", "put", "place"}:
+                score += 0.75
+            if "table" in predicate_tokens and action_verb in {"putdown", "put", "place"}:
+                score += 0.35
+            if "ground" in predicate_tokens and action_norm.startswith("jack down"):
+                score += 0.7
+        if "at" in predicate_tokens and action_verb in {"drop", "move", "go", "board", "depart"}:
+            score += 0.55
+        if {"open", "closed", "locked", "unlocked"} & predicate_tokens:
+            for pred in ("open", "close", "lock", "unlock"):
+                if action_verb == pred or action_norm.startswith(pred + " "):
+                    score += 0.55
+        if {"loose", "tight", "tightened", "fastened"} & predicate_tokens:
+            if action_verb in {"loosen", "tighten", "fasten", "undo"}:
+                score += 0.65
+        return score
+
+    def _gm3_item_task_family(self, item: Any) -> str:
+        """Extract the task_family from a memory item, falling back to candidate_id parsing."""
+        family = str(getattr(item, "task_family", "") or "").strip()
+        if family:
+            return family
+        anchor = getattr(item, "anchor", {}) or {}
+        family = str(anchor.get("task_family", "") or "").strip()
+        if family:
+            return family
+        cid = str(
+            getattr(item, "candidate_id", "")
+            or getattr(item, "artifact_id", "")
+            or getattr(item, "rule_id", "")
+            or ""
+        )
+        m = re.search(r"task_family=([^|]+)", cid)
+        if m:
+            return m.group(1).strip()
+        return ""
 
     def _gm3_should_suppress_fever_workflow_for_phase(self, *, text: str, task_family: str, progress: str) -> bool:
         """Avoid carrying evidence-acquisition hints into FEVER final-label decisions."""
@@ -1750,7 +1975,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             scores[base] = scores.get(base, 0.0) + float(score or 0.0)
         return {base: score for base, score in scores.items() if score > 0.05}
 
-    def _gm3_failure_items(self, *, bundle: Any, target: str, progress: str, exhausted: list[str]) -> list[str]:
+    def _gm3_failure_items(
+        self,
+        *,
+        bundle: Any,
+        target: str,
+        progress: str,
+        exhausted: list[str],
+        query: Any = None,
+        local_memory: Any = None,
+        global_memory: Any = None,
+        task_family: str = "",
+        owner_scene: str = "",
+        admissible: list[str] | None = None,
+    ) -> list[str]:
         raw_items = (
             list(getattr(bundle, "repair_items", []) or [])
             + list(getattr(bundle, "reflection_items", []) or [])
@@ -2829,6 +3067,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             loss -= 0.25
             dimensions["transfer_value"] += 0.25
             reasons.append("global-workflow-transfer")
+            task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+            if task_family.startswith("pddl"):
+                mapped = self._gm3_first_admissible_action_in_text(
+                    " ".join(str(x) for x in section.get("items", []) or []),
+                    admissible,
+                )
+                if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
+                    loss -= 0.22
+                    dimensions["actionability"] += 0.22
+                    reasons.append("pddl-global-goal-grounded")
+                else:
+                    loss += 0.42
+                    dimensions["noise"] += 0.42
+                    reasons.append("pddl-global-not-goal-grounded")
         if slot == "local_grounding":
             loss -= 0.35
             dimensions["grounding_value"] += 0.35
@@ -2837,6 +3089,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 loss -= 0.25
                 dimensions["actionability"] += 0.25
                 reasons.append("admissible-grounded")
+            task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+            if task_family.startswith("pddl"):
+                mapped = self._gm3_first_admissible_action_in_text(
+                    " ".join(str(x) for x in section.get("items", []) or []),
+                    admissible,
+                )
+                if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
+                    loss -= 0.28
+                    dimensions["actionability"] += 0.28
+                    reasons.append("pddl-local-goal-grounded")
+                else:
+                    loss += 0.18
+                    dimensions["noise"] += 0.18
+                    reasons.append("pddl-local-without-goal-grounding")
         if slot == "source_roles":
             loss += 0.1
             dimensions["noise"] += 0.1

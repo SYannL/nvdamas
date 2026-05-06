@@ -13,7 +13,13 @@ SECTION_KEY_INSIGHTS = """## Key Insights from Related Tasks
 The following are insights gathered during the execution of similar tasks. You may refer to them during your task execution to improve problem-solving accuracy.
 
 """
-SECTION_HOW_TO_USE_SEARCH = ""
+SECTION_HOW_TO_USE_SEARCH = """## How to Use Your Intermediate Findings
+- Use observations to update your current hypothesis (what to try next), not to assume the whole world is static.
+- Prefer relational cues and reusable patterns (e.g., “target objects often appear on shelves/basins”, “open before placing into a closed receptacle”) over memorizing exact coordinates or one-off locations.
+- If an action returns “Nothing happens.”, do not repeat it; 
+- When you identify a plausible next step, execute it and re-check the new observation to stay aligned with the current episode.
+
+"""
 SECTION_HOW_TO_USE_FEVER = """## How to Use Your Intermediate Findings
 - Use retrieved memories as evidence-search guidance, not as label priors.
 - Prefer a focused Search[...] from the claim, then Lookup[...] key entities or relations in the returned evidence.

@@ -34,6 +34,8 @@ def module_map(
         'chatdev': ChatDevMASMemory,
         'generative': GenerativeMASMemory,
         'metagpt': MetaGPTMASMemory,
+        # A-Mem experiments use the G-Memory implementation with an amem namespace.
+        'amem': GMemory,
         'g-memory': GMemory,
         'gmemgraph': GMemoryGraphMASMemory,
         'selectivemem': SelectiveMemMASMemory,

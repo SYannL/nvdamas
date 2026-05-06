@@ -184,14 +184,19 @@ class PDDLPromptStyle(BasePromptStyle):
         priority_items: list[str],
         admissible: list[str],
     ) -> str:
+        _meta = {"check_valid_actions", "check valid actions", "look", "look around"}
         for item in priority_items[:3]:
             text = str(item or "").strip()
             mapped = renderer._gm3_first_admissible_action_in_text(text, admissible)
-            if mapped:
+            if (
+                mapped
+                and renderer._gm3_norm(mapped) not in _meta
+                and renderer._gm3_pddl_action_advances_unsatisfied_goal(query, mapped)
+            ):
                 return f"execute current valid operator `{mapped}` only if it advances an unsatisfied goal literal."
         hint = renderer._gm3_pddl_current_action_hint(query, admissible)
         if hint:
-            return f"prefer current valid operator `{hint}` because it overlaps unsatisfied goal literals; do not invent actions."
+            return f"prefer current valid operator `{hint}` because it directly achieves an unsatisfied goal literal; do not invent actions."
         if admissible:
             return "choose a currently valid operator that advances unsatisfied goal literals; do not invent actions."
         return "continue planning from current predicates and goal literals."

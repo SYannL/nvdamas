@@ -1102,7 +1102,7 @@ def main() -> None:
         type=str,
         default="graph_memory2",
         help=(
-            "记忆类型：graph_memory2 / graph_memory3 / g-memory / selectivemem / memrl / empty 等。"
+            "记忆类型：graph_memory2 / graph_memory3 / amem / g-memory / selectivemem / memrl / empty 等。"
             "memrl 走与 g-memory 相同的多域 global 合并（add_memory_from_peer），无需 gm2/gm3 开关。"
         ),
     )

@@ -401,6 +401,8 @@ if __name__ == '__main__':
         choices=[
             'alfworld',
             'fever',
+            'fever_aca_test',
+            'fever_oral_test',
             'pddl',
             'huskyqa',
             'huskyqa_aca_test',
