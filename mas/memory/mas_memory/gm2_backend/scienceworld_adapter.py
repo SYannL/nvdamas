@@ -25,6 +25,18 @@ def _short_text(text: str, *, limit: int = 500) -> str:
     return re.sub(r"\s+", " ", str(text or "").strip())[:limit]
 
 
+_SCIENCEWORLD2_FAMILY_ALIASES = {
+    "test_conductivity": "conductivity",
+    "test_conductivity_of_unknown_substances": "conductivity",
+    "measure_melting_point_known_substance": "melting_point",
+    "measure_melting_point_unknown_substance": "melting_point",
+    "inclined_plane_friction_named_surfaces": "friction",
+    "inclined_plane_friction_unnamed_surfaces": "friction",
+    "mendelian_genetics_known_plant": "genetics",
+    "mendelian_genetics_unknown_plant": "genetics",
+}
+
+
 # ScienceWorld action verb families for natural-language science commands.
 _NAVIGATE_VERBS = frozenset({"go", "move", "walk", "travel", "enter", "exit", "leave"})
 _INSPECT_VERBS = frozenset({"look", "examine", "read", "check", "observe", "inspect", "measure", "focus", "describe"})
@@ -169,6 +181,30 @@ class ScienceWorldAdapter:
             return f"scienceworld:{_normalize(room)}"
         return "scienceworld:task"
 
+    def scienceworld2_family(self, task_config: dict | None, *, task_name: str = "") -> str:
+        task_config = task_config or {}
+        for key in ("scienceworld2_family", "sw2_family", "transfer_family"):
+            value = str(task_config.get(key, "") or "").strip()
+            if value:
+                return _normalize(value)
+        token = _normalize(task_name or str(task_config.get("sw_task_name", "") or ""))
+        if token in _SCIENCEWORLD2_FAMILY_ALIASES:
+            return _SCIENCEWORLD2_FAMILY_ALIASES[token]
+        domain = str(task_config.get("scienceworld2_domain", "") or task_config.get("sw2_domain", "") or "").strip()
+        if domain:
+            return _normalize(domain)
+        return ""
+
+    def scienceworld2_domain(self, task_config: dict | None, *, task_name: str = "") -> str:
+        task_config = task_config or {}
+        for key in ("scienceworld2_domain", "sw2_domain", "transfer_domain", "subset_group"):
+            value = str(task_config.get(key, "") or "").strip()
+            if value:
+                return _normalize(value)
+        if str(task_config.get("dataset_family", "") or "").strip().lower() == "scienceworld_2":
+            return self.scienceworld2_family(task_config, task_name=task_name)
+        return ""
+
     # ---------- state / query building ----------
 
     def build_state(
@@ -216,7 +252,10 @@ class ScienceWorldAdapter:
         room = str(task_config.get("sw_scene_room", "") or getattr(env_ref, "sw_scene_room", "") or "").strip()
         variation_idx = task_config.get("variation_idx", getattr(env_ref, "variation_idx", 0))
 
-        scene_id = self.derive_scene_id(room, sw_task_name)
+        sw2_domain = self.scienceworld2_domain(task_config, task_name=sw_task_name)
+        sw2_family = self.scienceworld2_family(task_config, task_name=sw_task_name)
+        scene_id = f"scienceworld_2:{sw2_domain}" if sw2_domain else self.derive_scene_id(room, sw_task_name)
+        task_family = f"scienceworld_2:{sw2_family}" if sw2_family else self.infer_task_family(sw_task_name, room)
 
         # State from env_ref
         observation = str(getattr(env_ref, "last_observation", "") or "")
@@ -253,6 +292,8 @@ class ScienceWorldAdapter:
                     f"domain=scienceworld",
                     f"room={_normalize(room)}" if room else "",
                     f"task={_normalize(sw_task_name)}" if sw_task_name else "",
+                    f"sw2_domain={sw2_domain}" if sw2_domain else "",
+                    f"sw2_family={sw2_family}" if sw2_family else "",
                     f"progress={progress}",
                     f"score={score:.2f}",
                     *[_normalize(obj) for obj in state.visible_objects[:8]],
@@ -265,10 +306,12 @@ class ScienceWorldAdapter:
             scene_id=scene_id,
             current_stage=state.workflow_stage,
             progress_state=progress,
-            task_family=self.infer_task_family(sw_task_name, room),
+            task_family=task_family,
             goal_roles={
                 "task": _normalize(sw_task_name) if sw_task_name else "science_task",
                 "room": _normalize(room) if room else "unknown",
+                "scienceworld2_domain": sw2_domain,
+                "scienceworld2_family": sw2_family,
             },
             required_count=1,
             placed_relevant_count=1 if progress in {"near_completion", "goal_satisfied"} else 0,
@@ -298,6 +341,8 @@ class ScienceWorldAdapter:
                 "sw_task": sw_task,
                 "sw_task_name": sw_task_name,
                 "room": room,
+                "scienceworld2_domain": sw2_domain,
+                "scienceworld2_family": sw2_family,
             },
         )
 
@@ -310,7 +355,10 @@ class ScienceWorldAdapter:
         room = str(payload.get("sw_scene_room") or task_config.get("sw_scene_room") or "unknown")
         variation_idx = payload.get("variation_idx", task_config.get("variation_idx", 0))
         goal = str(payload.get("sw_task_desc") or task_config.get("sw_task_desc") or payload.get("game_task") or "")
-        scene_id = self.derive_scene_id(room, sw_task_name, history_path)
+        sw2_domain = self.scienceworld2_domain(task_config, task_name=sw_task_name)
+        sw2_family = self.scienceworld2_family(task_config, task_name=sw_task_name)
+        scene_id = f"scienceworld_2:{sw2_domain}" if sw2_domain else self.derive_scene_id(room, sw_task_name, history_path)
+        task_family = f"scienceworld_2:{sw2_family}" if sw2_family else self.infer_task_family(sw_task_name, room)
         task_id = f"{sw_task_name}-v{variation_idx}"
         history = [row for row in payload.get("history", []) if isinstance(row, dict)]
         episode = EpisodeRecord(
@@ -323,10 +371,12 @@ class ScienceWorldAdapter:
                 "final_score": float(payload.get("final_score", 0.0) or 0.0),
                 "layout_id": self.derive_layout_id(room, variation_idx, sw_task_name, history_path),
                 "gm3_domain": self.domain_name,
-                "task_family": self.infer_task_family(sw_task_name, room),
+                "task_family": task_family,
                 "sw_task": sw_task,
                 "sw_task_name": sw_task_name,
                 "room": room,
+                "scienceworld2_domain": sw2_domain,
+                "scienceworld2_family": sw2_family,
             },
         )
         previous = history[0] if history else {}
@@ -342,8 +392,10 @@ class ScienceWorldAdapter:
             prev_score = self._float_value(previous.get("Score", 0.0))
             done = bool(record.get("Done", False))
             observation = str(record.get("Observation") or "")
+            observation_only_action = self._is_observation_only_action(action_text)
             success = (
                 failure_label is None
+                and not observation_only_action
                 and (
                     reward > 0
                     or score > prev_score
@@ -490,12 +542,6 @@ class ScienceWorldAdapter:
             "is now open",
             "you move to",
             "you are now in",
-            "you focus on",
-            "you pick up",
-            "you take",
-            "you put",
-            "you place",
-            "you pour",
             "you activate",
             "you deactivate",
             "you connect",
@@ -504,6 +550,11 @@ class ScienceWorldAdapter:
             "you turn off",
         )
         return any(marker in obs for marker in progress_markers)
+
+    @staticmethod
+    def _is_observation_only_action(action: str) -> bool:
+        text = re.sub(r"\s+", " ", str(action or "").strip().lower())
+        return text in {"look", "look around", "look room", "look at room", "inventory"}
 
     @staticmethod
     def _state_delta(prev_state: StateSummary, next_state: StateSummary) -> tuple[str, ...]:

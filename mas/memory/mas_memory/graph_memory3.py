@@ -153,6 +153,43 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             },
         )
 
+    def summarize(self, **kargs) -> str:
+        ctx = getattr(self, "current_task_context", None)
+        if ctx is None:
+            return super().summarize(**kargs)
+        task_main = str(getattr(ctx, "task_main", "") or "").lower()
+        task_description = str(getattr(ctx, "task_description", "") or "")
+        is_scienceworld = "scienceworld" in task_main or "scienceworld" in task_description.lower()
+        if not is_scienceworld:
+            return super().summarize(**kargs)
+
+        base = task_description + self._gm3_compact_scienceworld_trajectory(
+            str(getattr(ctx, "task_trajectory", "") or "")
+        )
+        if self.enable_overlay and self.episode_builder is not None:
+            notes = self.episode_builder.planner_notes()
+            if notes:
+                return base + "\n\n" + "\n".join(notes)
+        return base
+
+    @staticmethod
+    def _gm3_compact_scienceworld_trajectory(trajectory: str, *, keep_steps: int = 6, obs_limit: int = 520) -> str:
+        segments = [seg.strip() for seg in str(trajectory or "").split("\n>") if seg.strip()]
+        if not segments:
+            return "\n\n>"
+        omitted = max(0, len(segments) - keep_steps)
+        kept = segments[-keep_steps:]
+        lines: list[str] = ["\n\n>"]
+        if omitted:
+            lines.append(f"[... omitted {omitted} earlier ScienceWorld steps ...]")
+        for segment in kept:
+            action, sep, observation = segment.partition("\n")
+            obs = re.sub(r"\s+", " ", observation.strip())
+            if len(obs) > obs_limit:
+                obs = obs[:obs_limit].rstrip() + "..."
+            lines.append(f"{action.strip()}\n{obs}\n>")
+        return "\n".join(lines)
+
     def repair_action(
         self,
         *,
@@ -168,6 +205,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if str(cmd).strip()
         ]
         domain = self._infer_external_domain(task_config or {}, env_ref)
+        if domain == "scienceworld":
+            self._gm3_debug_append(
+                "action_hook_observe",
+                step_index=step_index,
+                payload={
+                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "processed_action": str(processed_action or ""),
+                    "final_action": str(processed_action or ""),
+                    "changed": False,
+                    "reason": "gm3_prompt_only_for_scienceworld",
+                    "admissible_sample": admissible[:20],
+                },
+            )
+            return str(processed_action or "")
         if domain != "alfworld":
             self._gm3_debug_append(
                 "action_hook_observe",

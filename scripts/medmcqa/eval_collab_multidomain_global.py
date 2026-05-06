@@ -54,8 +54,9 @@ GM2_RETRIEVAL_MODE_CHOICES: tuple[str, ...] = (
 GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ("base", "local_only", "global_only", "local_plus_global")
 GM3_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
 
-# BFCL family collab：默认路径与 scripts/gorilla/split_bfcl_mt_four_families.py 输出一致；可通过 CLI 覆盖（与 FEVER 多文件参数同模式）。
-_BFCL_FAM_COLLAB_DIR = "data/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/collab_family_split"
+# BFCL family collab：默认路径与当前仓库内 data/gorilla 的 family split 输出一致；
+# 可通过 CLI 覆盖（与 FEVER 多文件参数同模式）。
+_BFCL_FAM_COLLAB_DIR = "data/gorilla"
 _BFCL_FAM_PA = f"{_BFCL_FAM_COLLAB_DIR}/possible_answer"
 _BFCL_FAM_STEM = "BFCL_v4_multi_turn_base"
 _BFCL_FAM_DEFAULT_TRAIN_QUESTIONS = ",".join(
@@ -631,6 +632,35 @@ def build_scienceworld_task(row: dict) -> dict:
     return task
 
 
+def build_scienceworld2_task(row: dict, *, domain: str | None = None, split: str | None = None) -> dict:
+    """Normalize isolated ScienceWorld_2 rows while reusing the ScienceWorld env."""
+    task = build_scienceworld_task(row)
+    domain_value = str(
+        task.get("scienceworld2_domain")
+        or task.get("sw2_domain")
+        or task.get("subset_group")
+        or domain
+        or ""
+    ).strip()
+    family_value = str(
+        task.get("scienceworld2_family")
+        or task.get("sw2_family")
+        or domain_value
+        or task.get("sw_task_name", "")
+    ).strip()
+    task["env_name"] = "scienceworld"
+    task["task_type"] = "scienceworld_2"
+    task["dataset_family"] = "scienceworld_2"
+    task["gm3_domain"] = "scienceworld"
+    if domain_value:
+        task["scienceworld2_domain"] = domain_value
+    if family_value:
+        task["scienceworld2_family"] = family_value
+    if split:
+        task.setdefault("scienceworld2_split", split)
+    return task
+
+
 def _dataset_eval_title(dataset_family: str) -> str:
     return {
         "alfworld": "ALFWorld",
@@ -640,6 +670,7 @@ def _dataset_eval_title(dataset_family: str) -> str:
         "amabench": "AMA-Bench",
         "bfcl_mt": "BFCL multi_turn_base",
         "scienceworld": "ScienceWorld",
+        "scienceworld_2": "ScienceWorld_2",
     }.get(dataset_family, dataset_family.replace("_", " ").title())
 
 
@@ -656,7 +687,7 @@ def compute_family_metrics(
     per_task_mt: list[dict[str, float]] | None,
 ) -> dict[str, float]:
     metrics = compute_metrics(rewards, per_task_mt)
-    if dataset_family not in {"pddl_2", "scienceworld"}:
+    if dataset_family not in {"pddl_2", "scienceworld", "scienceworld_2"}:
         return metrics
     partial_success = sum(1 for r in rewards if r > 0)
     full_success = sum(1 for d in dones if d)
@@ -849,7 +880,16 @@ def main() -> None:
     parser.add_argument(
         "--dataset_family",
         type=str,
-        choices=["alfworld", "amabench", "fever", "pddl", "pddl_2", "bfcl_mt", "scienceworld"],
+        choices=[
+            "alfworld",
+            "amabench",
+            "fever",
+            "pddl",
+            "pddl_2",
+            "bfcl_mt",
+            "scienceworld",
+            "scienceworld_2",
+        ],
         default="alfworld",
     )
     parser.add_argument(
@@ -922,21 +962,51 @@ def main() -> None:
     )
     parser.add_argument(
         "--sw_domains",
+        "--scienceworld_domains",
+        dest="sw_domains",
         type=str,
         default="art_studio,bathroom,greenhouse,hallway,kitchen,living_room",
         help="ScienceWorld：按初始房间分组的 domain 列表，逗号分隔（与 v2_room subset 目录对应）。",
     )
     parser.add_argument(
         "--sw_subset_dir",
+        "--scienceworld_subset_dir",
+        dest="sw_subset_dir",
         type=str,
         default="data/ScienceWorld/collab_subsets/v2_room",
         help="ScienceWorld collab subset 目录（含 {room}__train.json 和 merged__test.json）。",
     )
     parser.add_argument(
         "--sw_test_json",
+        "--scienceworld_test_json",
+        dest="sw_test_json",
         type=str,
         default="",
         help="ScienceWorld 测试集 JSON；留空则用 sw_subset_dir/merged__test.json。",
+    )
+    parser.add_argument(
+        "--sw2_domains",
+        "--scienceworld2_domains",
+        dest="sw2_domains",
+        type=str,
+        default="conductivity,melting_point,friction,genetics",
+        help="ScienceWorld_2：family/domain 列表，逗号分隔。",
+    )
+    parser.add_argument(
+        "--sw2_subset_dir",
+        "--scienceworld2_subset_dir",
+        dest="sw2_subset_dir",
+        type=str,
+        default="data/ScienceWorld/collab_subsets/v3_family_mixed",
+        help="ScienceWorld_2 subset 目录（含 {domain}__train.json 和 merged__test.json）。",
+    )
+    parser.add_argument(
+        "--sw2_test_json",
+        "--scienceworld2_test_json",
+        dest="sw2_test_json",
+        type=str,
+        default="",
+        help="ScienceWorld_2 mixed held-out 测试 JSON；留空则用 sw2_subset_dir/merged__test.json。",
     )
     parser.add_argument(
         "--bfcl_domains",
@@ -1137,6 +1207,15 @@ def main() -> None:
         eval_splits = ["test"]
         train_task_name = "scienceworld"
         eval_task_name = "scienceworld"
+    elif args.dataset_family == "scienceworld_2":
+        subset_dir = (repo_root / args.sw2_subset_dir).resolve()
+        domains = parse_domains(args.sw2_domains)
+        if len(domains) < 1:
+            raise ValueError("dataset_family=scienceworld_2 需要至少 1 个 --scienceworld2_domains。")
+        eval_splits = ["test"]
+        # Keep the runtime env and prompts on the existing ScienceWorld task.
+        train_task_name = "scienceworld"
+        eval_task_name = "scienceworld"
     elif args.dataset_family == "bfcl_mt":
         bfcl_data_root = (
             repo_root / "data" / "gorilla" / "berkeley-function-call-leaderboard" / "bfcl_eval" / "data"
@@ -1295,6 +1374,11 @@ def main() -> None:
             )
         elif args.dataset_family == "scienceworld":
             rows = [build_scienceworld_task(r) for r in load_subset_file(subset_dir, domain, "train")]
+        elif args.dataset_family == "scienceworld_2":
+            rows = [
+                build_scienceworld2_task(r, domain=domain, split="train")
+                for r in load_subset_file(subset_dir, domain, "train")
+            ]
         else:
             rows = []
         if args.dataset_family not in ("fever", "pddl", "pddl_2", "bfcl_mt"):
@@ -1506,6 +1590,34 @@ def main() -> None:
                 "num_tasks_dedup": len(rows),
                 "source_files": [str(sw_test_path)],
                 "sw_domains": domains,
+            }
+        elif args.dataset_family == "scienceworld_2":
+            sw_test_rel = str(args.sw2_test_json or "").strip()
+            if sw_test_rel:
+                sw_test_path = (repo_root / sw_test_rel).resolve()
+            else:
+                sw_test_path = (subset_dir / "merged__test.json").resolve()
+            if not sw_test_path.is_file():
+                raise FileNotFoundError(f"ScienceWorld_2 测试集不存在: {sw_test_path}")
+            with sw_test_path.open("r", encoding="utf-8") as reader:
+                raw_test = json.load(reader)
+            rows = [
+                build_scienceworld2_task(r, split="test")
+                for r in (raw_test if isinstance(raw_test, list) else [])
+            ]
+            rows = dedupe_tasks(rows)
+            merged_eval_dir.mkdir(parents=True, exist_ok=True)
+            out_path = merged_eval_dir / "merged__test.json"
+            with out_path.open("w", encoding="utf-8") as writer:
+                json.dump(rows, writer, ensure_ascii=False, indent=2)
+            meta = {
+                "split": split_name,
+                "output_file": str(out_path),
+                "num_tasks_raw": len(raw_test) if isinstance(raw_test, list) else 0,
+                "num_tasks_dedup": len(rows),
+                "source_files": [str(sw_test_path)],
+                "sw2_domains": domains,
+                "scienceworld2_subset_dir": str(subset_dir),
             }
         else:
             raise ValueError(f"merged eval 不支持的 dataset_family: {args.dataset_family}")
@@ -1841,7 +1953,7 @@ def main() -> None:
         if global_avg_score is not None:
             writer.write(f"Global average score: {global_avg_score:.4f}\n\n")
         writer.write("## Eval Results\n\n")
-        _use_partial_table = args.dataset_family in {"pddl_2", "scienceworld"}
+        _use_partial_table = args.dataset_family in {"pddl_2", "scienceworld", "scienceworld_2"}
         _include_score_col = args.dataset_family == "scienceworld"
         if _use_partial_table:
             if _include_score_col:

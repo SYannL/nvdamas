@@ -344,7 +344,9 @@ def build_mas(
 
 
 # Per-episode subprocess isolation (captures stdout/stderr) for long / noisy env families.
-_SUBPROCESS_ISOLATED_FAMILIES = frozenset({"alfworld", "fever", "pddl", "pddl_2", "scienceworld", "bfcl_mt"})
+_SUBPROCESS_ISOLATED_FAMILIES = frozenset(
+    {"alfworld", "fever", "pddl", "pddl_2", "scienceworld", "scienceworld_2", "bfcl_mt"}
+)
 
 
 def build_isolated_subprocess_args(

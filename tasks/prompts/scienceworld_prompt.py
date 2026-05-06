@@ -9,6 +9,10 @@ Rules:
 - Use exact room and object names from the observation.
 - Do not invent container-door commands like "open door to cupboard". For containers, open the object itself, for example "open large cupboard" or "open cupboard".
 - If the last observation says "No known action matches that input.", choose a different command form.
+- Do not repeat "look around" when the target object is already visible. Focus on or interact with the visible target instead.
+- For room doors, if "A door to X" is closed, use "open door to X"; after it is open, use "go to X".
+- If the task says "First, focus on X. Next, focus on Y", execute those focus commands as soon as X or Y is visible.
+- If the task says to focus on a seed and a seed is visible in a seed jar, use "focus on <seed name>", not "take <seed name> from seed jar".
 """
 
 
