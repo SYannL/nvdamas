@@ -26,6 +26,7 @@ FEVER_TEST_JSONL="${FEVER_TEST_JSONL:-data/fever/fever_ab_test_v3.jsonl}"
 RESET_MEMORY="${RESET_MEMORY:-1}"
 EVAL_ONLY="${EVAL_ONLY:-0}"
 TOOL_MODE="${TOOL_MODE:-}"
+MAX_TRAIN="${MAX_TRAIN:-}"
 MAX_EVAL="${MAX_EVAL:-}"
 GM2_DYNAMIC_GRAPH="${GM2_DYNAMIC_GRAPH:-0}"
 GM2_REPO_ROOT="${GM2_REPO_ROOT:-}"
@@ -35,6 +36,13 @@ GM3_DYNAMIC_GRAPH="${GM3_DYNAMIC_GRAPH:-0}"
 GM3_REPO_ROOT="${GM3_REPO_ROOT:-}"
 GM3_ROUTER="${GM3_ROUTER:-textloss}"
 GM3_SETTINGS="${GM3_SETTINGS:-local_plus_global}"
+MEMSKILL_CONTROLLER="${MEMSKILL_CONTROLLER:-llm}"
+MEMSKILL_CHECKPOINT_PATH="${MEMSKILL_CHECKPOINT_PATH:-/home/xenial/scratch/nvdamas/Models/memskill/alfworld_controller.pt}"
+MEMSKILL_OPERATION_BANK_PATH="${MEMSKILL_OPERATION_BANK_PATH:-}"
+MEMSKILL_REQUIRE_PPO="${MEMSKILL_REQUIRE_PPO:-0}"
+MEMSKILL_PPO_DEVICE="${MEMSKILL_PPO_DEVICE:-cpu}"
+MEMSKILL_PPO_REPO_PATH="${MEMSKILL_PPO_REPO_PATH:-}"
+MEMSKILL_FINALIZE_LOCAL="${MEMSKILL_FINALIZE_LOCAL:-0}"
 
 TS="$(date +%Y%m%d_%H%M%S)"
 MODEL_SAFE="$(printf '%s' "$MODEL" | tr '/:' '__')"
@@ -67,6 +75,10 @@ if [ -n "$MAX_EVAL" ]; then
     cmd+=(--max_eval "$MAX_EVAL")
 fi
 
+if [ -n "$MAX_TRAIN" ]; then
+    cmd+=(--max_train "$MAX_TRAIN")
+fi
+
 if [ -n "$TOOL_MODE" ]; then
     cmd+=(--tool_mode "$TOOL_MODE")
 elif [ "$MAS_MEMORY" = "amem" ] || [ "$MAS_MEMORY" = "memrl" ]; then
@@ -93,6 +105,28 @@ if [ "$MAS_MEMORY" = "graph_memory3" ]; then
     fi
     cmd+=(--gm3_router "$GM3_ROUTER")
     cmd+=(--gm3_settings "$GM3_SETTINGS")
+fi
+
+if [ "$MAS_MEMORY" = "memskill" ]; then
+    cmd+=(--memskill_controller "$MEMSKILL_CONTROLLER")
+    if [ -n "$MEMSKILL_CHECKPOINT_PATH" ]; then
+        cmd+=(--memskill_checkpoint_path "$MEMSKILL_CHECKPOINT_PATH")
+    fi
+    if [ -n "$MEMSKILL_OPERATION_BANK_PATH" ]; then
+        cmd+=(--memskill_operation_bank_path "$MEMSKILL_OPERATION_BANK_PATH")
+    fi
+    if [ "$MEMSKILL_REQUIRE_PPO" = "1" ]; then
+        cmd+=(--memskill_require_ppo)
+    fi
+    if [ -n "$MEMSKILL_PPO_DEVICE" ]; then
+        cmd+=(--memskill_ppo_device "$MEMSKILL_PPO_DEVICE")
+    fi
+    if [ -n "$MEMSKILL_PPO_REPO_PATH" ]; then
+        cmd+=(--memskill_ppo_repo_path "$MEMSKILL_PPO_REPO_PATH")
+    fi
+    if [ "$MEMSKILL_FINALIZE_LOCAL" = "1" ]; then
+        cmd+=(--memskill_finalize_local)
+    fi
 fi
 
 printf 'RUN=%s\n' "$RUN"
