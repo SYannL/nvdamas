@@ -352,6 +352,54 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
     return config
 
 
+def _resolve_memskill_common(args: argparse.Namespace) -> dict[str, Any]:
+    if args.mas_memory != "memskill":
+        return {}
+
+    config: dict[str, Any] = {}
+
+    def add_str(arg_name: str, config_name: str | None = None) -> None:
+        value = str(getattr(args, arg_name, "") or "").strip()
+        if value:
+            config[config_name or arg_name] = value
+
+    def add_int(arg_name: str, config_name: str | None = None) -> None:
+        value = getattr(args, arg_name, None)
+        if value is not None:
+            config[config_name or arg_name] = int(value)
+
+    add_str("memskill_controller")
+    add_str("memskill_checkpoint_path")
+    add_str("memskill_operation_bank_path")
+    add_str("memskill_ppo_repo_path")
+    add_str("memskill_ppo_device")
+    add_str("memskill_ppo_controller_source")
+    add_str("memskill_state_encoder")
+    add_str("memskill_op_encoder")
+    add_int("memskill_max_ops")
+    add_int("memskill_top_k")
+    add_int("memskill_retrieve_top_k")
+    add_int("memskill_action_top_k")
+
+    if bool(getattr(args, "memskill_finalize_local", False)):
+        config["memskill_finalize_local"] = True
+        config["memskill_collect_replay"] = True
+    if bool(getattr(args, "memskill_require_ppo", False)):
+        config["memskill_require_ppo"] = True
+        config["require_ppo"] = True
+    if bool(getattr(args, "memskill_train_controller", False)):
+        config["memskill_train_controller"] = True
+    if bool(getattr(args, "memskill_skip_noop", False)):
+        config["memskill_skip_noop"] = True
+    if bool(getattr(args, "memskill_expose_skill_notes", False)):
+        config["memskill_expose_skill_notes"] = True
+    if getattr(args, "memskill_finalize_rebuild", None) is not None:
+        config["memskill_finalize_rebuild"] = bool(args.memskill_finalize_rebuild)
+    if getattr(args, "memskill_use_flash_attn", None) is not None:
+        config["memskill_use_flash_attn"] = bool(args.memskill_use_flash_attn)
+    return config
+
+
 def pddl_domain_train_jsonl(repo_root: Path, domain: str, override_path: Path | None) -> Path:
     if override_path is not None:
         return override_path
@@ -1158,6 +1206,25 @@ def main() -> None:
     parser.add_argument("--gm3_promotion_threshold", type=float, default=None)
     parser.add_argument("--gm3_use_textgrad", action="store_true")
     parser.add_argument("--gm3_textgrad_engine", type=str, default="")
+    parser.add_argument("--memskill_finalize_local", action="store_true")
+    parser.add_argument("--memskill_controller", type=str, default="")
+    parser.add_argument("--memskill_checkpoint_path", type=str, default="")
+    parser.add_argument("--memskill_operation_bank_path", type=str, default="")
+    parser.add_argument("--memskill_ppo_repo_path", type=str, default="")
+    parser.add_argument("--memskill_ppo_device", type=str, default="")
+    parser.add_argument("--memskill_ppo_controller_source", type=str, default="")
+    parser.add_argument("--memskill_state_encoder", type=str, default="")
+    parser.add_argument("--memskill_op_encoder", type=str, default="")
+    parser.add_argument("--memskill_max_ops", type=int, default=None)
+    parser.add_argument("--memskill_top_k", type=int, default=None)
+    parser.add_argument("--memskill_retrieve_top_k", type=int, default=None)
+    parser.add_argument("--memskill_action_top_k", type=int, default=None)
+    parser.add_argument("--memskill_require_ppo", action="store_true")
+    parser.add_argument("--memskill_train_controller", action="store_true")
+    parser.add_argument("--memskill_skip_noop", action="store_true")
+    parser.add_argument("--memskill_expose_skill_notes", action="store_true")
+    parser.add_argument("--memskill_finalize_rebuild", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--memskill_use_flash_attn", action=argparse.BooleanOptionalAction, default=None)
     args = parser.parse_args()
 
     if args.reset_memory and args.eval_only:
@@ -1640,6 +1707,7 @@ def main() -> None:
         json.dump(merge_manifest, writer, ensure_ascii=False, indent=2)
 
     graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
+    memskill_common = _resolve_memskill_common(args)
     graph_memory_prefix = "gm3" if args.mas_memory == "graph_memory3" else "gm2"
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
@@ -1710,7 +1778,7 @@ def main() -> None:
             )
             manager.tasks = copy.deepcopy(train_tasks_by_domain[domain])
             manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
-            manager.mem_config.update(graph_memory_common)
+            manager.mem_config.update({**graph_memory_common, **memskill_common})
             train_graph_settings = graph_settings_value
             apply_gm_graph_scene_config(
                 manager,
@@ -1735,10 +1803,23 @@ def main() -> None:
             persist_fn = getattr(getattr(manager.mas, "meta_memory", None), "persist_entity_graph", None)
             if callable(persist_fn):
                 persist_fn()
+            if args.mas_memory == "memskill" and bool(getattr(args, "memskill_finalize_local", False)):
+                finalize_fn = getattr(getattr(manager.mas, "meta_memory", None), "finalize_training", None)
+                if callable(finalize_fn):
+                    finalize_report = finalize_fn(
+                        saved_messages=saved_messages,
+                        source_id=domain,
+                        train_controller=bool(getattr(args, "memskill_train_controller", False)),
+                    )
+                else:
+                    finalize_report = {"error": "memskill finalize_training not available"}
+            else:
+                finalize_report = None
             train_results.append(
                 {
                     "domain": domain,
                     "graph_memory_settings": train_graph_settings if args.mas_memory in _GM_GRAPH_MEMORY else None,
+                    "memskill_finalize": finalize_report,
                     **compute_family_metrics(
                         dataset_family=args.dataset_family,
                         rewards=rewards,
@@ -1783,7 +1864,7 @@ def main() -> None:
             _reasoning_cls, global_mem_cls = module_map(args.reasoning, args.mas_memory)
             global_mem = global_mem_cls(
                 namespace=args.mas_memory,
-                global_config={"working_dir": global_dir},
+                global_config={"working_dir": global_dir, **memskill_common},
                 llm_model=GPTChat(model_name=args.model),
                 embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
             )
@@ -1837,7 +1918,7 @@ def main() -> None:
         )
         manager.tasks = eval_tasks
         manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
-        manager.mem_config.update({"freeze_memory": True, **graph_memory_common})
+        manager.mem_config.update({"freeze_memory": True, **graph_memory_common, **memskill_common})
         graph_memory_settings = graph_settings_value
         if args.mas_memory in _GM_GRAPH_MEMORY:
             apply_gm_graph_scene_config(
@@ -1855,6 +1936,7 @@ def main() -> None:
                 global_config={
                     "working_dir": global_dir,
                     "freeze_memory": True,
+                    **memskill_common,
                 },
                 llm_model=GPTChat(model_name=args.model),
                 embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
@@ -1869,6 +1951,9 @@ def main() -> None:
             max_trials=args.max_trials,
             alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
         )
+        if isolated_sp is not None and args.mas_memory not in _GM_GRAPH_MEMORY:
+            isolated_sp["use_global_retriever"] = True
+            isolated_sp["global_dir"] = global_dir
         t0 = time.perf_counter()
         rewards, dones, saved_messages, skipped, per_task_mt = run_tasks(
             manager, 0, len(manager.tasks), args.tool_mode, alfworld_subprocess_args=isolated_sp

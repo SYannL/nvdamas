@@ -500,23 +500,29 @@ class _MemSkillPPOAdapter:
         if not os.path.exists(checkpoint_path):
             raise FileNotFoundError(f"MemSkill PPO checkpoint not found: {checkpoint_path}")
 
+        import torch
+
+        requested_source = str(
+            owner._cfg("memskill_ppo_controller_source", "controller_source", default="original") or "original"
+        ).strip().lower()
         repo_path = str(
             owner._cfg("memskill_ppo_repo_path", "memskill_repo_path", default="/workspace/MemSkill-main")
             or "/workspace/MemSkill-main"
         ).strip()
-        if repo_path and not os.path.isdir(repo_path) and os.path.isdir("/bigdata/xenial/MemSkill-main"):
-            repo_path = "/bigdata/xenial/MemSkill-main"
-        if repo_path and os.path.isdir(repo_path) and repo_path not in sys.path:
-            sys.path.insert(0, repo_path)
-
-        import torch
-
-        controller_source = "original_repo"
-        try:
-            from src.controller import PPOController, StateEncoder, OpEncoder  # type: ignore
-        except Exception:
+        if requested_source in {"internal", "internal_fallback", "fallback", "nvdamas"}:
             PPOController, StateEncoder, OpEncoder = _build_internal_ppo_classes(torch)
             controller_source = "internal_fallback"
+        else:
+            if repo_path and not os.path.isdir(repo_path) and os.path.isdir("/bigdata/xenial/MemSkill-main"):
+                repo_path = "/bigdata/xenial/MemSkill-main"
+            if repo_path and os.path.isdir(repo_path) and repo_path not in sys.path:
+                sys.path.insert(0, repo_path)
+            controller_source = "original_repo"
+            try:
+                from src.controller import PPOController, StateEncoder, OpEncoder  # type: ignore
+            except Exception:
+                PPOController, StateEncoder, OpEncoder = _build_internal_ppo_classes(torch)
+                controller_source = "internal_fallback"
 
         try:
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)

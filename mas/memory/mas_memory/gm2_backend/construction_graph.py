@@ -489,6 +489,14 @@ def _is_low_information_global_rule(rule: MemoryRule) -> bool:
     prefer_action = str(effect.get("prefer_action", "") or "").lower()
     via = str(effect.get("via", "") or "").lower()
     action_role = str(effect.get("action_role", "") or "").lower()
+    task_family = str(rule.task_family or "").lower()
+
+    if task_family.startswith("pddl") and (
+        "check valid actions" in summary
+        or prefer_action.startswith(("check_valid_actions", "check valid actions"))
+        or via in {"check_valid_actions", "check valid actions", "check valid action"}
+    ):
+        return True
 
     if "within search" in summary and via in {"open", "go", "look", "examine"}:
         return True
@@ -507,6 +515,15 @@ def _is_low_information_global_artifact(artifact: MemoryArtifact) -> bool:
     pattern_kind = str(payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
     source_base = str(payload.get("source_base", "") or "")
     source_role = str(payload.get("source_role", "") or "")
+    task_family = str(
+        artifact.anchor.get("task_family", "")
+        or payload.get("task_family", "")
+        or ""
+    ).lower()
+
+    if task_family.startswith("pddl") and pattern_kind in {"workflow", "precondition"}:
+        if "check valid actions" in summary or "check_valid_actions" in summary:
+            return True
 
     if pattern_kind == "source_type_prior":
         return not bool(source_base or source_role)

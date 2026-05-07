@@ -124,6 +124,12 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             and str(os.getenv("NV_GM3_GLOBAL_EXCLUDE_OWNER", "1")).strip() not in {"0", "false", "False", "no"}
         )
 
+    def _gm3_model_name(self) -> str:
+        return str(getattr(getattr(self, "llm_model", None), "model_name", "") or "").lower()
+
+    def _gm3_is_gpt4omini_model(self) -> bool:
+        return "gpt-4o-mini" in self._gm3_model_name()
+
     def init_task_context(self, task_main: str, task_description: str = None) -> Any:
         message = super().init_task_context(task_main, task_description)
         self._gm3_last_prompt_signature = ""
@@ -649,6 +655,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     mapped = self._gm3_first_admissible_action_in_text(str(item or ""), admissible)
                     if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
                         return True, "pddl_memory_maps_to_goal_action"
+                    if (
+                        mapped
+                        and progress == "search_preconditions"
+                        and not self._gm3_pddl_is_meta_action(mapped)
+                    ):
+                        if self._gm3_is_gpt4omini_model():
+                            continue
+                        return True, "pddl_memory_maps_to_precondition_action"
             if self._gm3_pddl_current_action_hint(query, admissible):
                 return True, "pddl_current_state_action_grounding"
             if "failure_avoidance" in slots and self._gm3_selected_slot_has_real_item(selected, "failure_avoidance"):
@@ -658,6 +672,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 mapped = self._gm3_first_admissible_action_in_text(global_line, admissible)
                 if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
                     return True, "pddl_global_workflow_grounded"
+                if (
+                    mapped
+                    and progress == "search_preconditions"
+                    and not self._gm3_pddl_is_meta_action(mapped)
+                ):
+                    if self._gm3_is_gpt4omini_model():
+                        return False, "pddl_gpt4omini_skip_setup_only_global_workflow"
+                    return True, "pddl_global_precondition_workflow_grounded"
                 return False, "pddl_global_workflow_not_current_goal_grounded"
 
         if priority_items:
@@ -860,6 +882,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             ):
                 continue
             if task_family.startswith("pddl"):
+                if "check valid actions" in self._gm3_norm(text):
+                    continue
                 item_family = self._gm3_item_task_family(item)
                 current_sub = task_family.split(":", 1)[-1] if ":" in task_family else ""
                 item_sub = item_family.split(":", 1)[-1] if ":" in item_family else ""
@@ -875,6 +899,12 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
                     rendered.append(
                         f"Global PDDL memory maps to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
+                    )
+                elif mapped and progress == "search_preconditions" and not self._gm3_pddl_is_meta_action(mapped):
+                    if self._gm3_is_gpt4omini_model():
+                        continue
+                    rendered.append(
+                        f"Global PDDL memory maps to current valid setup operator `{mapped}`; use it only as a precondition step toward the remaining goal."
                     )
                 elif mapped:
                     continue
@@ -1081,7 +1111,16 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 continue
             if mapped:
                 if domain.startswith("pddl"):
+                    if self._gm3_pddl_is_meta_action(mapped):
+                        continue
                     if not self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
+                        if progress == "search_preconditions":
+                            if self._gm3_is_gpt4omini_model():
+                                continue
+                            rendered.append(
+                                f"Local PDDL graph maps prior precondition workflow to current valid setup operator `{mapped}`; use it only if it prepares an unsatisfied goal literal."
+                            )
+                            continue
                         if hint := self._gm3_pddl_current_action_hint(query, admissible):
                             rendered.append(
                                 f"Local PDDL graph cannot reuse old operator `{mapped}` for the current unsatisfied goal; current grounded operator is `{hint}`."
@@ -1136,14 +1175,42 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
     ) -> str:
         payload = getattr(item, "payload", {}) or {}
         anchor = getattr(item, "anchor", {}) or {}
+        dynamic = getattr(item, "dynamic", {}) or {}
+        item_id = str(
+            getattr(item, "candidate_id", "")
+            or getattr(item, "artifact_id", "")
+            or getattr(item, "rule_id", "")
+            or ""
+        )
         norm = self._gm3_norm(text)
-        fever_pattern = self._gm3_norm(str(payload.get("fever_pattern", "") or ""))
-        if "fever" not in norm and not fever_pattern:
+        item_id_norm = self._gm3_norm(item_id)
+        pattern_blob = " ".join(
+            part
+            for part in (
+                norm,
+                item_id_norm,
+                self._gm3_norm(str(dynamic.get("fever_pattern", "") or "")) if isinstance(dynamic, dict) else "",
+                self._gm3_norm(str(payload.get("fever_pattern", "") or "")) if isinstance(payload, dict) else "",
+            )
+            if part
+        )
+        fever_pattern = self._gm3_norm(str(payload.get("fever_pattern", "") or dynamic.get("fever_pattern", "") or ""))
+        if not fever_pattern:
+            if "content_search_route" in item_id_norm or "content search route" in norm:
+                fever_pattern = "content_search_route"
+            elif "evidence_sufficiency_stop" in item_id_norm or "stop rule" in norm:
+                fever_pattern = "evidence_sufficiency_stop"
+            elif "no_results_recovery" in item_id_norm or "recovery" in norm:
+                fever_pattern = "no_results_recovery"
+            elif "premature_finish_failure" in item_id_norm or "failure" in norm:
+                fever_pattern = "premature_finish_failure"
+        if "fever" not in pattern_blob and not fever_pattern:
             return ""
         ctx = self._gm3_fever_claim_context(query)
         item_claim_type = self._gm3_norm(
             str(
                 payload.get("claim_type")
+                or dynamic.get("claim_type")
                 or anchor.get("claim_type")
                 or self._gm3_fever_claim_type_from_text(text)
                 or ""
@@ -1157,18 +1224,26 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 return ""
         if progress == "ready_finish":
             return ""
-        is_recovery = "no_results_recovery" in fever_pattern or "recovery" in fever_pattern
+        is_recovery = "no_results_recovery" in fever_pattern or "recovery" in pattern_blob
         is_premature_finish = "premature_finish_failure" in fever_pattern or "failure" in fever_pattern
-        is_stop_rule = "evidence_sufficiency_stop" in fever_pattern or "stop" in fever_pattern
-        is_content_route = "content_search_route" in fever_pattern
+        is_stop_rule = "evidence_sufficiency_stop" in fever_pattern or "stop rule" in norm
+        is_content_route = "content_search_route" in fever_pattern or "content search route" in norm
         if not (is_recovery or is_premature_finish or is_stop_rule or is_content_route):
+            return ""
+
+        if is_content_route and source_label.lower() != "global":
             return ""
 
         if is_content_route and progress == "need_search":
             action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
             if not action:
                 return ""
-            search_role = str(payload.get("search_role", "") or "claim subject")
+            search_role = str(
+                payload.get("search_role", "")
+                or dynamic.get("search_role", "")
+                or self._gm3_fever_value_from_item_id(item_id, "search_role")
+                or "claim subject"
+            )
             lookup_hint = self._gm3_fever_payload_keyword(payload) or ctx["lookup_keyword"]
             tail = f"; if the page is broad, lookup `{lookup_hint}` next" if lookup_hint else ""
             return (
@@ -1176,14 +1251,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 f"current claim's {search_role}; use `{action}`{tail}, then finish only from evidence."
             )
 
-        if is_content_route and progress == "need_lookup_or_finish":
-            action = self._gm3_fever_grounded_action("lookup", ctx["lookup_keyword"], admissible)
-            if not action:
-                return ""
-            return (
-                f"{source_label} FEVER content search route ({ctx['claim_type']}): after the content page is found, "
-                f"use relation-grounded lookup `{action}` only if the page does not already settle the claim."
-            )
+        if is_content_route:
+            return ""
 
         if is_recovery and progress in {"search_failed", "invalid_action"}:
             action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
@@ -1254,12 +1323,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             # transfer signals.
             return ""
         if is_lookup_workflow and progress == "need_lookup_or_finish":
-            action = self._gm3_fever_grounded_action("lookup", ctx["lookup_keyword"], admissible)
-            if action:
-                return (
-                    f"Local FEVER workflow ({ctx['claim_type']}): prior local states used Lookup only when the "
-                    f"current page needed a relation keyword; current grounded option is `{action}`."
-                )
+            return ""
         if is_recovery and progress in {"search_failed", "invalid_action"}:
             action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
             if action:
@@ -1345,9 +1409,27 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 return str(keyword or "")
         return ""
 
+    def _gm3_fever_value_from_item_id(self, item_id: str, key: str) -> str:
+        match = re.search(r"(?:^|\|)" + re.escape(key) + r"=([^|]+)", str(item_id or ""))
+        if not match:
+            return ""
+        value = match.group(1).strip()
+        if value.startswith("[") and value.endswith("]"):
+            value = value[1:-1].split(",", 1)[0].strip()
+        return value
+
     def _gm3_pddl_current_action_hint(self, query: Any, admissible: list[str]) -> str:
         hint, _literal = self._gm3_pddl_current_action_hint_with_literal(query, admissible)
         return hint
+
+    def _gm3_pddl_is_meta_action(self, action: str) -> bool:
+        return self._gm3_norm(action) in {
+            "check_valid_actions",
+            "check valid actions",
+            "check valid action",
+            "look",
+            "look around",
+        }
 
     def _gm3_pddl_current_action_hint_with_literal(self, query: Any, admissible: list[str]) -> tuple[str, str]:
         belief = getattr(query, "belief", {}) or {}
@@ -1378,7 +1460,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
     ) -> tuple[float, str]:
         action_text = str(action or "").strip()
         action_norm = self._gm3_norm(action_text)
-        if not action_norm or action_norm in {"check valid actions", "look", "look around", "check valid action"}:
+        if not action_norm or self._gm3_pddl_is_meta_action(action_norm):
             return 0.0, ""
         belief = getattr(query, "belief", {}) or {}
         if unsatisfied_literals is None:
@@ -3123,6 +3205,21 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                         loss -= 0.10
                         dimensions["transfer_value"] += 0.10
                         reasons.append("pddl-global-goal-grounded-phase-boost")
+                elif (
+                    mapped
+                    and progress == "search_preconditions"
+                    and not self._gm3_pddl_is_meta_action(mapped)
+                ):
+                    if self._gm3_is_gpt4omini_model():
+                        loss += 0.22
+                        dimensions["noise"] += 0.22
+                        reasons.append("pddl-gpt4omini-setup-only-global-penalty")
+                    else:
+                        loss -= 0.12
+                        dimensions["actionability"] += 0.12
+                        dimensions["transfer_value"] += 0.08
+                        loss -= 0.08
+                        reasons.append("pddl-global-precondition-grounded")
                 else:
                     loss += 0.42
                     dimensions["noise"] += 0.42
@@ -3145,6 +3242,19 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     loss -= 0.28
                     dimensions["actionability"] += 0.28
                     reasons.append("pddl-local-goal-grounded")
+                elif (
+                    mapped
+                    and progress == "search_preconditions"
+                    and not self._gm3_pddl_is_meta_action(mapped)
+                ):
+                    if self._gm3_is_gpt4omini_model():
+                        loss += 0.16
+                        dimensions["noise"] += 0.16
+                        reasons.append("pddl-gpt4omini-setup-only-local-penalty")
+                    else:
+                        loss -= 0.18
+                        dimensions["actionability"] += 0.18
+                        reasons.append("pddl-local-precondition-grounded")
                 else:
                     loss += 0.18
                     dimensions["noise"] += 0.18

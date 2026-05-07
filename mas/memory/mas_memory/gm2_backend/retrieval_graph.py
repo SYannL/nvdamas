@@ -2330,6 +2330,12 @@ class QueryBasedRetriever:
         local_memory: LocalGraphMemory,
         global_memory: GlobalGraphMemory,
     ) -> SupportBundle:
+        if str(query.task_family or "").startswith("fever") and (local_memory.artifacts_by_id or global_memory.artifacts_by_id):
+            return LightweightRetriever(local_top_k=self.top_k, global_top_k=self.top_k, router=self.router).retrieve(
+                query,
+                local_memory,
+                global_memory,
+            )
         if local_memory.rules_by_id or global_memory.rules_by_id:
             return LightweightRetriever(local_top_k=self.top_k, global_top_k=self.top_k, router=self.router).retrieve(
                 query,

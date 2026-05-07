@@ -420,19 +420,33 @@ def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, re
         eval_mem = build_mas(manager, reasoning, mas_memory, model)
         seg["build_manager_and_mas_s"] = time.perf_counter() - t0
         t0 = time.perf_counter()
-        if args.get("use_global_insights") and args.get("global_dir") and mas_memory == "selectivemem":
-            global_retriever = SelectiveMemMASMemory(
-                namespace=mas_memory,
-                global_config={
-                    "working_dir": args["global_dir"],
-                    "freeze_memory": True,
-                    "insights_only": True,
-                },
-                llm_model=GPTChat(model_name=model),
-                embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
-            )
+        if args.get("global_dir"):
+            global_retriever = None
+            if args.get("use_global_insights") and mas_memory == "selectivemem":
+                global_retriever = SelectiveMemMASMemory(
+                    namespace=mas_memory,
+                    global_config={
+                        "working_dir": args["global_dir"],
+                        "freeze_memory": True,
+                        "insights_only": True,
+                    },
+                    llm_model=GPTChat(model_name=model),
+                    embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
+                )
+            elif args.get("use_global_retriever"):
+                _reasoning_cls, global_mem_cls = module_map(reasoning, mas_memory)
+                global_retriever = global_mem_cls(
+                    namespace=mas_memory,
+                    global_config={
+                        "working_dir": args["global_dir"],
+                        "freeze_memory": True,
+                        **mem_config_override,
+                    },
+                    llm_model=GPTChat(model_name=model),
+                    embedding_func=EmbeddingFunc(CONFIG.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")),
+                )
             set_global = getattr(eval_mem, "set_global_retriever", None)
-            if callable(set_global):
+            if global_retriever is not None and callable(set_global):
                 eval_mem.set_global_retriever(global_retriever)
         seg["global_retriever_attach_s"] = time.perf_counter() - t0
 
@@ -666,6 +680,9 @@ def run_tasks(
             }
             if alfworld_subprocess_args.get("use_global_insights") and alfworld_subprocess_args.get("global_dir"):
                 worker_args["use_global_insights"] = True
+                worker_args["global_dir"] = alfworld_subprocess_args["global_dir"]
+            if alfworld_subprocess_args.get("use_global_retriever") and alfworld_subprocess_args.get("global_dir"):
+                worker_args["use_global_retriever"] = True
                 worker_args["global_dir"] = alfworld_subprocess_args["global_dir"]
             with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
                 json.dump(worker_args, f, ensure_ascii=False)

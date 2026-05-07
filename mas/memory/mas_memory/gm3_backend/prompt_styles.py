@@ -184,19 +184,26 @@ class PDDLPromptStyle(BasePromptStyle):
         priority_items: list[str],
         admissible: list[str],
     ) -> str:
-        _meta = {"check_valid_actions", "check valid actions", "look", "look around"}
+        progress = str(getattr(query, "progress_state", "") or "")
+        setup_action = ""
         for item in priority_items[:3]:
             text = str(item or "").strip()
             mapped = renderer._gm3_first_admissible_action_in_text(text, admissible)
             if (
                 mapped
-                and renderer._gm3_norm(mapped) not in _meta
+                and not renderer._gm3_pddl_is_meta_action(mapped)
                 and renderer._gm3_pddl_action_advances_unsatisfied_goal(query, mapped)
             ):
                 return f"execute current valid operator `{mapped}` only if it advances an unsatisfied goal literal."
+            if mapped and progress == "search_preconditions" and not renderer._gm3_pddl_is_meta_action(mapped):
+                setup_action = setup_action or mapped
         hint = renderer._gm3_pddl_current_action_hint(query, admissible)
         if hint:
             return f"prefer current valid operator `{hint}` because it directly achieves an unsatisfied goal literal; do not invent actions."
+        if setup_action:
+            if bool(getattr(renderer, "_gm3_is_gpt4omini_model", lambda: False)()):
+                return "choose a currently valid operator from the admissible list; if the valid list is stale, issue `check valid actions` first."
+            return f"execute memory-grounded setup operator `{setup_action}` only if it prepares a remaining goal precondition; do not invent actions."
         if admissible:
             return "choose a currently valid operator that advances unsatisfied goal literals; do not invent actions."
         return "continue planning from current predicates and goal literals."
