@@ -37,8 +37,6 @@ except Exception as exc:
 TASKS_PATH = {
     'alfworld': 'data/alfworld/alfworld_tasks_suffix.json',
     'fever': 'data/fever/fever_dev.jsonl',
-    'fever_aca_test': 'data/fever/fever_dev_test_aca.jsonl',
-    'fever_oral_test': 'data/fever/fever_dev_test_oral.jsonl',
     'fever_ab_train_a': 'data/fever/fever_ab_train_A_v3.jsonl',
     'fever_ab_train_b': 'data/fever/fever_ab_train_B_v3.jsonl',
     'fever_ab_test_a': 'data/fever/fever_ab_test_A_v3.jsonl',
@@ -46,7 +44,6 @@ TASKS_PATH = {
     'pddl': 'data/pddl/test.jsonl',
     'pddl_2': 'data/pddl/test.jsonl',
     'huskyqa': 'data/HuskyQA/huskyQA.json',
-    'huskyqa_aca_test': 'data/HuskyQA/huskyQA_aca_test.json',
     'medmcqa_test': 'data/medmcqa/medmcqa_test.jsonl',
     'medmcqa_physio_30': 'data/medmcqa/medmcqa_physio_30.jsonl',
     'medmcqa_pharma_30': 'data/medmcqa/medmcqa_pharma_30.jsonl',
@@ -104,38 +101,8 @@ with open(TASKS_PATH['fever'], 'r') as f:
         for row in (json.loads(line) for line in f) 
     ][:100]
 
-with open(TASKS_PATH['fever_aca_test'], 'r') as f:
-    fever_aca_test_tasks = [
-        {
-            'task': row['claim'],
-            'answer': row['label'],
-            'env_name': 'fever',
-        }
-        for row in (json.loads(line) for line in f)
-    ]
-
-with open(TASKS_PATH['fever_oral_test'], 'r') as f:
-    fever_oral_test_tasks = [
-        {
-            'task': row['claim'],
-            'answer': row['label'],
-            'env_name': 'fever',
-        }
-        for row in (json.loads(line) for line in f)
-    ]
-
 with open(TASKS_PATH['huskyqa'], 'r') as f:
     huskyqa_tasks = [
-        {
-            'task': row['question'],
-            'answer': row['answer'],
-            'env_name': 'huskyqa',
-        }
-        for row in (json.loads(line) for line in f)
-    ]
-
-with open(TASKS_PATH['huskyqa_aca_test'], 'r') as f:
-    huskyqa_aca_test_tasks = [
         {
             'task': row['question'],
             'answer': row['answer'],
@@ -352,8 +319,6 @@ else:
 TASK_DATA = {
     'alfworld': alfworld_tasks,
     'fever': fever_tasks,
-    'fever_aca_test': fever_aca_test_tasks,
-    'fever_oral_test': fever_oral_test_tasks,
     # FEVER collaborative AB splits are generated on demand by script:
     # scripts/fever/annotate_fever_domains_llm.py
     'fever_ab_train_a': None,
@@ -363,7 +328,6 @@ TASK_DATA = {
     'pddl': pddl_tasks,
     'pddl_2': pddl_tasks,
     'huskyqa': huskyqa_tasks,
-    'huskyqa_aca_test': huskyqa_aca_test_tasks,
     'medmcqa_test': medmcqa_test_tasks,
     'medmcqa_physio_30': medmcqa_physio_30_tasks,
     'medmcqa_pharma_30': medmcqa_pharma_30_tasks,
@@ -394,8 +358,6 @@ for _sw_room in ("art_studio", "bathroom", "greenhouse", "hallway", "kitchen", "
 ENVS = {
     'bfcl_mt': BfclMtEnv,
     'fever': FeverEnv,
-    'fever_aca_test': FeverEnv,
-    'fever_oral_test': FeverEnv,
     'fever_ab_train_a': FeverEnv,
     'fever_ab_train_b': FeverEnv,
     'fever_ab_test_a': FeverEnv,
@@ -403,7 +365,6 @@ ENVS = {
     'pddl': PDDLEnv,
     'pddl_2': PDDL2Env,
     'huskyqa': HuskyQAEnv,
-    'huskyqa_aca_test': HuskyQAEnv,
     'medmcqa_test': MedMCQAEnv,
     'medmcqa_physio_30': MedMCQAEnv,
     'medmcqa_pharma_30': MedMCQAEnv,
@@ -430,8 +391,6 @@ for _sw_room in ("art_studio", "bathroom", "greenhouse", "hallway", "kitchen", "
 RECORDERS = {
     'bfcl_mt': BfclMtRecorder,
     'fever': FeverRecorder,
-    'fever_aca_test': FeverRecorder,
-    'fever_oral_test': FeverRecorder,
     'fever_ab_train_a': FeverRecorder,
     'fever_ab_train_b': FeverRecorder,
     'fever_ab_test_a': FeverRecorder,
@@ -439,7 +398,6 @@ RECORDERS = {
     'pddl': PDDLRecorder,
     'pddl_2': PDDL2Recorder,
     'huskyqa': HuskyQARecorder,
-    'huskyqa_aca_test': HuskyQARecorder,
     'medmcqa_test': MedMCQARecorder,
     'medmcqa_physio_30': MedMCQARecorder,
     'medmcqa_pharma_30': MedMCQARecorder,

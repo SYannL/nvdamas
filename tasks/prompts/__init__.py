@@ -12,14 +12,11 @@ def get_dataset_system_prompt(task: str, task_config: dict) -> str:
     prompt_map: dict = {
         'alfworld': alfworld_solver_system_prompt,
         'fever': fever_solver_system_prompt,
-        'fever_aca_test': fever_solver_system_prompt,
-        'fever_oral_test': fever_solver_system_prompt,
         'fever_ab_train_a': fever_solver_system_prompt,
         'fever_ab_train_b': fever_solver_system_prompt,
         'fever_ab_test_a': fever_solver_system_prompt,
         'fever_ab_test_b': fever_solver_system_prompt,
         'huskyqa': huskyqa_solver_system_prompt,
-        'huskyqa_aca_test': huskyqa_solver_system_prompt,
         'pddl': pddl_prompts,
         'pddl_2': pddl_2_prompts,
         'pddl_domain_gripper': pddl_prompts,
@@ -81,12 +78,6 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
     elif dataset == 'fever':
         return fever_few_shots[:few_shots_num]
 
-    elif dataset == 'fever_aca_test':
-        return fever_few_shots[:few_shots_num]
-
-    elif dataset == 'fever_oral_test':
-        return fever_few_shots[:few_shots_num]
-    
     elif dataset == 'fever_ab_train_a':
         return fever_few_shots[:few_shots_num]
 
@@ -100,9 +91,6 @@ def get_task_few_shots(dataset: str, task_config: dict, few_shots_num: int) -> l
         return fever_few_shots[:few_shots_num]
     
     elif dataset == 'huskyqa':
-        return huskyqa_few_shots[:few_shots_num]
-
-    elif dataset == 'huskyqa_aca_test':
         return huskyqa_few_shots[:few_shots_num]
 
     elif dataset == "bfcl_mt":
