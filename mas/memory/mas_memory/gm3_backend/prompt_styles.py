@@ -195,7 +195,12 @@ class PDDLPromptStyle(BasePromptStyle):
                 and renderer._gm3_pddl_action_advances_unsatisfied_goal(query, mapped)
             ):
                 return f"execute current valid operator `{mapped}` only if it advances an unsatisfied goal literal."
-            if mapped and progress == "search_preconditions" and not renderer._gm3_pddl_is_meta_action(mapped):
+            if (
+                mapped
+                and progress == "search_preconditions"
+                and not renderer._gm3_pddl_is_meta_action(mapped)
+                and renderer._gm3_pddl_action_is_safe_setup(query, mapped)
+            ):
                 setup_action = setup_action or mapped
         hint = renderer._gm3_pddl_current_action_hint(query, admissible)
         if hint:
@@ -217,10 +222,17 @@ class FeverPromptStyle(BasePromptStyle):
         ctx = _fever_claim_context(query)
         if progress == "ready_finish":
             return [
-                f"FEVER label decision stage ({ctx['claim_type']}): compare the current evidence against this claim; finish now only if it supports, contradicts, or remains insufficient."
+                f"FEVER label decision stage ({ctx['claim_type']}): compare only the current factual evidence against this claim; action names, prior searches, and tool misses are not evidence."
+            ]
+        if progress in {"search_failed", "invalid_action"}:
+            variants = ctx.get("query_variants", []) or []
+            route = "; ".join(f"Search[{variant}]" for variant in variants[:3]) if variants else "a relation/type query from the current claim"
+            return [
+                "FEVER failed-search recovery: one tool miss is not evidence for NOT ENOUGH INFO; "
+                f"try an untried current-claim query first ({route})."
             ]
         return [
-            f"FEVER graph stage={progress or 'unknown'}, claim_type={ctx['claim_type']}; use remembered Search -> Lookup -> Finish workflow only when it maps to this claim's entity/keywords."
+            f"FEVER graph stage={progress or 'unknown'}, claim_type={ctx['claim_type']}; use memory only as a query/evidence gate, not as a label or stop-rule prior."
         ]
 
     def keep_global_text(self, renderer: Any, *, text: str, norm_text: str, task_family: str) -> bool:
@@ -269,8 +281,12 @@ class FeverPromptStyle(BasePromptStyle):
         parts.append(f"claim_type={ctx['claim_type']}")
         if ctx["entity"]:
             parts.append(f"primary_entity={ctx['entity']}")
+        if ctx.get("secondary_entity"):
+            parts.append(f"relation_entity={ctx['secondary_entity']}")
         if ctx["lookup_keywords"]:
             parts.append("lookup_keywords=" + ", ".join(ctx["lookup_keywords"][:3]))
+        if ctx.get("query_variants"):
+            parts.append("query_variants=" + " | ".join(ctx["query_variants"][:3]))
         if evidence:
             parts.append("evidence=" + "; ".join(evidence))
         if exhausted:
@@ -295,19 +311,28 @@ class FeverPromptStyle(BasePromptStyle):
         search_hint = _fever_search_hint(renderer, query, admissible)
         if progress == "need_search":
             if search_hint:
-                return f"claim-type workflow={ctx['claim_type']}; start with {search_hint}; do not infer the label before evidence."
-            return f"claim-type workflow={ctx['claim_type']}; choose a focused Search[...] query from the claim's primary entity before any label."
+                return f"claim-type workflow={ctx['claim_type']}; start with {search_hint}; prefer relation/entity2 query over primary-only search when available."
+            return f"claim-type workflow={ctx['claim_type']}; choose a focused relation/type Search[...] from the current claim before any label."
         if progress == "need_lookup_or_finish":
             if lookup_hint:
-                return f"claim-type workflow={ctx['claim_type']}; try Lookup[{lookup_hint}] if current evidence does not settle the claim; finish only after evidence justifies the label."
-            return "use Lookup[...] when evidence is insufficient; Finish[...] only when the evidence supports, refutes, or is missing."
+                return f"claim-type workflow={ctx['claim_type']}; try Lookup[{lookup_hint}] only if the current page is the right subject; otherwise use a relation query."
+            return "Finish only when the current page is the right subject and the relation slot is checked; otherwise search the relation/entity2 query."
         if progress == "ready_finish":
             return (
                 "decide the FEVER label from the current evidence: Finish[SUPPORTS] for direct entailment, "
-                "Finish[REFUTES] for a clear contradiction, otherwise Finish[NOT ENOUGH INFO]."
+                "Finish[REFUTES] for a clear contradiction, otherwise Finish[NOT ENOUGH INFO]. "
+                "For coarse temporal wording, do not REFUTE unless the evidence clearly contradicts the claimed period."
             )
         if progress in {"search_failed", "invalid_action"}:
-            return "try a narrower evidence query or finish NOT ENOUGH INFO only after evidence search fails."
+            if search_hint:
+                return (
+                    f"the last search/page miss is tool status, not factual evidence; do not Finish[NOT ENOUGH INFO] yet; "
+                    f"retry untried current-claim query {search_hint}."
+                )
+            return (
+                "the last search/page miss is tool status, not factual evidence; do not Finish[NOT ENOUGH INFO] yet; "
+                "try entity+relation/entity2, entity+type suffix, or full-claim keywords first."
+            )
         return "verify the claim using Search, Lookup, then an evidence-grounded Finish label."
 
 
@@ -419,6 +444,13 @@ class BFCLPromptStyle(BasePromptStyle):
 
 def _fever_search_hint(renderer: Any, query: Any, admissible: list[str]) -> str:
     ctx = _fever_claim_context(query)
+    variants = [str(x).strip() for x in (ctx.get("query_variants", []) or []) if str(x).strip()]
+    for variant in variants:
+        variant_norm = _fever_norm(variant)
+        for action in admissible:
+            if str(action).lower().startswith("search[") and variant_norm and variant_norm in _fever_norm(str(action)):
+                return str(action)
+        return f"Search[{_fever_display(variant)}]"
     anchor = _fever_entity_text(str(ctx.get("entity", "") or ""))
     if not anchor:
         return ""
@@ -457,6 +489,10 @@ def _fever_claim_context(query: Any) -> dict[str, Any]:
     goal_roles = getattr(query, "goal_roles", {}) or {}
     claim_type = str(belief.get("claim_type") or goal_roles.get("claim_type") or "general_fact").strip() or "general_fact"
     entity = str(belief.get("primary_entity") or goal_roles.get("object") or "").strip()
+    secondary = str(belief.get("secondary_entity") or goal_roles.get("secondary") or "").strip()
+    raw_variants = belief.get("query_variants") or dynamic_query_variants(query) or []
+    if isinstance(raw_variants, str):
+        raw_variants = [raw_variants]
     raw_keywords = belief.get("relation_keywords") or goal_roles.get("relation") or []
     if isinstance(raw_keywords, str):
         raw_keywords = [raw_keywords]
@@ -468,8 +504,18 @@ def _fever_claim_context(query: Any) -> dict[str, Any]:
     return {
         "claim_type": claim_type,
         "entity": _fever_entity_text(entity),
+        "secondary_entity": _fever_entity_text(secondary),
         "lookup_keywords": keywords,
+        "query_variants": [_fever_entity_text(str(item or "")) for item in raw_variants if _fever_entity_text(str(item or ""))][:5],
     }
+
+
+def dynamic_query_variants(query: Any) -> list[str]:
+    dynamic = getattr(query, "dynamic_context", {}) or {}
+    values = dynamic.get("query_variants", []) if isinstance(dynamic, dict) else []
+    if isinstance(values, str):
+        return [values]
+    return [str(item) for item in (values or []) if str(item).strip()]
 
 
 def _fever_entity_text(value: str) -> str:

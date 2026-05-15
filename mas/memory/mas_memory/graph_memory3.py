@@ -38,6 +38,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
     _gm3_textgrad_disabled_reason: str = field(default="", init=False, repr=False)
     _gm3_textgrad_calls_this_episode: int = field(default=0, init=False, repr=False)
     _gm3_search_bias_queue: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
+    _gm3_last_fever_memory_render_count: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -137,6 +138,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         self._gm3_textgrad_route_key_hits = {}
         self._gm3_textgrad_calls_this_episode = 0
         self._gm3_search_bias_queue = []
+        self._gm3_last_fever_memory_render_count = 0
         self._gm3_debug_append(
             "task_start",
             step_index=0,
@@ -165,6 +167,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             return super().summarize(**kargs)
         task_main = str(getattr(ctx, "task_main", "") or "").lower()
         task_description = str(getattr(ctx, "task_description", "") or "")
+        is_fever = "fever" in task_main or "fever" in task_description.lower() or "claim:" in task_description.lower()
+        if is_fever:
+            # FEVER is highly sensitive to small prompt perturbations. When the
+            # router has no high-signal evidence/query memory to inject, GM3
+            # should fall back to the same task+trajectory prompt as empty.
+            # The generic overlay duplicates trajectory state and can change a
+            # strong model's first search query without adding evidence.
+            return str(getattr(ctx, "task_description", "") or "") + str(getattr(ctx, "task_trajectory", "") or "")
         is_scienceworld = "scienceworld" in task_main or "scienceworld" in task_description.lower()
         if not is_scienceworld:
             return super().summarize(**kargs)
@@ -177,6 +187,35 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if notes:
                 return base + "\n\n" + "\n".join(notes)
         return base
+
+    def _gm3_fever_progress_from_overlay(self) -> str:
+        builder = self.episode_builder
+        if builder is None:
+            return ""
+        actions = [str(x or "").strip().lower() for x in (builder.state.recent_actions or []) if str(x or "").strip()]
+        observations = [str(x or "").strip().lower() for x in (builder.state.recent_observations or []) if str(x or "").strip()]
+        if observations and "invalid action" in observations[-1]:
+            return "invalid_action"
+        if actions and actions[-1].startswith("lookup["):
+            return "ready_finish"
+        if actions and actions[-1].startswith("search["):
+            last_obs = observations[-1] if observations else ""
+            if any(
+                marker in last_obs
+                for marker in (
+                    "could not find",
+                    "cannot find",
+                    "searcherrors",
+                    "jsondecodeerror",
+                    "pageerror",
+                    "disambiguationerror",
+                )
+            ):
+                return "search_failed"
+            return "need_lookup_or_finish"
+        if actions and actions[-1].startswith("finish["):
+            return "done"
+        return "need_search"
 
     @staticmethod
     def _gm3_compact_scienceworld_trajectory(trajectory: str, *, keep_steps: int = 6, obs_limit: int = 520) -> str:
@@ -221,6 +260,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     "final_action": str(processed_action or ""),
                     "changed": False,
                     "reason": "gm3_prompt_only_for_scienceworld",
+                    "admissible_sample": admissible[:20],
+                },
+            )
+            return str(processed_action or "")
+        if domain == "fever":
+            self._gm3_debug_append(
+                "action_hook_observe",
+                step_index=step_index,
+                payload={
+                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "processed_action": str(processed_action or ""),
+                    "final_action": str(processed_action or ""),
+                    "changed": False,
+                    "reason": "gm3_prompt_only_for_fever",
                     "admissible_sample": admissible[:20],
                 },
             )
@@ -401,8 +454,10 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         )
         planner_notes = []
         if route.get("prompt"):
+            task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+            header = "### GM3 MEMORY RETRIEVAL HINT" if task_family.startswith("fever") else "### GM3 MEMORY DECISION SUMMARY"
             planner_notes.append(
-                "### GM3 MEMORY DECISION SUMMARY\n"
+                f"{header}\n"
                 + str(route["prompt"]).strip()
             )
 
@@ -471,6 +526,21 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         visible = [str(x) for x in dynamic.get("visible_objects", []) or [] if str(x).strip()]
         held = [str(x) for x in dynamic.get("held_objects", []) or [] if str(x).strip()]
         exhausted = [str(x) for x in dynamic.get("exhausted_locations", []) or [] if str(x).strip()]
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+
+        if task_family.startswith("fever"):
+            hint_payload = self._gm3_fever_direct_retrieval_hint(
+                query=query,
+                local_memory=local_memory,
+                global_memory=global_memory,
+                env_ref=env_ref,
+                step_index=step_index,
+            )
+            hint = str(hint_payload.get("prompt", "") or "")
+            if hint:
+                self._gm3_last_fever_memory_render_count = 1
+                return {"prompt": hint, "debug": hint_payload.get("debug", {})}
+            return {"prompt": "", "debug": hint_payload.get("debug", {})}
 
         candidates = self._gm3_candidate_sections(
             query=query,
@@ -485,6 +555,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             owner_scene=owner_scene,
             env_ref=env_ref,
         )
+        fever_health = self._gm3_fever_health_snapshot(query=query, bundle=bundle, candidates=candidates)
         routed = self._gm3_textloss_route(
             candidates=candidates,
             query=query,
@@ -493,7 +564,16 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             held=held,
             exhausted=exhausted,
         )
+        if fever_health:
+            routed["fever_health"] = fever_health
         selected = routed["selected"]
+        selected = self._gm3_filter_fever_selected_sections(query=query, selected=selected)
+        selected = self._gm3_filter_pddl_selected_sections(query=query, selected=selected, admissible=admissible)
+        routed["selected_after_fever_gate"] = self._gm2_debug_jsonable(selected)
+        if fever_health:
+            fever_health["memory_render_count"] = int(sum(len(section.get("items", []) or []) for section in selected))
+            self._gm3_last_fever_memory_render_count = int(fever_health["memory_render_count"])
+            routed["fever_health"] = fever_health
         if not selected:
             return {"prompt": "", "debug": routed}
         task_family_for_gate = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
@@ -508,7 +588,6 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         target = self._gm3_base(str(goal_roles.get("object", "") or ""))
         tool = self._gm3_base(str(goal_roles.get("tool", "") or ""))
         destination = self._gm3_base(str(goal_roles.get("destination", "") or ""))
-        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
         source_evidence_table = self._gm3_source_evidence_table(
             local_memory=local_memory,
             global_memory=global_memory,
@@ -575,6 +654,12 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             )
         if not priority_items:
             priority_items.extend(self._gm3_source_table_priority_actions(source_evidence_table, limit=2))
+        if task_family_for_gate.startswith("pddl"):
+            priority_items = self._gm3_pddl_gate_priority_items(
+                query=query,
+                priority_items=priority_items,
+                admissible=admissible,
+            )
         self._gm3_search_bias_queue = self._gm3_search_bias_candidates(source_evidence_table, limit=4)
         routed["search_bias_queue"] = self._gm2_debug_jsonable(self._gm3_search_bias_queue[:6])
 
@@ -619,6 +704,309 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         routed["prompt_repeated"] = repeated
         return {"prompt": summary, "debug": routed}
 
+    def _gm3_fever_direct_retrieval_hint(
+        self,
+        *,
+        query: Any,
+        local_memory: Any,
+        global_memory: Any,
+        env_ref: Any,
+        step_index: int,
+    ) -> dict[str, Any]:
+        """Return a pattern-based FEVER memory hint, or nothing.
+
+        Memory affects search strategy only: reformulation patterns, relation
+        disambiguation guidance, and failure recovery warnings.  It never emits
+        a hard Search[X] command and never influences the label decision.
+
+        Three tiers, tried in order:
+          1. Route reformulation — claim has secondary entity, route templates
+             exist for this claim_type, and the last search was primary-only or
+             failed.  Guides toward entity-pair / relation-term queries.
+          2. Evidence artifact — a past episode found a useful source page for a
+             sufficiently similar claim.  Guides toward the page type and
+             relation slot without naming an entity-specific title as a command.
+          3. Recovery warning — search failed with no prior recovery attempt.
+             Reminds the model that a tool miss is not factual absence.
+        """
+        ctx = self._gm3_fever_claim_context(query)
+        progress = str(getattr(query, "progress_state", "") or "")
+        claim_type = self._gm3_norm(str(ctx.get("claim_type", "") or ""))
+        primary = self._gm3_fever_display_arg(str(ctx.get("entity", "") or ""))
+        secondary = self._gm3_fever_display_arg(str(ctx.get("secondary_entity", "") or ""))
+        lookup_keyword = self._gm3_fever_display_arg(str(ctx.get("lookup_keyword", "") or ""))
+
+        history = [row for row in (getattr(env_ref, "current_history", []) or []) if isinstance(row, dict)]
+        searched = [
+            str(row.get("Action", "") or "").strip()
+            for row in history
+            if str(row.get("Action", "") or "").strip().lower().startswith("search[")
+        ]
+        searched_norm = {self._gm3_norm(item) for item in searched}
+        looked_up = [
+            str(row.get("Action", "") or "").strip()
+            for row in history
+            if str(row.get("Action", "") or "").strip().lower().startswith("lookup[")
+        ]
+        looked_norm = {self._gm3_norm(item) for item in looked_up}
+        last_action = str(history[-1].get("Action", "") or "").strip() if history else ""
+        last_obs_norm = self._gm3_norm(str(history[-1].get("Observation", "") or "").strip() if history else "")
+
+        # Do not touch the model's first action; exact-title searches are often
+        # best left unperturbed and memory has no basis before step 1.
+        if step_index == 0 or not history:
+            return {"prompt": "", "debug": {"mode": "fever_pattern_hint", "reason": "no_first_step_hint"}}
+
+        local_artifacts = list((getattr(local_memory, "artifacts_by_id", {}) or {}).values())
+        global_artifacts = list((getattr(global_memory, "artifacts_by_id", {}) or {}).values()) if global_memory is not None else []
+        route_support = (
+            self._gm3_fever_route_template_support(artifacts=local_artifacts, claim_type=claim_type)
+            + self._gm3_global_weight * self._gm3_fever_route_template_support(artifacts=global_artifacts, claim_type=claim_type)
+        )
+        # Evidence artifacts are entity-specific and should not transfer from global memory.
+        evidence = self._gm3_fever_best_evidence_artifact(
+            artifacts=local_artifacts,
+            query=query,
+            claim_type=claim_type,
+            secondary=secondary,
+            lookup_keyword=lookup_keyword,
+        )
+        debug: dict[str, Any] = {
+            "mode": "fever_pattern_hint",
+            "progress": progress,
+            "claim_type": claim_type,
+            "route_support": route_support,
+            "evidence_score": evidence.get("score", 0),
+        }
+
+        search_failed = progress in {"search_failed", "invalid_action"}
+        lookup_failed = last_action.lower().startswith("lookup[") and "no results" in last_obs_norm
+        last_search_primary_only = (
+            last_action.lower().startswith("search[")
+            and primary
+            and self._gm3_norm(last_action) == self._gm3_norm(f"Search[{primary}]")
+        )
+        relation_missing = bool(secondary and self._gm3_norm(secondary) not in last_obs_norm)
+
+        # Tier 1: route reformulation pattern.
+        # Memory has seen claims of this type succeed with entity-pair or
+        # relation-suffix queries.  Guide the model toward that strategy without
+        # prescribing a specific search string.
+        if (
+            route_support >= 1
+            and secondary
+            and (search_failed or lookup_failed or (last_search_primary_only and relation_missing))
+        ):
+            relation_term = lookup_keyword or secondary
+            hint = (
+                f"Memory pattern ({claim_type}): prior claims of this type with a secondary entity "
+                f"often required a combined query to locate the relation evidence. "
+                f"If the last search returned an unrelated or ambiguous page, reformulate using "
+                f"both entities or add a relation term (e.g., primary + '{relation_term}'). "
+                f"One tool miss is not factual absence — avoid Finish[NOT ENOUGH INFO] before "
+                f"trying an entity-pair or relation-suffix query. No label inferred from memory."
+            )
+            return {"prompt": hint, "debug": {**debug, "reason": "route_reformulation_pattern", "route_support": route_support}}
+
+        # Tier 2: evidence artifact pattern.
+        # A sufficiently similar past episode found evidence on a specific page
+        # type.  Provide the page type and relation slot as guidance, not as a
+        # Search command.
+        evidence_score = int(evidence.get("score", 0) or 0)
+        if evidence_score >= 3:
+            source_title = str(evidence.get("source_title", "") or "").strip()
+            lk = str(evidence.get("lookup_keyword", "") or lookup_keyword or "").strip()
+            if search_failed and source_title and self._gm3_norm(source_title) not in searched_norm:
+                hint = (
+                    f"Memory pattern ({claim_type}): similar claims found evidence on pages related to "
+                    f"'{source_title}'. Check whether a matching subject page is reachable before "
+                    f"concluding NOT ENOUGH INFO. Use current evidence only — no label from memory."
+                )
+                return {"prompt": hint, "debug": {**debug, "reason": "evidence_source_pattern", "source_title": source_title}}
+            if progress in {"need_lookup_or_finish", "ready_finish"} and lk and self._gm3_norm(f"Lookup[{lk}]") not in looked_norm:
+                hint = (
+                    f"Memory pattern ({claim_type}): verify the '{lk}' relation slot on the current "
+                    f"subject page before finishing. Use current page evidence only — no label from memory."
+                )
+                return {"prompt": hint, "debug": {**debug, "reason": "evidence_lookup_pattern", "lookup_keyword": lk}}
+
+        # Tier 3: recovery warning.
+        # A search just failed and the model has not yet attempted a reformulation.
+        # Remind it that one tool miss is not evidence of absence.
+        if search_failed:
+            belief = getattr(query, "belief", {}) or {}
+            health: dict[str, Any] = {}
+            if isinstance(belief, dict):
+                health.update(belief.get("fever_health", {}) or {})
+            if int(health.get("search_recovery_attempt_count", 0) or 0) <= 0:
+                hint = (
+                    f"Memory pattern ({claim_type}): a search tool miss is not factual absence. "
+                    f"Try a reformulated query (entity pair, relation suffix, or shorter entity name) "
+                    f"before concluding NOT ENOUGH INFO."
+                )
+                return {"prompt": hint, "debug": {**debug, "reason": "recovery_warning"}}
+
+        return {"prompt": "", "debug": {**debug, "reason": "no_grounded_hint"}}
+
+    def _gm3_fever_route_template_support(self, *, artifacts: list[Any], claim_type: str) -> float:
+        """Count content_search_route templates for the current claim_type.
+
+        Exact-type matches contribute 1.0; cross-type matches contribute 0.5
+        because the workflow shape (search → optional lookup → finish) transfers
+        across claim types even when the specific relation differs.  The caller
+        threshold of >= 1.0 therefore requires either one exact match or two
+        cross-type matches.
+        """
+        support: float = 0.0
+        for artifact in artifacts:
+            payload = getattr(artifact, "payload", {}) or {}
+            anchor = getattr(artifact, "anchor", {}) or {}
+            role_raw = str(payload.get("artifact_role", "") or anchor.get("artifact_role", "") or "")
+            pattern_raw = str(payload.get("fever_pattern", "") or anchor.get("fever_pattern", "") or "")
+            marker_blob = self._gm3_fever_marker_blob(role_raw, pattern_raw)
+            if not self._gm3_fever_has_marker(marker_blob, "content_search_route"):
+                continue
+            item_type = self._gm3_norm(str(payload.get("claim_type", "") or anchor.get("claim_type", "") or ""))
+            if item_type and claim_type and item_type != claim_type:
+                support += 0.5
+            else:
+                support += 1.0
+        return support
+
+    def _gm3_fever_best_evidence_artifact(
+        self,
+        *,
+        artifacts: list[Any],
+        query: Any,
+        claim_type: str,
+        secondary: str,
+        lookup_keyword: str,
+    ) -> dict[str, Any]:
+        claim_tokens = self._gm3_fever_query_tokens(query)
+        secondary_tokens = self._gm3_fever_memory_tokens(secondary)
+        lookup_tokens = self._gm3_fever_memory_tokens(lookup_keyword)
+        best: dict[str, Any] = {"score": 0}
+        for artifact in artifacts:
+            payload = getattr(artifact, "payload", {}) or {}
+            anchor = getattr(artifact, "anchor", {}) or {}
+            role_raw = str(payload.get("artifact_role", "") or anchor.get("artifact_role", "") or "")
+            pattern_raw = str(payload.get("pattern_kind", "") or anchor.get("pattern_kind", "") or "")
+            fever_pattern_raw = str(payload.get("fever_pattern", "") or anchor.get("fever_pattern", "") or "")
+            marker_blob = self._gm3_fever_marker_blob(role_raw, pattern_raw, fever_pattern_raw)
+            if not (
+                self._gm3_fever_has_marker(marker_blob, "fever_claim_evidence")
+                or self._gm3_fever_has_marker(marker_blob, "claim_evidence")
+            ):
+                continue
+            if self._gm3_norm(str(payload.get("label_guard", "") or "")) != "no prior label stored":
+                continue
+            item_type = self._gm3_norm(str(payload.get("claim_type", "") or anchor.get("claim_type", "") or ""))
+            if item_type and claim_type and item_type != claim_type:
+                continue
+            source_title = str(payload.get("source_title", "") or "").strip()
+            source_tokens = self._gm3_fever_memory_tokens(source_title)
+            evidence_terms = {
+                str(term).strip().lower()
+                for term in (payload.get("evidence_terms", []) or [])
+                if str(term).strip()
+            }
+            claim_terms = self._gm3_fever_memory_tokens(
+                " ".join(str(term) for term in (payload.get("claim_terms", []) or []))
+            )
+            evidence_tokens = evidence_terms | claim_terms | source_tokens
+            overlap = evidence_tokens & claim_tokens
+            secondary_overlap = bool(secondary_tokens & evidence_tokens)
+            relation_overlap = bool(lookup_tokens & evidence_tokens)
+            source_overlap = bool(source_tokens & claim_tokens)
+            if len(overlap) < 2 and not (secondary_overlap and relation_overlap):
+                continue
+            score = len(overlap)
+            if source_overlap:
+                score += 2
+            if secondary_overlap:
+                score += 2
+            if relation_overlap:
+                score += 1
+            if item_type and claim_type and item_type == claim_type:
+                score += 1
+            stats = getattr(artifact, "stats", None)
+            failure_rate = float(getattr(stats, "failure_rate", 0.0) or 0.0) if stats is not None else 0.0
+            conflict = float(getattr(artifact, "conflict", 0.0) or 0.0)
+            if failure_rate > 0.25 or conflict > 0.35:
+                continue
+            if score > int(best.get("score", 0) or 0):
+                best = {
+                    "score": int(score),
+                    "source_title": source_title,
+                    "lookup_keyword": str(payload.get("lookup_keyword", "") or ""),
+                    "overlap": sorted(overlap)[:6],
+                }
+        return best
+
+    def _gm3_fever_marker_blob(self, *parts: str) -> str:
+        raw = " ".join(str(part or "").lower() for part in parts)
+        return f"{raw} {self._gm3_norm(raw)}"
+
+    def _gm3_fever_has_marker(self, blob: str, marker: str) -> bool:
+        marker_raw = str(marker or "").lower()
+        marker_norm = self._gm3_norm(marker_raw)
+        return bool(marker_raw and (marker_raw in blob or marker_norm in blob))
+
+    def _gm3_fever_health_snapshot(self, *, query: Any, bundle: Any, candidates: list[dict[str, Any]]) -> dict[str, Any]:
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        if not task_family.startswith("fever"):
+            return {}
+        dynamic = getattr(query, "dynamic_context", {}) or {}
+        belief = getattr(query, "belief", {}) or {}
+        history_health = {}
+        if isinstance(dynamic, dict):
+            history_health.update(dynamic.get("fever_health", {}) or {})
+        if isinstance(belief, dict):
+            history_health.update(belief.get("fever_health", {}) or {})
+
+        def is_claim_evidence_item(item: Any) -> bool:
+            payload = getattr(item, "payload", {}) or getattr(item, "dynamic", {}) or {}
+            anchor = getattr(item, "anchor", {}) or {}
+            pattern = self._gm3_fever_marker_blob(
+                getattr(item, "summary", ""),
+                getattr(item, "candidate_id", ""),
+                getattr(item, "artifact_id", ""),
+                getattr(item, "pattern_kind", ""),
+                payload.get("pattern_kind", "") if isinstance(payload, dict) else "",
+                payload.get("fever_pattern", "") if isinstance(payload, dict) else "",
+                payload.get("artifact_role", "") if isinstance(payload, dict) else "",
+                anchor.get("artifact_role", "") if isinstance(anchor, dict) else "",
+            )
+            return (
+                self._gm3_fever_has_marker(pattern, "claim_evidence")
+                or self._gm3_fever_has_marker(pattern, "fever_claim_evidence")
+                or "fever evidence memory" in pattern
+            )
+
+        raw_items = []
+        for attr in (
+            "local_items",
+            "local_promoted_items",
+            "global_items",
+            "global_promoted_items",
+            "global_task_plan_items",
+            "global_promoted_contribution",
+        ):
+            raw_items.extend(list(getattr(bundle, attr, []) or []))
+        written_like = sum(1 for item in raw_items if is_claim_evidence_item(item))
+        rendered = 0
+        for section in candidates:
+            for item in section.get("items", []) or []:
+                if "fever evidence memory" in str(item or "").lower():
+                    rendered += 1
+        health = {
+            "claim_evidence_written_like_count": int(written_like),
+            "claim_evidence_rendered_count": int(rendered),
+            "claim_evidence_filtered_or_unrouted_count": int(max(written_like - rendered, 0)),
+        }
+        health.update({str(k): int(v) for k, v in history_health.items() if isinstance(v, (int, float))})
+        return health
+
     def _gm3_should_emit_summary(
         self,
         *,
@@ -648,6 +1036,19 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         if task_family.startswith("bfcl") and "phase_policy" in slots:
             if progress in {"need_tool_call", "tool_result_observed", "invalid_action", "tool_error", "checker_failed"}:
                 return True, "bfcl_phase_policy"
+
+        if task_family.startswith("fever"):
+            if "failure_avoidance" in slots and progress in {"search_failed", "invalid_action"}:
+                return True, "fever_failure_recovery_gate"
+            if "local_grounding" in slots and self._gm3_selected_slot_has_real_item(selected, "local_grounding"):
+                return True, "fever_local_evidence_or_recovery_gate"
+            if "global_workflow" in slots and self._gm3_selected_slot_has_real_item(selected, "global_workflow"):
+                global_line = self._gm3_summary_slot(selected, "global_workflow", default="")
+                norm_global = self._gm3_norm(global_line)
+                if any(marker in norm_global for marker in ("recovery", "failure", "claim evidence", "evidence memory")):
+                    return True, "fever_high_signal_global_gate"
+                return False, "fever_suppress_weak_global_workflow"
+            return False, "fever_no_high_signal_memory"
 
         if task_family.startswith("pddl"):
             if priority_items:
@@ -837,8 +1238,6 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             list(getattr(bundle, "global_task_plan_items", []) or [])
             + list(getattr(bundle, "global_promoted_contribution", []) or [])
         )
-        if task_family.startswith("fever"):
-            raw_items += list(getattr(bundle, "global_promoted_items", []) or [])
         raw_items += list(getattr(bundle, "global_items", []) or [])
         rendered: list[str] = []
         for item in raw_items:
@@ -846,18 +1245,6 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 continue
             text = self._gm3_clean(str(getattr(item, "summary", "") or ""))
             if not text or self._gm3_is_concrete_location_text(text):
-                continue
-            if task_family.startswith("fever"):
-                line = self._gm3_render_fever_workflow_item(
-                    item,
-                    query=query,
-                    text=text,
-                    admissible=admissible,
-                    progress=progress,
-                    source_label="Global",
-                )
-                if line:
-                    rendered.append(line)
                 continue
             if self._gm3_is_failure_text(text):
                 continue
@@ -889,6 +1276,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 item_sub = item_family.split(":", 1)[-1] if ":" in item_family else ""
                 is_cross_domain = bool(current_sub and item_sub and item_sub != current_sub)
                 mapped = self._gm3_first_admissible_action_in_text(text, admissible)
+                schema = self._gm3_pddl_action_schema_from_text(text, admissible=admissible)
                 # "check valid actions" is a universal PDDL meta-action that is
                 # always admissible but never advances a goal literal.  Gripper
                 # repair items that contain "check_valid_actions" in their text
@@ -898,16 +1286,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     mapped = ""
                 if mapped and self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
                     rendered.append(
-                        f"Global PDDL memory maps to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
+                        f"Global PDDL schema `{schema or self._gm3_pddl_action_schema(mapped)}` maps to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
                     )
                 elif mapped and progress == "search_preconditions" and not self._gm3_pddl_is_meta_action(mapped):
                     if self._gm3_is_gpt4omini_model():
                         continue
                     rendered.append(
-                        f"Global PDDL memory maps to current valid setup operator `{mapped}`; use it only as a precondition step toward the remaining goal."
+                        f"Global PDDL schema `{schema or self._gm3_pddl_action_schema(mapped)}` maps to current valid setup operator `{mapped}`; use it only as a precondition step toward the remaining goal."
                     )
                 elif mapped:
                     continue
+                elif schema:
+                    rendered.append(
+                        f"Global PDDL transfer: prior schema `{schema}` is advisory only; instantiate it only from current valid actions and never copy old objects."
+                    )
                 elif not is_cross_domain:
                     rendered.append(
                         "Global PDDL transfer: reuse abstract planning discipline only "
@@ -1063,18 +1455,6 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             text = self._gm3_clean(str(getattr(artifact, "summary", "") or ""))
             if not text:
                 continue
-            if domain == "fever" or task_family.startswith("fever"):
-                line = self._gm3_render_fever_workflow_item(
-                    artifact,
-                    query=query,
-                    text=text,
-                    admissible=admissible,
-                    progress=progress,
-                    source_label="Local",
-                )
-                if line:
-                    rendered.append(line)
-                continue
             if domain.startswith("bfcl") or task_family.startswith("bfcl"):
                 if "finishturn" in self._gm3_norm(text) or "closure" in pattern_kind:
                     rendered.append(
@@ -1113,28 +1493,31 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 if domain.startswith("pddl"):
                     if self._gm3_pddl_is_meta_action(mapped):
                         continue
+                    schema = self._gm3_pddl_action_schema_from_text(text, admissible=admissible) or self._gm3_pddl_action_schema(mapped)
                     if not self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped):
                         if progress == "search_preconditions":
                             if self._gm3_is_gpt4omini_model():
                                 continue
                             rendered.append(
-                                f"Local PDDL graph maps prior precondition workflow to current valid setup operator `{mapped}`; use it only if it prepares an unsatisfied goal literal."
+                                f"Local PDDL schema `{schema}` maps prior precondition workflow to current valid setup operator `{mapped}`; use it only if it prepares an unsatisfied goal literal."
                             )
                             continue
                         if hint := self._gm3_pddl_current_action_hint(query, admissible):
                             rendered.append(
-                                f"Local PDDL graph cannot reuse old operator `{mapped}` for the current unsatisfied goal; current grounded operator is `{hint}`."
+                                f"Local PDDL schema `{schema}` is not goal-grounded now; current grounded operator is `{hint}`."
                             )
                         continue
                     rendered.append(
-                        f"Local PDDL graph maps prior workflow to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
+                        f"Local PDDL schema `{schema}` maps prior workflow to current valid operator `{mapped}`; use it only if it advances an unsatisfied goal literal."
                     )
                     continue
                 rendered.append(f"{text} Current admissible grounding: `{mapped}`.")
             elif domain.startswith("pddl"):
                 if hint := self._gm3_pddl_current_action_hint(query, admissible):
+                    schema = self._gm3_pddl_action_schema_from_text(text, admissible=admissible)
+                    schema_text = f"schema `{schema}` has no current direct instance; " if schema else ""
                     rendered.append(
-                        f"Local PDDL graph cannot copy old arguments; current grounded operator candidate is `{hint}` because it overlaps unsatisfied goal literals."
+                        f"Local PDDL graph cannot copy old arguments; {schema_text}current grounded operator candidate is `{hint}` because it overlaps unsatisfied goal literals."
                     )
                 continue
             elif pattern_kind in {"workflow", "closure", "rule", "precondition"}:
@@ -1222,6 +1605,19 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 return ""
             if "premature_finish_failure" in fever_pattern or "failure" in fever_pattern:
                 return ""
+        is_claim_evidence = (
+            "claim_evidence" in fever_pattern
+            or "claim evidence" in pattern_blob
+            or self._gm3_norm(str(payload.get("pattern_kind", "") or "")) == "claim_evidence"
+        )
+        if is_claim_evidence:
+            return self._gm3_render_fever_evidence_item(
+                item,
+                query=query,
+                payload=payload,
+                progress=progress,
+                source_label=source_label,
+            )
         if progress == "ready_finish":
             return ""
         is_recovery = "no_results_recovery" in fever_pattern or "recovery" in pattern_blob
@@ -1235,21 +1631,11 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             return ""
 
         if is_content_route and progress == "need_search":
-            action = self._gm3_fever_grounded_action("search", ctx["entity"], admissible)
-            if not action:
-                return ""
-            search_role = str(
-                payload.get("search_role", "")
-                or dynamic.get("search_role", "")
-                or self._gm3_fever_value_from_item_id(item_id, "search_role")
-                or "claim subject"
-            )
-            lookup_hint = self._gm3_fever_payload_keyword(payload) or ctx["lookup_keyword"]
-            tail = f"; if the page is broad, lookup `{lookup_hint}` next" if lookup_hint else ""
-            return (
-                f"{source_label} FEVER content search route ({ctx['claim_type']}): successful routes search the "
-                f"current claim's {search_role}; use `{action}`{tail}, then finish only from evidence."
-            )
+            # The base FEVER prompt already teaches Search[current entity].
+            # Re-injecting this high-frequency prototype on every task adds
+            # procedural noise but no evidence, and it becomes more dominant as
+            # train memory grows.
+            return ""
 
         if is_content_route:
             return ""
@@ -1272,9 +1658,377 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         if is_stop_rule and progress == "need_lookup_or_finish":
             return (
                 f"{source_label} FEVER stop rule ({ctx['claim_type']}): if the current evidence directly supports, "
-                "contradicts, or fails to contain the relation, Finish from that evidence instead of forcing another Lookup."
+                "or clearly contradicts the claim on the correct subject page, finish from that evidence; otherwise use a relation/entity query before NOT ENOUGH INFO."
             )
         return ""
+
+    def _gm3_filter_fever_selected_sections(self, *, query: Any, selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        if not task_family.startswith("fever"):
+            return selected
+        progress = str(getattr(query, "progress_state", "") or "")
+        filtered: list[dict[str, Any]] = []
+        for section in selected:
+            slot = str(section.get("slot", "") or "")
+            items = [str(item or "").strip() for item in (section.get("items", []) or []) if str(item or "").strip()]
+            kept: list[str] = []
+            for item in items:
+                norm = self._gm3_norm(item)
+                high_signal = any(
+                    marker in norm
+                    for marker in (
+                        "fever evidence memory",
+                        "claim evidence",
+                        "recovery",
+                        "failure",
+                        "avoid finish",
+                        "search page miss",
+                        "relation query",
+                    )
+                )
+                weak_stop = "stop rule" in norm and not any(marker in norm for marker in ("correct subject page", "relation entity", "relation query"))
+                if slot == "global_workflow" and not high_signal:
+                    continue
+                if weak_stop:
+                    continue
+                if slot == "source_roles":
+                    continue
+                if slot == "local_grounding" and not high_signal and progress not in {"search_failed", "invalid_action"}:
+                    continue
+                kept.append(item)
+            if kept:
+                updated = dict(section)
+                updated["items"] = kept
+                filtered.append(updated)
+        return filtered
+
+    def _gm3_filter_pddl_selected_sections(
+        self,
+        *,
+        query: Any,
+        selected: list[dict[str, Any]],
+        admissible: list[str],
+    ) -> list[dict[str, Any]]:
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        if not task_family.startswith("pddl"):
+            return selected
+        filtered: list[dict[str, Any]] = []
+        for section in selected:
+            slot = str(section.get("slot", "") or "")
+            if slot == "phase_policy":
+                filtered.append(section)
+                continue
+            kept: list[str] = []
+            for item in section.get("items", []) or []:
+                text = str(item or "").strip()
+                if not text:
+                    continue
+                sanitized = self._gm3_pddl_sanitize_memory_line(text, slot=slot, admissible=admissible)
+                if sanitized:
+                    kept.append(sanitized)
+            if kept:
+                updated = dict(section)
+                updated["items"] = self._gm3_dedupe(kept, len(kept))
+                filtered.append(updated)
+        return filtered
+
+    def _gm3_pddl_sanitize_memory_line(self, text: str, *, slot: str, admissible: list[str]) -> str:
+        mapped = self._gm3_first_admissible_action_in_text(text, admissible)
+        if mapped and not self._gm3_pddl_is_meta_action(mapped):
+            return text
+        schema = self._gm3_pddl_action_schema_from_text(text, admissible=[])
+        if not schema:
+            if mapped and self._gm3_pddl_is_meta_action(mapped):
+                return ""
+            return text
+        if slot == "global_workflow":
+            return (
+                f"Global PDDL transfer: prior schema `{schema}` is advisory only; "
+                "instantiate it only from current valid actions."
+            )
+        if slot == "local_grounding":
+            return (
+                f"Local PDDL graph has prior schema `{schema}` but no current admissible instance; "
+                "choose from current valid actions."
+            )
+        if slot == "failure_avoidance":
+            return (
+                f"PDDL failure memory abstracts to schema `{schema}`; avoid it only when the same failure condition "
+                "matches a current valid operator."
+            )
+        return f"PDDL memory abstracts to schema `{schema}`; apply only if a current valid operator instantiates it."
+
+    def _gm3_pddl_gate_priority_items(
+        self,
+        *,
+        query: Any,
+        priority_items: list[str],
+        admissible: list[str],
+    ) -> list[str]:
+        progress = str(getattr(query, "progress_state", "") or "")
+        gated: list[str] = []
+        seen: set[str] = set()
+        for item in priority_items:
+            mapped = self._gm3_first_admissible_action_in_text(str(item or ""), admissible)
+            if not mapped or self._gm3_pddl_is_meta_action(mapped):
+                continue
+            advances_goal = self._gm3_pddl_action_advances_unsatisfied_goal(query, mapped)
+            if not advances_goal:
+                if progress != "search_preconditions":
+                    continue
+                if not self._gm3_pddl_action_is_safe_setup(query, mapped):
+                    continue
+            key = self._gm3_norm(mapped)
+            if key in seen:
+                continue
+            seen.add(key)
+            gated.append(mapped)
+        return gated
+
+    def _gm3_pddl_action_schema_from_text(self, text: str, *, admissible: list[str] | None = None) -> str:
+        mapped = self._gm3_first_admissible_action_in_text(text, admissible or [])
+        if mapped and not self._gm3_pddl_is_meta_action(mapped):
+            return self._gm3_pddl_action_schema(mapped)
+        for fragment in self._gm3_pddl_action_fragments(text):
+            schema = self._gm3_pddl_action_schema(fragment)
+            if schema:
+                return schema
+        return ""
+
+    def _gm3_pddl_action_fragments(self, text: str) -> list[str]:
+        raw = str(text or "").strip()
+        patterns = (
+            r"`([^`]+)`",
+            r"\bvia\s+([^.;]+)",
+            r"\bprefer\s+([^.;]+)",
+            r"\bavoid\s+([^.;]+?)(?:\s+under\b|[.;]|$)",
+            r"\btry\s+([^.;]+)",
+            r"\bexecute\s+([^.;]+)",
+            r"\boperator\s+([^.;]+)",
+            r"\baction\s+([^.;]+)",
+        )
+        fragments: list[str] = []
+        for pattern in patterns:
+            for match in re.finditer(pattern, raw, flags=re.IGNORECASE):
+                value = str(match.group(1) or "").strip(" `")
+                if value:
+                    fragments.append(value)
+        return fragments
+
+    def _gm3_pddl_action_schema(self, action: str) -> str:
+        tokens = self._gm3_pddl_tokens(action)
+        if not tokens:
+            return ""
+        verb = tokens[0]
+        if self._gm3_pddl_is_meta_action(verb):
+            return ""
+        blocked_verbs = {
+            "pddl",
+            "global",
+            "local",
+            "current",
+            "schema",
+            "workflow",
+            "precondition",
+            "failure",
+            "valid",
+            "admissible",
+            "old",
+            "prior",
+            "memory",
+        }
+        if verb in blocked_verbs:
+            return ""
+        args = tokens[1:7]
+        if not args:
+            return f"{verb}()"
+        return f"{verb}(" + ", ".join(f"?arg{i}" for i, _arg in enumerate(args, start=1)) + ")"
+
+    def _gm3_pddl_action_is_safe_setup(self, query: Any, action: str) -> bool:
+        if not action or self._gm3_pddl_is_meta_action(action):
+            return False
+        if self._gm3_pddl_action_advances_unsatisfied_goal(query, action):
+            return True
+        return not self._gm3_pddl_action_threatens_goal_state(query, action)
+
+    def _gm3_pddl_action_threatens_goal_state(self, query: Any, action: str) -> bool:
+        tokens = self._gm3_pddl_tokens(action)
+        if len(tokens) < 2:
+            return False
+        verb = tokens[0]
+        args = tokens[1:]
+        goal_at = self._gm3_pddl_goal_at_map(query)
+        current_at = self._gm3_pddl_current_at_map(query)
+        goal_on = self._gm3_pddl_goal_on_pairs(query)
+        current_on = self._gm3_pddl_current_on_pairs(query)
+
+        if verb in {"drop", "put", "place"} and len(args) >= 2:
+            obj, loc = args[0], args[1]
+            wanted = goal_at.get(obj, set())
+            if wanted and loc not in wanted:
+                return True
+        if verb in {"pick", "pickup", "take"} and len(args) >= 2:
+            obj, loc = args[0], args[1]
+            if loc in goal_at.get(obj, set()) and loc in current_at.get(obj, set()):
+                return True
+        if verb in {"unstack", "remove"} and len(args) >= 2:
+            pair = (args[0], args[1])
+            if pair in goal_on and pair in current_on:
+                return True
+        if verb in {"putdown", "put-down"} and args:
+            obj = args[0]
+            if any(src == obj and (src, dst) in current_on for src, dst in goal_on):
+                return True
+        return False
+
+    def _gm3_pddl_goal_at_map(self, query: Any) -> dict[str, set[str]]:
+        return self._gm3_pddl_at_map_from_literals(self._gm3_pddl_goal_literals(query))
+
+    def _gm3_pddl_current_at_map(self, query: Any) -> dict[str, set[str]]:
+        return self._gm3_pddl_at_map_from_literals(self._gm3_pddl_current_literals(query))
+
+    def _gm3_pddl_goal_on_pairs(self, query: Any) -> set[tuple[str, str]]:
+        return self._gm3_pddl_on_pairs_from_literals(self._gm3_pddl_goal_literals(query))
+
+    def _gm3_pddl_current_on_pairs(self, query: Any) -> set[tuple[str, str]]:
+        return self._gm3_pddl_on_pairs_from_literals(self._gm3_pddl_current_literals(query))
+
+    @staticmethod
+    def _gm3_pddl_goal_literals(query: Any) -> list[str]:
+        belief = getattr(query, "belief", {}) or {}
+        return [str(item or "") for item in (belief.get("goal_literals") or []) if str(item or "").strip()]
+
+    @staticmethod
+    def _gm3_pddl_current_literals(query: Any) -> list[str]:
+        belief = getattr(query, "belief", {}) or {}
+        return [str(item or "") for item in (belief.get("current_literals") or []) if str(item or "").strip()]
+
+    def _gm3_pddl_at_map_from_literals(self, literals: list[str]) -> dict[str, set[str]]:
+        out: dict[str, set[str]] = {}
+        for literal in literals:
+            text = self._gm3_norm(literal)
+            match = re.search(r"\b([a-z]+[a-z0-9]*)\s+(?:is\s+)?at\s+([a-z]+[a-z0-9]*)\b", text)
+            if not match:
+                match = re.search(r"\bat\s+([a-z]+[a-z0-9]*)\s+([a-z]+[a-z0-9]*)\b", text)
+            if not match:
+                continue
+            obj, loc = match.group(1), match.group(2)
+            out.setdefault(obj, set()).add(loc)
+        return out
+
+    def _gm3_pddl_on_pairs_from_literals(self, literals: list[str]) -> set[tuple[str, str]]:
+        out: set[tuple[str, str]] = set()
+        for literal in literals:
+            text = self._gm3_norm(literal)
+            match = re.search(r"\b([a-z]+[a-z0-9]*)\s+(?:is\s+)?on\s+([a-z]+[a-z0-9]*)\b", text)
+            if not match:
+                match = re.search(r"\bon\s+([a-z]+[a-z0-9]*)\s+([a-z]+[a-z0-9]*)\b", text)
+            if match:
+                out.add((match.group(1), match.group(2)))
+        return out
+
+    def _gm3_fever_memory_tokens(self, text: str) -> set[str]:
+        stop = {
+            "claim",
+            "the",
+            "and",
+            "for",
+            "that",
+            "this",
+            "with",
+            "from",
+            "was",
+            "were",
+            "are",
+            "has",
+            "had",
+            "have",
+            "not",
+            "supports",
+            "refutes",
+            "enough",
+            "info",
+        }
+        return {
+            token
+            for token in re.findall(r"[a-z0-9]+", str(text or "").lower())
+            if len(token) > 2 and token not in stop
+        }
+
+    def _gm3_fever_query_tokens(self, query: Any) -> set[str]:
+        belief = getattr(query, "belief", {}) or {}
+        roles = getattr(query, "goal_roles", {}) or {}
+        pieces: list[str] = [
+            str(belief.get("claim", "") or ""),
+            str(belief.get("primary_entity", "") or roles.get("object", "") or ""),
+            str(belief.get("secondary_entity", "") or roles.get("secondary", "") or ""),
+        ]
+        relation = belief.get("relation_keywords") or roles.get("relation") or []
+        if isinstance(relation, str):
+            pieces.append(relation)
+        else:
+            pieces.extend(str(item or "") for item in relation)
+        return self._gm3_fever_memory_tokens(" ".join(pieces))
+
+    def _gm3_render_fever_evidence_item(
+        self,
+        item: Any,
+        *,
+        query: Any,
+        payload: dict[str, Any],
+        progress: str,
+        source_label: str,
+    ) -> str:
+        if progress not in {"need_search", "need_lookup_or_finish", "ready_finish", "search_failed", "invalid_action"}:
+            return ""
+        snippet = self._gm3_clean(str(payload.get("evidence_snippet", "") or ""))
+        if not snippet:
+            return ""
+        if self._gm3_norm(str(payload.get("label_guard", "") or "")) != "no prior label stored":
+            return ""
+
+        claim_tokens = self._gm3_fever_query_tokens(query)
+        evidence_terms = [
+            str(term).strip().lower()
+            for term in (payload.get("evidence_terms", []) or [])
+            if str(term).strip()
+        ]
+        memory_terms = set(evidence_terms) | self._gm3_fever_memory_tokens(
+            " ".join(str(term) for term in (payload.get("claim_terms", []) or []))
+        )
+        source_title = str(payload.get("source_title", "") or "").strip()
+        source_tokens = self._gm3_fever_memory_tokens(source_title)
+        overlap = sorted((memory_terms | source_tokens) & claim_tokens)
+        source_match = bool(source_tokens & claim_tokens)
+        if len(overlap) < 2 and not source_match:
+            return ""
+
+        stats = getattr(item, "stats", None)
+        support = int(getattr(stats, "support", 0) or 0) if stats is not None else 0
+        confidence = float(getattr(stats, "confidence", 0.0) or 0.0) if stats is not None else 0.0
+        failure_rate = float(getattr(stats, "failure_rate", 0.0) or 0.0) if stats is not None else 0.0
+        conflict = float(getattr(item, "conflict", 0.0) or 0.0)
+        if failure_rate > 0.25 or conflict > 0.35:
+            return ""
+
+        dynamic = getattr(query, "dynamic_context", {}) or {}
+        visible_tokens = self._gm3_fever_memory_tokens(
+            " ".join(str(x) for x in (dynamic.get("visible_objects", []) or []))
+        )
+        current_page_overlap = sorted(visible_tokens & set(evidence_terms))
+        if progress in {"need_lookup_or_finish", "ready_finish"} and visible_tokens and not current_page_overlap:
+            return ""
+
+        confidence_text = f"{confidence:.2f}" if confidence else "unscored"
+        source_text = f"source=`{source_title}`; " if source_title else ""
+        overlap_text = ", ".join((current_page_overlap or overlap)[:5])
+        return (
+            f"{source_label} FEVER evidence memory ({payload.get('claim_type', 'claim_verification')}; "
+            f"{source_text}confidence={confidence_text}, support={support}): "
+            f"candidate evidence overlaps current claim on [{overlap_text}]. "
+            f"Snippet: \"{self._gm3_shorten(snippet, 240)}\" "
+            "Use only as verifiable evidence context; decide the label from the current claim/page, not from prior labels."
+        )
 
     def _gm3_render_fever_bundle_hint(
         self,
@@ -1343,14 +2097,19 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             )
         return ""
 
-    def _gm3_fever_claim_context(self, query: Any) -> dict[str, str]:
+    def _gm3_fever_claim_context(self, query: Any) -> dict[str, Any]:
         belief = getattr(query, "belief", {}) or {}
         roles = getattr(query, "goal_roles", {}) or {}
+        dynamic = getattr(query, "dynamic_context", {}) or {}
         claim_type = str(belief.get("claim_type") or roles.get("claim_type") or "general_fact").strip() or "general_fact"
         entity = str(belief.get("primary_entity") or roles.get("object") or "").strip()
+        secondary = str(belief.get("secondary_entity") or roles.get("secondary") or "").strip()
         raw_keywords = belief.get("relation_keywords") or roles.get("relation") or []
         if isinstance(raw_keywords, str):
             raw_keywords = [raw_keywords]
+        raw_variants = belief.get("query_variants") or (dynamic.get("query_variants") if isinstance(dynamic, dict) else []) or []
+        if isinstance(raw_variants, str):
+            raw_variants = [raw_variants]
         keywords = [
             self._gm3_fever_display_arg(str(keyword or ""))
             for keyword in raw_keywords
@@ -1360,7 +2119,13 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         return {
             "claim_type": claim_type,
             "entity": self._gm3_fever_display_arg(entity),
+            "secondary_entity": self._gm3_fever_display_arg(secondary),
             "lookup_keyword": keyword,
+            "query_variants": [
+                self._gm3_fever_display_arg(str(item or ""))
+                for item in raw_variants
+                if self._gm3_fever_display_arg(str(item or ""))
+            ][:5],
         }
 
     def _gm3_fever_grounded_action(self, action_type: str, value: str, admissible: list[str]) -> str:

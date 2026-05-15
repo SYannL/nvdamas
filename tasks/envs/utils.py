@@ -1,5 +1,6 @@
 from typing import Optional, Union, List, Dict, Any
 from dataclasses import dataclass, field
+import json
 import os
 import string
 import re
@@ -60,45 +61,263 @@ def normalize_search_query(query: str, max_words: int = 6) -> str:
 
 class LangChainWiki:
 
-    def __init__(self) -> None:
+    def __init__(self, cache_path: Optional[str] = None) -> None:
         self.document: Optional[Document] = None
         self.lookup_str = ""
         self.lookup_index = 0
+        self.cache_path = cache_path or os.environ.get("NV_WIKI_SEARCH_CACHE", "")
+        self._cache: Dict[str, Dict[str, Any]] = self._load_cache(self.cache_path)
+        self._last_errors: List[str] = []
+        self._last_disambiguation_options: List[str] = []
+
+    @staticmethod
+    def _load_cache(cache_path: str) -> Dict[str, Dict[str, Any]]:
+        if not cache_path or cache_path.lower() in {"0", "false", "off", "none"}:
+            return {}
+        try:
+            if not os.path.exists(cache_path):
+                return {}
+            with open(cache_path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _save_cache(self) -> None:
+        if not self.cache_path or self.cache_path.lower() in {"0", "false", "off", "none"}:
+            return
+        try:
+            cache_dir = os.path.dirname(self.cache_path)
+            if cache_dir:
+                os.makedirs(cache_dir, exist_ok=True)
+            existing = self._load_cache(self.cache_path)
+            if existing:
+                existing.update(self._cache)
+                self._cache = existing
+            tmp_path = f"{self.cache_path}.{os.getpid()}.tmp"
+            with open(tmp_path, "w", encoding="utf-8") as fh:
+                json.dump(self._cache, fh, ensure_ascii=False)
+            os.replace(tmp_path, self.cache_path)
+        except Exception:
+            return
+
+    @staticmethod
+    def _cache_key(search: str, context: str = "") -> str:
+        query = normalize_search_query(search or "")
+        compact_context = " ".join(str(context or "").lower().split())
+        return json.dumps(
+            {"query": query.lower(), "context": compact_context[:240]},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+
+    @staticmethod
+    def _dedupe(items: List[str]) -> List[str]:
+        seen: set[str] = set()
+        result: List[str] = []
+        for item in items:
+            value = str(item or "").strip()
+            if not value:
+                continue
+            key = value.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(value)
+        return result
+
+    @staticmethod
+    def _claim_types(context: str) -> set[str]:
+        text = str(context or "").lower()
+        found: set[str] = set()
+        if re.search(r"\b(film|movie|cinema|directed|starring)\b", text):
+            found.add("film")
+        if re.search(r"\b(tv|television|series|show|season|episode|cancelled|canceled|renewed)\b", text):
+            found.add("television")
+        if re.search(r"\b(song|single|album|band|singer|rapper|musician|record)\b", text):
+            found.add("music")
+        return found
+
+    def _contextual_queries(self, query: str, context: str = "") -> List[str]:
+        query = normalize_search_query(query or "")
+        claim_types = self._claim_types(context)
+        variants = [query]
+        lowered = query.lower()
+
+        if "film" in claim_types and not re.search(r"\b(film|movie)\b", lowered):
+            variants.extend([f"{query} film", f"{query} (film)"])
+        if "television" in claim_types and not re.search(r"\b(tv|television|series|show|season)\b", lowered):
+            variants.extend([f"{query} TV series", f"{query} television series", f"{query} (TV series)"])
+        if "music" in claim_types and not re.search(r"\b(song|single|album|band|singer|rapper|musician|record)\b", lowered):
+            variants.extend([f"{query} song", f"{query} album", f"{query} band"])
+
+        return self._dedupe(variants)
+
+    @staticmethod
+    def _doc_is_context_match(doc: Document, context: str = "") -> bool:
+        claim_types = LangChainWiki._claim_types(context)
+        if not claim_types:
+            return True
+        text = f"{doc.metadata.get('title', '')} {doc.page_content[:1200]}".lower()
+        if "film" in claim_types and re.search(r"\b(film|movie|directed by|starring)\b", text):
+            return True
+        if "television" in claim_types and re.search(r"\b(tv|television|series|show|season|episode|renewed|cancelled|canceled)\b", text):
+            return True
+        if "music" in claim_types and re.search(r"\b(song|single|album|band|singer|rapper|musician|record)\b", text):
+            return True
+        return False
+
+    def _cache_doc(self, key: str, doc: Document, *, search: str, query: str, stage: str, similar: List[str]) -> None:
+        self._cache[key] = {
+            "status": "hit",
+            "search": search,
+            "query": query,
+            "stage": stage,
+            "title": doc.metadata.get("title", ""),
+            "url": doc.metadata.get("page", ""),
+            "content": doc.page_content,
+            "similar": similar[:8],
+            "errors": list(self._last_errors[-8:]),
+        }
+        self._save_cache()
+
+    def _cache_failure(self, key: str, *, search: str, query: str, similar: List[str]) -> str:
+        similar_str = ", ".join(similar[:8]) if similar else "none"
+        error_str = "; ".join(self._last_errors[-3:])
+        observation = f"Could not find [{search}]. Similar: [{similar_str}]"
+        if error_str:
+            observation = f"{observation} SearchErrors: [{error_str}]"
+        self._cache[key] = {
+            "status": "miss",
+            "search": search,
+            "query": query,
+            "observation": observation,
+            "similar": similar[:8],
+            "errors": list(self._last_errors[-8:]),
+        }
+        self._save_cache()
+        return observation
+
+    def _apply_cache_entry(self, entry: Dict[str, Any]) -> Optional[str]:
+        if not isinstance(entry, dict):
+            return None
+        if entry.get("status") == "hit":
+            self.document = Document(
+                page_content=str(entry.get("content", "") or ""),
+                metadata={"page": str(entry.get("url", "") or ""), "title": str(entry.get("title", "") or "")},
+            )
+            self.lookup_str = ""
+            self.lookup_index = 0
+            return self._sumary
+        if entry.get("status") == "miss":
+            self.document = None
+            return str(entry.get("observation") or "Could not find page.")
+        return None
 
     def _try_page(self, title: str) -> Optional[Document]:
         """Try to load a Wikipedia page by title. Returns Document or None."""
+        self._last_disambiguation_options = []
         try:
             page = wikipedia.page(title, auto_suggest=False)
             return Document(
                 page_content=page.content,
-                metadata={"page": page.url},
+                metadata={"page": page.url, "title": getattr(page, "title", title)},
             )
-        except (wikipedia.PageError, wikipedia.DisambiguationError, Exception):
+        except wikipedia.DisambiguationError as exc:
+            self._last_disambiguation_options = list(getattr(exc, "options", []) or [])
+            self._last_errors.append(f"DisambiguationError({title})")
+            return None
+        except wikipedia.PageError:
+            self._last_errors.append(f"PageError({title})")
+            return None
+        except Exception as exc:
+            self._last_errors.append(f"{type(exc).__name__}({title})")
             return None
 
-    def search(self, search: str) -> Union[str, Document]:
-        query = normalize_search_query(search)
-        # 1) Try primary query
-        doc = self._try_page(query)
-        if doc is not None:
-            self.document = doc
-            return self._sumary
-        # 2) Get similar titles and auto-retry
+    def _similar_titles(self, query: str) -> List[str]:
         try:
-            similar = wikipedia.search(query)
-        except Exception:
-            similar = []
-        for title in (similar or [])[:5]:
-            if not title or title == query:
+            return list(wikipedia.search(query) or [])
+        except Exception as exc:
+            self._last_errors.append(f"{type(exc).__name__}:wikipedia.search({query})")
+            return []
+
+    def search(self, search: str, context: str = "") -> Union[str, Document]:
+        query = normalize_search_query(search)
+        cache_key = self._cache_key(search, context)
+        cached = self._apply_cache_entry(self._cache.get(cache_key, {}))
+        if cached is not None:
+            return cached
+
+        self._last_errors = []
+        queries = self._contextual_queries(query, context)
+        fallback_doc: Optional[Document] = None
+        fallback_query = query
+        similar: List[str] = []
+        candidate_titles: List[str] = []
+
+        # 1) Try exact/contextual queries. If an exact page is too broad for the
+        # claim type, keep it as a fallback and try typed variants before returning.
+        for candidate_query in queries:
+            doc = self._try_page(candidate_query)
+            candidate_titles.extend(self._last_disambiguation_options)
+            if doc is None:
+                continue
+            if self._doc_is_context_match(doc, context):
+                self.document = doc
+                self.lookup_str = ""
+                self.lookup_index = 0
+                self._cache_doc(cache_key, doc, search=search, query=candidate_query, stage="exact_or_context", similar=similar)
+                return self._sumary
+            if fallback_doc is None:
+                fallback_doc = doc
+                fallback_query = candidate_query
+
+        # 2) Get similar/disambiguation titles and retry ranked candidates.
+        for candidate_query in queries:
+            similar.extend(self._similar_titles(candidate_query))
+        candidate_titles.extend(similar)
+        ranked_titles = sorted(
+            self._dedupe(candidate_titles),
+            key=lambda title: int(self._title_matches_claim_type(title, context)),
+            reverse=True,
+        )
+        for title in ranked_titles[:10]:
+            if not title or title.lower() in {q.lower() for q in queries}:
                 continue
             doc = self._try_page(title)
-            if doc is not None:
+            if doc is None:
+                continue
+            if self._doc_is_context_match(doc, context) or fallback_doc is None:
                 self.document = doc
+                self.lookup_str = ""
+                self.lookup_index = 0
+                self._cache_doc(cache_key, doc, search=search, query=title, stage="similar_or_disambiguation", similar=similar)
                 return self._sumary
-        # 3) All failed: return message with similar list for LLM
+
+        # 3) If no typed candidate works, return the exact broad page rather than
+        # manufacturing a miss from a failed secondary query.
+        if fallback_doc is not None:
+            self.document = fallback_doc
+            self.lookup_str = ""
+            self.lookup_index = 0
+            self._cache_doc(cache_key, fallback_doc, search=search, query=fallback_query, stage="broad_fallback", similar=similar)
+            return self._sumary
+
+        # 4) All failed: return message with similar list and visible error type.
         self.document = None
-        similar_str = ", ".join(similar[:8]) if similar else "none"
-        return f"Could not find [{search}]. Similar: [{similar_str}]"
+        return self._cache_failure(cache_key, search=search, query=query, similar=self._dedupe(similar))
+
+    @staticmethod
+    def _title_matches_claim_type(title: str, context: str = "") -> bool:
+        claim_types = LangChainWiki._claim_types(context)
+        lowered = str(title or "").lower()
+        if "film" in claim_types and re.search(r"\b(film|movie)\b", lowered):
+            return True
+        if "television" in claim_types and re.search(r"\b(tv|television|series|show|season)\b", lowered):
+            return True
+        if "music" in claim_types and re.search(r"\b(song|single|album|band|record)\b", lowered):
+            return True
+        return False
     
     def lookup(self, term: str):
 

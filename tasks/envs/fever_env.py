@@ -16,7 +16,11 @@ class FeverEnv(BaseEnv):
         
         self.env_config = env_config
         self.gm3_domain = "fever"
-        self.explorer = LangChainWiki()
+        cache_path = os.environ.get(
+            "FEVER_WIKI_CACHE",
+            os.path.join(os.getcwd(), ".cache", "fever_wiki_cache.json"),
+        )
+        self.explorer = LangChainWiki(cache_path=cache_path)
         self.max_trials: int = max_trials
         self.config: dict[str, Any] = {}
         self.claim: str = ""
@@ -106,7 +110,7 @@ class FeverEnv(BaseEnv):
         elif action_type == 'Search':
             while True:
                 try:
-                    observation = self.explorer.search(argument).strip('\n').strip()
+                    observation = self.explorer.search(argument, context=self.claim).strip('\n').strip()
                     self.summary = observation
                     break
                 except Exception as e:

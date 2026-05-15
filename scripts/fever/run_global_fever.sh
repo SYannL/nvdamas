@@ -5,7 +5,26 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-export OPENAI_API_BASE="${OPENAI_API_BASE:-https://api.anthropic.com/v1/}"
+MODEL="${MODEL:-claude-haiku-4-5}"
+
+if [ -z "${OPENAI_API_BASE:-}" ]; then
+    case "$MODEL" in
+        gemini*|*gemini*)
+            export OPENAI_API_BASE="https://generativelanguage.googleapis.com/v1beta/openai/"
+            ;;
+        deepseek*|*deepseek*)
+            export OPENAI_API_BASE="https://openrouter.ai/api/v1"
+            ;;
+        gpt*|o[0-9]*|o[0-9]-*)
+            export OPENAI_API_BASE="https://api.openai.com/v1"
+            ;;
+        *)
+            export OPENAI_API_BASE="https://api.anthropic.com/v1/"
+            ;;
+    esac
+else
+    export OPENAI_API_BASE
+fi
 
 if [ -z "${OPENAI_API_KEY:-}" ]; then
     echo "OPENAI_API_KEY is not set."
@@ -14,7 +33,6 @@ if [ -z "${OPENAI_API_KEY:-}" ]; then
     exit 1
 fi
 
-MODEL="${MODEL:-claude-haiku-4-5}"
 MAS_MEMORY="${MAS_MEMORY:-g-memory}"
 MAS_TYPE="${MAS_TYPE:-autogen}"
 REASONING="${REASONING:-io}"
@@ -32,10 +50,11 @@ GM2_DYNAMIC_GRAPH="${GM2_DYNAMIC_GRAPH:-0}"
 GM2_REPO_ROOT="${GM2_REPO_ROOT:-}"
 GM2_RETRIEVAL_MODE="${GM2_RETRIEVAL_MODE:-graph_policy}"
 GM2_SETTINGS="${GM2_SETTINGS:-local_plus_global}"
-GM3_DYNAMIC_GRAPH="${GM3_DYNAMIC_GRAPH:-0}"
+GM3_DYNAMIC_GRAPH="${GM3_DYNAMIC_GRAPH:-1}"
 GM3_REPO_ROOT="${GM3_REPO_ROOT:-}"
 GM3_ROUTER="${GM3_ROUTER:-textloss}"
 GM3_SETTINGS="${GM3_SETTINGS:-local_plus_global}"
+GM3_PROMOTION_THRESHOLD="${GM3_PROMOTION_THRESHOLD:-0.35}"
 MEMSKILL_CONTROLLER="${MEMSKILL_CONTROLLER:-llm}"
 MEMSKILL_CHECKPOINT_PATH="${MEMSKILL_CHECKPOINT_PATH:-/home/xenial/scratch/nvdamas/Models/memskill/alfworld_controller.pt}"
 MEMSKILL_OPERATION_BANK_PATH="${MEMSKILL_OPERATION_BANK_PATH:-}"
@@ -105,6 +124,7 @@ if [ "$MAS_MEMORY" = "graph_memory3" ]; then
     fi
     cmd+=(--gm3_router "$GM3_ROUTER")
     cmd+=(--gm3_settings "$GM3_SETTINGS")
+    cmd+=(--gm3_promotion_threshold "$GM3_PROMOTION_THRESHOLD")
 fi
 
 if [ "$MAS_MEMORY" = "memskill" ]; then

@@ -1,4 +1,5 @@
 import os
+import re
 
 from typing import (
     Protocol, 
@@ -85,6 +86,25 @@ class GPTChat(LLM):
         return any(marker in lowered for marker in markers)
 
     @staticmethod
+    def _is_fever_action_prompt(content: str) -> bool:
+        text = str(content or "")
+        lowered = text.lower()
+        markers = (
+            "## successful examples",
+            "## key insights from related tasks",
+            "## your turn: take action!",
+            "claim:",
+            "search[entity]",
+            "lookup[keyword]",
+            "finish[answer]",
+            "valid actions are lookup",
+            "use retrieved memories as evidence-search guidance",
+            "prefer a focused search[...] from the claim",
+        )
+        bracket_actions = sum(token in text for token in ("Search[", "Lookup[", "Finish["))
+        return sum(marker in lowered for marker in markers) >= 2 or bracket_actions >= 2
+
+    @staticmethod
     def _looks_like_thought_answer(answer: str) -> bool:
         lowered = str(answer or "").strip().lower()
         return lowered.startswith("think:") or lowered.startswith("thought:") or lowered.startswith("i need to ")
@@ -141,8 +161,47 @@ class GPTChat(LLM):
             return "check valid actions"
         return ""
 
+    @staticmethod
+    def _extract_first_fever_action(answer: str) -> str:
+        text = str(answer or "")
+        if not text.strip():
+            return ""
+        pattern = re.compile(
+            r"\b(?:Search|Lookup|Finish)\[[^\]\n]+\]",
+            flags=re.IGNORECASE,
+        )
+        match = pattern.search(text)
+        if not match:
+            return ""
+        action = match.group(0).strip()
+        if action.lower().startswith("finish["):
+            inner = action[len("Finish["):-1].strip()
+            upper_inner = inner.upper()
+            if upper_inner in {"SUPPORTS", "REFUTES", "NOT ENOUGH INFO"}:
+                return f"Finish[{upper_inner}]"
+        if action.lower().startswith("search["):
+            return f"Search[{action[action.find('[')+1:-1].strip()}]"
+        if action.lower().startswith("lookup["):
+            return f"Lookup[{action[action.find('[')+1:-1].strip()}]"
+        return action
+
     def _inject_action_only_guard(self, content: str, *, strict_retry: bool = False) -> str:
         content = str(content or "")
+        if self._is_fever_action_prompt(content):
+            prefix = (
+                "Output exactly one action and nothing else.\n"
+                "Valid formats: Search[...], Lookup[...], Finish[SUPPORTS], Finish[REFUTES], Finish[NOT ENOUGH INFO].\n"
+                "Do not output Thought, Observation, explanation, XML tags, function_calls, Markdown, or multiple actions.\n"
+            )
+            if strict_retry:
+                prefix = (
+                    "Return exactly one FEVER action only.\n"
+                    "Your entire answer must be exactly one of: Search[...], Lookup[...], Finish[SUPPORTS], Finish[REFUTES], Finish[NOT ENOUGH INFO].\n"
+                    "No prose, no Thought, no Action 1 label, no explanation, no XML, no extra lines.\n"
+                )
+            if prefix not in content:
+                return prefix + content
+            return content
         if self._is_qwen:
             if "/no_think" not in content:
                 return "/no_think\nOutput exactly one valid command and nothing else.\n" + content
@@ -163,20 +222,36 @@ class GPTChat(LLM):
                 return prefix + content
         return content
 
-    def _prepare_messages(self, messages: List[Message], *, strict_retry: bool = False) -> tuple[list[dict], bool, str]:
+    def _prepare_messages(self, messages: List[Message], *, strict_retry: bool = False) -> tuple[list[dict], bool, bool, str]:
         prepared = [{"role": msg.role, "content": msg.content} for msg in messages]
         for msg in reversed(prepared):
             if msg["role"] == "user":
                 content = str(msg.get("content") or "")
                 is_action_only = self._is_action_only_env_prompt(content)
-                if is_action_only:
+                is_fever_action = self._is_fever_action_prompt(content)
+                if is_action_only or is_fever_action:
                     msg["content"] = self._inject_action_only_guard(content, strict_retry=strict_retry)
                 action_prompt = content
                 break
         else:
             is_action_only = False
+            is_fever_action = False
             action_prompt = ""
-        return prepared, is_action_only, action_prompt
+        return prepared, is_action_only, is_fever_action, action_prompt
+
+    @staticmethod
+    def _sanitize_stop_strs(stop_strs: Optional[List[str]]) -> Optional[List[str]]:
+        if not stop_strs:
+            return None
+        cleaned: list[str] = []
+        for item in stop_strs:
+            value = str(item or "")
+            if not value:
+                continue
+            if not value.strip():
+                continue
+            cleaned.append(value)
+        return cleaned or None
 
     def __call__(
         self,
@@ -189,6 +264,7 @@ class GPTChat(LLM):
         import time
         global prompt_tokens, completion_tokens
 
+        stop_strs = self._sanitize_stop_strs(stop_strs)
         request_kwargs = {}
         if self._is_qwen:
             request_kwargs["extra_body"] = {
@@ -200,19 +276,21 @@ class GPTChat(LLM):
 
         for attempt in range(max_retries):
             try:
-                prepared_messages, is_action_only, action_prompt = self._prepare_messages(
+                prepared_messages, is_action_only, is_fever_action, action_prompt = self._prepare_messages(
                     messages,
                     strict_retry=(attempt > 0),
                 )
-                response = self.client.chat.completions.create(
+                create_kwargs = dict(
                     model=self.model_name,  
                     messages=prepared_messages,
                     max_tokens=max_tokens,
                     temperature=temperature,
                     n=num_comps,
-                    stop=stop_strs,
                     **request_kwargs,
                 )
+                if stop_strs is not None:
+                    create_kwargs["stop"] = stop_strs
+                response = self.client.chat.completions.create(**create_kwargs)
 
                 answer = response.choices[0].message.content
                 prompt_tokens += response.usage.prompt_tokens
@@ -226,6 +304,10 @@ class GPTChat(LLM):
                 if not answer:
                     # Avoid silent empty outputs causing infinite retries in downstream parsers.
                     raise RuntimeError("Empty LLM response")
+                if is_fever_action:
+                    extracted = self._extract_first_fever_action(answer)
+                    if extracted:
+                        return extracted
                 if is_action_only and self._is_gpt4omini:
                     answer = self._sanitize_action_only_answer(answer)
                 if is_action_only and self._is_gpt4omini and self._looks_like_thought_answer(answer):

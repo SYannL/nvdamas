@@ -26,9 +26,28 @@ class GM2OnlineEpisodeBuilder:
             self.state.recent_observations = self.state.recent_observations[-3:]
         self.state.step_count += 1
 
-    def planner_notes(self) -> list[str]:
+    @staticmethod
+    def _is_fever_tool_miss(text: str) -> bool:
+        lowered = str(text or "").lower()
+        return any(
+            marker in lowered
+            for marker in (
+                "could not find",
+                "cannot find",
+                "searcherrors",
+                "jsondecodeerror",
+                "pageerror",
+                "disambiguationerror",
+                "last page searched was not found",
+            )
+        )
+
+    def planner_notes(self, *, task_family: str = "", progress_state: str = "") -> list[str]:
         notes: list[str] = [f"[GM2Overlay] Current episode step count: {self.state.step_count}."]
-        if self.state.recent_actions:
+        is_fever = str(task_family or "").lower().startswith("fever")
+        progress = str(progress_state or "").strip().lower()
+        hide_actions = is_fever and progress in {"ready_finish", "done"}
+        if self.state.recent_actions and not hide_actions:
             notes.append(
                 "[GM2Overlay] Recent actions: " + " | ".join(self.state.recent_actions[-3:]) + "."
             )
@@ -36,5 +55,16 @@ class GM2OnlineEpisodeBuilder:
             last_obs = self.state.recent_observations[-1].replace("\n", " ").strip()
             if len(last_obs) > 220:
                 last_obs = last_obs[:217] + "..."
-            notes.append(f"[GM2Overlay] Latest observation: {last_obs}")
+            if is_fever and self._is_fever_tool_miss(last_obs):
+                notes.append(
+                    "[GM2Overlay] Latest tool status: search/page miss; this is not factual evidence for the FEVER label."
+                )
+            elif is_fever and progress in {"ready_finish", "done"}:
+                notes.append(f"[GM2Overlay] Latest factual evidence: {last_obs}")
+            else:
+                notes.append(f"[GM2Overlay] Latest observation: {last_obs}")
+        if is_fever and progress in {"ready_finish", "done"}:
+            notes.append(
+                "[GM2Overlay] FEVER final-label guard: action names and failed searches are operational history, not evidence."
+            )
         return notes

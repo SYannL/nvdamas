@@ -37,6 +37,21 @@ class FeverAdapter:
 
     domain_name = "fever"
 
+    @staticmethod
+    def _is_search_miss_text(text: str) -> bool:
+        lowered = str(text or "").lower()
+        return any(
+            marker in lowered
+            for marker in (
+                "could not find",
+                "cannot find",
+                "searcherrors",
+                "jsondecodeerror",
+                "pageerror",
+                "disambiguationerror",
+            )
+        )
+
     def canonicalize_action(self, raw_action: str) -> CanonicalAction:
         surface = str(raw_action or "").strip()
         action_type, argument = _extract_bracket_arg(surface)
@@ -147,15 +162,19 @@ class FeverAdapter:
         relation_keywords = [str(x) for x in profile.get("relation_keywords", []) if str(x).strip()]
         claim_type = str(profile.get("claim_type", "") or "general_fact")
         secondary_entity = str(profile.get("secondary_entity", "") or "")
+        query_variants = [str(x) for x in profile.get("query_variants", []) if str(x).strip()]
+        claim_polarity = str(profile.get("claim_polarity", "") or "positive")
         keywords = tuple(
             dict.fromkeys(
                 [
                     f"domain={domain}",
                     f"progress={progress_state}",
                     f"claim_type={claim_type}",
+                    f"claim_polarity={claim_polarity}",
                     f"relation={relation_keywords[0]}" if relation_keywords else "",
                     f"secondary={secondary_entity}" if secondary_entity else "",
                     f"label={_normalize(label)}" if label else "",
+                    *(_normalize(x) for x in query_variants[:4]),
                     *(_normalize(x) for x in self._claim_keywords(claim)[:10]),
                     *(_normalize(x) for x in relation_keywords[:6]),
                     *(_normalize(x) for x in self._evidence_phrases(observation)[:8]),
@@ -165,6 +184,7 @@ class FeverAdapter:
         goal_roles = {
             "claim_type": claim_type,
             "object": entity,
+            "claim_polarity": claim_polarity,
         }
         if relation_keywords:
             goal_roles["relation"] = _normalize(relation_keywords[0])
@@ -193,14 +213,19 @@ class FeverAdapter:
                 "primary_entity": entity,
                 "secondary_entity": secondary_entity,
                 "relation_keywords": relation_keywords,
+                "query_variants": query_variants,
+                "claim_polarity": claim_polarity,
                 "history_len": len(history),
                 "last_action": str(current.get("Action", "") or ""),
+                "fever_health": self._history_health(history),
             },
             dynamic_context={
                 "visible_objects": list(state.visible_objects),
                 "layout_id": self.derive_layout_id(domain, task_config.get("task_id", "")),
                 "task_config_env_name": str(task_config.get("env_name", "")),
                 "gm3_domain": self.domain_name,
+                "query_variants": query_variants,
+                "fever_health": self._history_health(history),
             },
         )
 
@@ -277,13 +302,49 @@ class FeverAdapter:
         observations = [str(row.get("Observation", "") or "") for row in history if str(row.get("Observation", "") or "").strip()]
         if any("invalid action" in obs.lower() for obs in observations[-2:]):
             return "invalid_action"
-        if any(action.lower().startswith("lookup[") for action in actions):
+        last_action = actions[-1].lower() if actions else ""
+        if last_action.startswith("lookup["):
             return "ready_finish"
-        if any(action.lower().startswith("search[") for action in actions):
-            if observations and "cannot find" in observations[-1].lower():
+        if last_action.startswith("search["):
+            if observations and FeverAdapter._is_search_miss_text(observations[-1]):
                 return "search_failed"
             return "need_lookup_or_finish"
+        if last_action.startswith("finish["):
+            return "done"
         return "need_search"
+
+    @staticmethod
+    def _history_health(history: list[dict[str, Any]]) -> dict[str, int]:
+        search_misses = 0
+        search_recoveries = 0
+        finish_after_search_miss = 0
+        nei_after_single_failed_search = 0
+        last_search_was_miss = False
+        total_searches = 0
+        for row in history:
+            action = str(row.get("Action", "") or "")
+            obs = str(row.get("Observation", "") or "")
+            action_lower = action.lower()
+            if action_lower.startswith("search["):
+                total_searches += 1
+                is_miss = FeverAdapter._is_search_miss_text(obs)
+                if is_miss:
+                    search_misses += 1
+                elif last_search_was_miss:
+                    search_recoveries += 1
+                last_search_was_miss = is_miss
+                continue
+            if action_lower.startswith("finish["):
+                if last_search_was_miss:
+                    finish_after_search_miss += 1
+                if last_search_was_miss and total_searches <= 1 and "not enough info" in action_lower:
+                    nei_after_single_failed_search += 1
+        return {
+            "search_miss_count": search_misses,
+            "search_recovery_attempt_count": search_recoveries,
+            "finish_after_search_error_count": finish_after_search_miss,
+            "nei_after_single_failed_search_count": nei_after_single_failed_search,
+        }
 
     @staticmethod
     def _last_failure(history: list[dict[str, Any]]) -> str | None:
@@ -298,7 +359,7 @@ class FeverAdapter:
         obs = str(record.get("Observation") or "").lower()
         if "invalid action" in obs:
             return "invalid_action"
-        if "cannot find" in obs:
+        if FeverAdapter._is_search_miss_text(obs):
             return "search_not_found"
         if "last page searched was not found" in obs:
             return "lookup_without_page"
@@ -358,6 +419,8 @@ class FeverAdapter:
         text = str(claim or "").strip()
         norm = re.sub(r"[^a-z0-9\s]+", " ", text.lower())
         primary = FeverAdapter._claim_anchor(text)
+        secondary = FeverAdapter._secondary_entity_hint(text, primary)
+        claim_polarity = "negative" if re.search(r"\b(?:not|never|no|without|incapable)\b", norm) else "positive"
 
         claim_type = "general_fact"
         relation_keywords: list[str] = []
@@ -394,13 +457,83 @@ class FeverAdapter:
 
         if not relation_keywords:
             relation_keywords = FeverAdapter._claim_relation_keywords(text, primary)
-        secondary = FeverAdapter._secondary_entity_hint(text, primary)
+        query_variants = FeverAdapter._claim_query_variants(
+            text,
+            primary_entity=primary,
+            secondary_entity=secondary,
+            claim_type=claim_type,
+            relation_keywords=relation_keywords,
+        )
         return {
             "claim_type": claim_type,
             "primary_entity": primary,
             "secondary_entity": secondary,
             "relation_keywords": relation_keywords[:5],
+            "query_variants": query_variants[:6],
+            "claim_polarity": claim_polarity,
         }
+
+    @staticmethod
+    def _claim_query_variants(
+        claim: str,
+        *,
+        primary_entity: str,
+        secondary_entity: str = "",
+        claim_type: str = "general_fact",
+        relation_keywords: list[str] | None = None,
+    ) -> list[str]:
+        """Current-claim search routes ordered from most relation-specific to broad.
+
+        These are not memory labels.  They are deterministic query candidates
+        used to avoid over-constraining strong models to Search[primary entity]
+        when the claim contains a second entity or a specific relation.
+        """
+        primary = FeverAdapter._display_query(primary_entity)
+        secondary = FeverAdapter._display_query(secondary_entity)
+        relation_keywords = [FeverAdapter._display_query(x) for x in (relation_keywords or []) if str(x).strip()]
+        claim_text = str(claim or "").strip()
+        claim_norm = re.sub(r"[^a-z0-9\s]+", " ", claim_text.lower())
+        variants: list[str] = []
+
+        def add(value: str) -> None:
+            cleaned = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;\"'")
+            if cleaned and _normalize(cleaned) not in {_normalize(x) for x in variants}:
+                variants.append(cleaned)
+
+        if primary and secondary:
+            add(f"{primary} {secondary}")
+        if primary and "film career" in claim_norm:
+            add(f"{primary} filmography")
+            add(f"{primary} film career")
+        if primary and claim_type in {"creative_role", "cast_membership", "identity_relation"} and relation_keywords:
+            # For relation claims, this preserves Gemini-style combined search
+            # (e.g. "Ashton Kutcher Ivan Reitman") before falling back to
+            # separate entity pages.
+            if secondary:
+                add(f"{primary} {secondary}")
+            add(f"{primary} {relation_keywords[0]}")
+        if primary and claim_type == "album_track_membership":
+            add(f"{primary} album")
+            add(f"{primary} track listing")
+        if primary and claim_type in {"cast_membership", "creative_role", "general_fact"}:
+            if any(word in claim_norm for word in (" film", " movie", " drama", " directed", " stars", " starred")):
+                add(f"{primary} film")
+                add(f"{primary} movie")
+            if any(word in claim_norm for word in (" tv ", " television", " series", " show")):
+                add(f"{primary} TV series")
+        if primary and relation_keywords:
+            add(f"{primary} {relation_keywords[0]}")
+        if primary:
+            add(primary)
+        if not variants:
+            keywords = FeverAdapter._claim_keywords(claim_text)
+            add(" ".join(keywords[:5]))
+        return variants
+
+    @staticmethod
+    def _display_query(value: str) -> str:
+        text = re.sub(r"[_\s]+", " ", str(value or "")).strip()
+        return re.sub(r"\s+", " ", text)
 
     @staticmethod
     def _claim_relation_keywords(claim: str, primary_entity: str = "") -> list[str]:

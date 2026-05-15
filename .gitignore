@@ -20,6 +20,7 @@ data/medmcqa/train.json
 .pydeps/
 *.sqlite3
 .memos/
+.cache/
 nohup.out
 Models/memskill/*.pt
 Models/memskill/**/*.pt

@@ -5809,6 +5809,25 @@ class GraphMemory2MASMemory(MASMemoryBase):
     def _derive_insights_from_message(self, mas_message: MASMessage) -> list[str]:
         hints: list[str] = []
         trajectory = str(mas_message.task_trajectory or "")
+        task_main = str(mas_message.task_main or "")
+        task_description = str(mas_message.task_description or "")
+        is_fever = (
+            task_main.strip().lower().startswith("claim:")
+            or task_description.strip().lower().startswith("claim:")
+            or "Search[" in trajectory
+            or "Lookup[" in trajectory
+            or "Finish[" in trajectory
+        )
+        if is_fever:
+            if bool(mas_message.label):
+                hints.append(
+                    "[GM2-FEVER] Treat memory as search workflow only; decide SUPPORTS/REFUTES/NOT ENOUGH INFO from current evidence."
+                )
+            if "No Results" in trajectory:
+                hints.append(
+                    "[GM2-FEVER] After No Results, reformulate the current claim query; do not repeat an old entity-specific lookup."
+                )
+            return hints
         if "Nothing happens." in trajectory:
             hints.append("[GM2] Avoid repeating actions that already returned 'Nothing happens.'.")
         if bool(mas_message.label):

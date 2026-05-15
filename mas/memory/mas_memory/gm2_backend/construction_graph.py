@@ -661,6 +661,77 @@ def _fever_no_results(step) -> bool:
     return any(marker in text for marker in ("no results", "cannot find", "not found", "lookup_without_page"))
 
 
+def _fever_observation_text(step) -> str:
+    return str(
+        getattr(getattr(step, "next_state", None), "raw_observation", "")
+        or getattr(getattr(step, "state", None), "raw_observation", "")
+        or ""
+    )
+
+
+def _fever_clean_evidence_snippet(text: str, *, limit: int = 260) -> str:
+    cleaned = re.sub(r"\s+", " ", str(text or "").strip())
+    if not cleaned:
+        return ""
+    lowered = cleaned.lower()
+    if any(marker in lowered for marker in ("invalid action", "wrong answer", "game over")):
+        return ""
+    cleaned = re.sub(r"\b(?:SUPPORTS|REFUTES|NOT ENOUGH INFO|NOT_ENOUGH_INFO)\b", "", cleaned, flags=re.I)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .;")
+    if len(cleaned) > limit:
+        cleaned = cleaned[:limit].rsplit(" ", 1)[0].strip(" .;,") + "..."
+    return cleaned
+
+
+def _fever_memory_tokens(text: str) -> list[str]:
+    stop = {
+        "claim",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "of",
+        "in",
+        "on",
+        "and",
+        "or",
+        "to",
+        "by",
+        "for",
+        "with",
+        "has",
+        "have",
+        "had",
+        "not",
+        "from",
+        "that",
+        "this",
+    }
+    tokens = re.findall(r"[a-z0-9]+", str(text or "").lower())
+    return [token for token in tokens if len(token) > 2 and token not in stop]
+
+
+def _fever_evidence_terms(*, claim: str, evidence: str, search_arg: str = "", lookup_arg: str = "") -> list[str]:
+    evidence_norm = set(_fever_memory_tokens(evidence))
+    candidates = _fever_memory_tokens(" ".join([claim, search_arg, lookup_arg]))
+    terms: list[str] = []
+    for token in candidates:
+        if token in evidence_norm and token not in terms:
+            terms.append(token)
+        if len(terms) >= 12:
+            break
+    if len(terms) < 2:
+        for token in _fever_memory_tokens(search_arg):
+            if token not in terms:
+                terms.append(token)
+            if len(terms) >= 4:
+                break
+    return terms
+
+
 def _fever_relation_keyword_hint(claim: str, *, search_arg: str = "", lookup_arg: str = "") -> str:
     """Return a short relation/attribute phrase type without turning labels into priors."""
     if lookup_arg:
@@ -704,6 +775,7 @@ def _fever_claim_profile(claim: str) -> dict[str, Any]:
     text = str(claim or "").strip()
     norm = re.sub(r"[^a-z0-9\s]+", " ", text.lower())
     primary = _fever_claim_anchor(text)
+    secondary = _fever_secondary_entity_hint(text, primary)
     claim_type = "general_fact"
     lookup_keywords: list[str] = []
     search_role = "primary entity"
@@ -752,12 +824,77 @@ def _fever_claim_profile(claim: str) -> dict[str, Any]:
     if not lookup_keywords:
         relation = _fever_relation_keyword_hint(claim, search_arg=primary)
         lookup_keywords = [relation.replace("_", " ")]
+    query_variants = _fever_query_variants(
+        text,
+        primary_entity=primary,
+        secondary_entity=secondary,
+        claim_type=claim_type,
+        lookup_keywords=lookup_keywords,
+    )
     return {
         "claim_type": claim_type,
         "primary_entity": primary,
+        "secondary_entity": secondary,
         "search_role": search_role,
         "lookup_keywords": lookup_keywords[:5],
+        "query_variants": query_variants[:6],
     }
+
+
+def _fever_query_variants(
+    claim: str,
+    *,
+    primary_entity: str,
+    secondary_entity: str = "",
+    claim_type: str = "general_fact",
+    lookup_keywords: list[str] | None = None,
+) -> list[str]:
+    primary = re.sub(r"[_\s]+", " ", str(primary_entity or "")).strip()
+    secondary = re.sub(r"[_\s]+", " ", str(secondary_entity or "")).strip()
+    keywords = [re.sub(r"[_\s]+", " ", str(item or "")).strip() for item in (lookup_keywords or [])]
+    claim_norm = re.sub(r"[^a-z0-9\s]+", " ", str(claim or "").lower())
+    variants: list[str] = []
+
+    def add(value: str) -> None:
+        cleaned = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;\"'")
+        key = re.sub(r"[^a-z0-9]+", "_", cleaned.lower()).strip("_")
+        if cleaned and key not in {re.sub(r"[^a-z0-9]+", "_", item.lower()).strip("_") for item in variants}:
+            variants.append(cleaned)
+
+    if primary and secondary:
+        add(f"{primary} {secondary}")
+    if primary and "film career" in claim_norm:
+        add(f"{primary} filmography")
+        add(f"{primary} film career")
+    if primary and claim_type in {"creative_role", "cast_membership", "identity_relation"} and keywords:
+        add(f"{primary} {secondary or keywords[0]}")
+    if primary and claim_type == "album_track_membership":
+        add(f"{primary} album")
+        add(f"{primary} track listing")
+    if primary and claim_type in {"cast_membership", "creative_role", "general_fact"}:
+        if any(word in claim_norm for word in (" film", " movie", " drama", " directed", " stars", " starred")):
+            add(f"{primary} film")
+            add(f"{primary} movie")
+        if any(word in claim_norm for word in (" tv ", " television", " series", " show")):
+            add(f"{primary} TV series")
+    if primary and keywords:
+        add(f"{primary} {keywords[0]}")
+    if primary:
+        add(primary)
+    return variants
+
+
+def _fever_secondary_entity_hint(claim: str, primary_entity: str = "") -> str:
+    candidates = re.findall(
+        r"\b(?:[A-Z][A-Za-z0-9]*|[A-Z]\.)(?:\s+(?:(?:the|of|and|in|on|for|to|a|an)\b|[A-Z][A-Za-z0-9]*|[A-Z]\.)){0,5}",
+        str(claim or ""),
+    )
+    primary_norm = re.sub(r"[^a-z0-9_]+", "_", str(primary_entity or "").lower()).strip("_")
+    for candidate in candidates[1:]:
+        normalized = re.sub(r"[^a-z0-9_]+", "_", candidate.strip().lower()).strip("_")
+        if normalized and normalized != primary_norm:
+            return normalized
+    return ""
 
 
 def _fever_claim_anchor(claim: str) -> str:
@@ -2371,6 +2508,11 @@ class LocalGraphMaintainer:
             for keyword in (claim_profile.get("lookup_keywords", []) or [])
             if str(keyword).strip()
         ][:5]
+        query_variants = [
+            str(query).strip()
+            for query in (claim_profile.get("query_variants", []) or [])
+            if str(query).strip()
+        ][:6]
         family = f"fever:{claim_type}"
         generic_family = "fever:claim_verification"
         artifacts: dict[str, MemoryArtifact] = {}
@@ -2438,16 +2580,60 @@ class LocalGraphMaintainer:
                     "claim_type": claim_type,
                     "search_role": claim_profile.get("search_role", "primary entity"),
                     "lookup_keywords": lookup_keywords,
+                    "query_variants": query_variants,
+                    "relation_entity": claim_profile.get("secondary_entity", ""),
                     "observed_lookup_role": observed_lookup,
                     "route_shape": route_shape,
                     "action_patterns": [
-                        "Search[current claim primary entity]",
+                        "Search[current claim relation/type query]",
                         "Lookup[current claim relation keyword]",
                     ],
                 },
                 success=True,
                 utility_delta=0.16 if lookup_steps else 0.12,
             )
+            evidence_step = lookup_steps[-1] if lookup_steps else search_steps[-1]
+            evidence_snippet = _fever_clean_evidence_snippet(_fever_observation_text(evidence_step))
+            evidence_terms = _fever_evidence_terms(
+                claim=claim,
+                evidence=evidence_snippet,
+                search_arg=search_arg,
+                lookup_arg=lookup_arg,
+            )
+            if evidence_snippet and len(evidence_terms) >= 2:
+                source_title = search_arg or str(claim_profile.get("primary_entity", "") or "")
+                upsert_artifact(
+                    kind=ArtifactKind.PROTOTYPE,
+                    summary=(
+                        f"FEVER evidence memory ({claim_type}): a prior successful verification used source "
+                        f"`{source_title}` with evidence terms {', '.join(evidence_terms[:6])}. "
+                        "Treat this as candidate evidence only; verify against the current claim and do not copy any old label."
+                    ),
+                    anchor={
+                        "task_family": family,
+                        "goal_arity": 1,
+                        "progress_state": "evidence_available",
+                        "artifact_role": "fever_claim_evidence",
+                        "domain": domain,
+                        "claim_type": claim_type,
+                    },
+                    payload={
+                        "source": "fever_episode_graph",
+                        "pattern_kind": "claim_evidence",
+                        "fever_pattern": "claim_evidence",
+                        "claim_type": claim_type,
+                        "source_title": source_title,
+                        "lookup_keyword": lookup_arg,
+                        "evidence_terms": evidence_terms[:12],
+                        "claim_terms": _fever_memory_tokens(claim)[:16],
+                        "evidence_snippet": evidence_snippet,
+                        "confidence_source": "successful_episode_observation",
+                        "conflict_policy": "discard_if_current_claim_or_page_conflicts; never use as label prior",
+                        "label_guard": "no_prior_label_stored",
+                    },
+                    success=True,
+                    utility_delta=0.20,
+                )
         if episode_success and search_steps and finish_steps and not lookup_steps:
             upsert_artifact(
                 kind=ArtifactKind.PROTOTYPE,
@@ -2469,7 +2655,7 @@ class LocalGraphMaintainer:
                     "fever_pattern": "evidence_sufficiency_stop",
                     "claim_type": claim_type,
                     "lookup_keywords": lookup_keywords,
-                    "stop_rule": "finish if current evidence directly supports, refutes, or shows missing evidence",
+                    "stop_rule": "finish only when the correct subject page directly supports or refutes; otherwise run a relation query before NEI",
                     "avoid_patterns": ["Lookup[generic relation keyword]"],
                 },
                 success=True,
@@ -2494,14 +2680,14 @@ class LocalGraphMaintainer:
                     "pattern_kind": "workflow",
                     "fever_pattern": "generic_evidence_sufficiency_stop",
                     "claim_type": "claim_verification",
-                    "stop_rule": "finish if current evidence directly supports, refutes, or shows missing evidence",
+                    "stop_rule": "finish only when the correct subject page directly supports or refutes; otherwise run a relation query before NEI",
                     "avoid_patterns": ["Lookup[generic relation keyword]"],
                 },
                 success=True,
                 utility_delta=0.12,
             )
 
-        if any(_fever_no_results(step) for step in episode.steps):
+        if episode_success and any(_fever_no_results(step) for step in episode.steps):
             upsert_artifact(
                 kind=ArtifactKind.PROTOTYPE,
                 summary=(
@@ -2598,7 +2784,7 @@ class LocalGraphMaintainer:
                         "Lookup[current claim relation keyword]",
                     ],
                 },
-                success=True,
+                success=False,
                 utility_delta=0.12,
             )
 

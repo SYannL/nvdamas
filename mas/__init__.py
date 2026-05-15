@@ -2,5 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-os.environ["OPENAI_API_BASE"] = os.getenv("OPENAI_API_BASE")
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+for _key in ("OPENAI_API_BASE", "OPENAI_API_KEY"):
+    _value = os.getenv(_key)
+    if _value is not None:
+        os.environ[_key] = _value
