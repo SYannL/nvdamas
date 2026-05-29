@@ -39,3 +39,9 @@ Qwen3-4B 错误调试.docx
 pids/
 agent_memory_fever_github_report.md
 method.tex
+
+# Reviewer package: keep legacy top-level notes local.
+/README_alfworld.md
+/alfworld_official_042.md
+/gm3_nv.md
+/readme_nv.md
