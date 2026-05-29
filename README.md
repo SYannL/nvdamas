@@ -1,4 +1,4 @@
-# G-Memory Multidomain Evaluation
+# MemCo Multidomain Evaluation
 
 This repository contains the evaluation code for running a shared memory-enabled multi-agent system across multiple domains and benchmarks. The main reviewer-facing entry point is:
 
