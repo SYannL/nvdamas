@@ -19,7 +19,7 @@ The multidomain script currently supports:
 | ALFWorld | `alfworld` | scene domains: bathroom, bedroom, kitchen, living |
 | ScienceWorld | `scienceworld` | initial-room domains |
 | FEVER | `fever` | claim-topic domains |
-| PDDL | `pddl` or `pddl_2` | planning-game domains |
+| PDDL | `pddl` | planning-game domains |
 
 
 ## Basic Usage
@@ -30,7 +30,11 @@ The core command shape is:
 
 ```bash
 python scripts/medmcqa/eval_collab_multidomain_global.py \
-  --dataset_family <benchmark> \
+  -dataset_family alfworld \
+  --alfworld_domains bathroom,bedroom,kitchen,living \
+  --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
+  --alfworld_eval_split valid_seen,valid_unseen \
+  --alfworld_game_root /workspace/run_alf/ALFWORLD_DATA/alfworld_official_042/json_2.1.1 \
   --mas_type autogen \
   --mas_memory graph_memory3 \
   --reasoning io \
