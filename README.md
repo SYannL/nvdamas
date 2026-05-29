@@ -18,11 +18,9 @@ The multidomain script currently supports:
 | --- | --- | --- |
 | ALFWorld | `alfworld` | scene domains: bathroom, bedroom, kitchen, living |
 | ScienceWorld | `scienceworld` | initial-room domains |
-| ScienceWorld-2 | `scienceworld_2` | mixed science-family domains |
 | FEVER | `fever` | claim-topic domains |
 | PDDL | `pddl` or `pddl_2` | planning-game domains |
-| BFCL multi-turn | `bfcl_mt` | API-family domains |
-| AmaBench | `amabench` | task-category domains |
+
 
 ## Basic Usage
 
@@ -36,28 +34,24 @@ python scripts/medmcqa/eval_collab_multidomain_global.py \
   --mas_type autogen \
   --mas_memory graph_memory3 \
   --reasoning io \
-  --model gpt-4o-mini \
+  --model qwen3-32b \
   --run_id <run_name> \
   --max_trials 30 \
   --batch_size 1 \
   --tool_mode search \
+  --gm3_dynamic_graph \
+  --gm3_settings local_plus_global \
+  --gm3_router textloss \
+  --gm3_promotion_threshold 0.35 \
   --reset_memory
 ```
 
-The benchmark-specific arguments only select the dataset family and the corresponding local data files. For example, use `--dataset_family alfworld`, `scienceworld`, `scienceworld_2`, `fever`, `pddl`, `bfcl_mt`, or `amabench` depending on the benchmark.
+The benchmark-specific arguments only select the dataset family and the corresponding local data files. For example, use `--dataset_family alfworld`, `scienceworld`, `scienceworld_2`, `fever` or `pddl` depending on the benchmark.
 
 To evaluate an existing memory without retraining, rerun the command with the same `--run_id` and replace `--reset_memory` with `--eval_only`.
 
 ## Mechanism
-
-The evaluation is organized around local-to-global transfer. During local training, each domain produces its own memory artifacts from task trajectories and agent feedback. During global construction, reusable information from those local memories is promoted into a shared memory store. During evaluation, the agent can retrieve from the current local domain and the shared global memory, allowing the same policy interface to use both domain-specific and cross-domain experience.
-
-This design makes the comparison across benchmarks controlled: the MAS backend, model, reasoning mode, memory implementation, step budget, batching behavior, and report generation are shared. Dataset adapters provide only the environment-specific task interface.
-
+Large language model (LLM) agents increasingly operate in interactive environments, where they need to make sequential decisions through observation, action, and feedback. Although memory can help agents reuse experience, existing work designs memory in isolation, where collecting enough trajectories to populate it is expensive Existing shared-memory approaches mitigate isolated experience by pooling episodic memories across tasks and environments. However, retrieving shared memory is challenged by the granularity, where retrieved memories can be either too specific to preserve current grounding or too coarse to support the next action. In this work, we propose MemCo, a memory-centric collaboration framework for generalizing LLM agents to unseen interactive environments. Our model organizes collaboration around the lifecycle of memory, i.e., local memory construction, asynchronous memory collaboration, and adaptive memory supporting. It maintains complementary local and global memory spaces, preserving environment-specific details locally while promoting transferable workflows induced from local trajectories to global memory. During online interaction, Memco routes relevant local and global memories in terms of the agent's current state and decision phase, enabling agents to reuse the experience of other agents without blindly transferring environment-specific details. Experiments on interactive decision-making benchmarks show that Memco improves task success and reduces redundant exploration compared with isolate-memory and shared-memory baselines.
 ## Outputs
 
 Each run writes a structured report and a Markdown summary under the configured log directory. At completion, the script prints the exact `report_json` and `report_md` paths, followed by per-domain accuracy, reward, step count, task count, and wall-clock summaries.
-
-## Notes for Reviewers
-
-The commands above are intentionally explicit so that each benchmark can be reproduced from the same entry point. Benchmark-specific arguments only define domain splits and data files; the memory training, global merge, and evaluation flow remain shared across benchmarks.
