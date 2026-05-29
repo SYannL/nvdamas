@@ -26,13 +26,15 @@ The multidomain script currently supports:
 
 ## Basic Usage
 
-All runs use the same core command shape:
+All benchmarks use the same multidomain protocol. The script first builds a local memory for each source domain, then consolidates local memories into a shared global memory, and finally evaluates with both local and global memory available to the agents. This keeps the evaluation mechanism fixed while only changing the benchmark loader and data paths.
+
+The core command shape is:
 
 ```bash
 python scripts/medmcqa/eval_collab_multidomain_global.py \
   --dataset_family <benchmark> \
   --mas_type autogen \
-  --mas_memory g-memory \
+  --mas_memory graph_memory3 \
   --reasoning io \
   --model gpt-4o-mini \
   --run_id <run_name> \
@@ -42,119 +44,15 @@ python scripts/medmcqa/eval_collab_multidomain_global.py \
   --reset_memory
 ```
 
-Use `--eval_only` with the same `--run_id` to evaluate an existing global memory without retraining. Do not combine `--eval_only` and `--reset_memory`.
+The benchmark-specific arguments only select the dataset family and the corresponding local data files. For example, use `--dataset_family alfworld`, `scienceworld`, `scienceworld_2`, `fever`, `pddl`, `bfcl_mt`, or `amabench` depending on the benchmark.
 
-## Benchmark Commands
+To evaluate an existing memory without retraining, rerun the command with the same `--run_id` and replace `--reset_memory` with `--eval_only`.
 
-ALFWorld:
+## Mechanism
 
-```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py \
-  --dataset_family alfworld \
-  --alfworld_domains bathroom,bedroom,kitchen,living \
-  --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
-  --alfworld_eval_split valid_seen,valid_unseen \
-  --mas_type autogen \
-  --mas_memory g-memory \
-  --reasoning io \
-  --model gpt-4o-mini \
-  --run_id alfworld_gmemory \
-  --max_trials 30 \
-  --batch_size 1 \
-  --tool_mode search \
-  --reset_memory
-```
+The evaluation is organized around local-to-global transfer. During local training, each domain produces its own memory artifacts from task trajectories and agent feedback. During global construction, reusable information from those local memories is promoted into a shared memory store. During evaluation, the agent can retrieve from the current local domain and the shared global memory, allowing the same policy interface to use both domain-specific and cross-domain experience.
 
-ScienceWorld:
-
-```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py \
-  --dataset_family scienceworld \
-  --sw_domains art_studio,bathroom,greenhouse,hallway,kitchen,living_room \
-  --sw_subset_dir data/ScienceWorld/collab_subsets/v2_room \
-  --mas_type autogen \
-  --mas_memory g-memory \
-  --reasoning io \
-  --model gpt-4o-mini \
-  --run_id scienceworld_gmemory \
-  --max_trials 30 \
-  --batch_size 1 \
-  --tool_mode search \
-  --reset_memory
-```
-
-ScienceWorld-2:
-
-```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py \
-  --dataset_family scienceworld_2 \
-  --sw2_domains conductivity,melting_point,friction,genetics \
-  --sw2_subset_dir data/ScienceWorld/collab_subsets/v3_family_mixed \
-  --mas_type autogen \
-  --mas_memory g-memory \
-  --reasoning io \
-  --model gpt-4o-mini \
-  --run_id scienceworld2_gmemory \
-  --max_trials 30 \
-  --batch_size 1 \
-  --tool_mode search \
-  --reset_memory
-```
-
-FEVER:
-
-```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py \
-  --dataset_family fever \
-  --fever_domains A_film_tv,B_music \
-  --fever_train_jsonl data/fever/fever_ab_train_A_v3.jsonl,data/fever/fever_ab_train_B_v3.jsonl \
-  --fever_test_jsonl data/fever/fever_ab_test_v3.jsonl \
-  --mas_type autogen \
-  --mas_memory g-memory \
-  --reasoning io \
-  --model gpt-4o-mini \
-  --run_id fever_gmemory \
-  --max_trials 30 \
-  --batch_size 1 \
-  --tool_mode search \
-  --reset_memory
-```
-
-PDDL:
-
-```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py \
-  --dataset_family pddl \
-  --pddl_domains gripper,blockworld,barman,tyreworld \
-  --pddl_test_jsonl data/pddl/test.jsonl \
-  --mas_type autogen \
-  --mas_memory g-memory \
-  --reasoning io \
-  --model gpt-4o-mini \
-  --run_id pddl_gmemory \
-  --max_trials 30 \
-  --batch_size 1 \
-  --tool_mode search \
-  --reset_memory
-```
-
-BFCL multi-turn:
-
-```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py \
-  --dataset_family bfcl_mt \
-  --bfcl_use_family_collab_split \
-  --bfcl_family_domains trading,travel,vehicle,fs \
-  --mas_type autogen \
-  --mas_memory g-memory \
-  --reasoning io \
-  --model gpt-4o-mini \
-  --run_id bfcl_mt_gmemory \
-  --max_trials 30 \
-  --batch_size 1 \
-  --tool_mode search \
-  --reset_memory
-```
+This design makes the comparison across benchmarks controlled: the MAS backend, model, reasoning mode, memory implementation, step budget, batching behavior, and report generation are shared. Dataset adapters provide only the environment-specific task interface.
 
 ## Outputs
 
