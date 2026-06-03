@@ -341,12 +341,17 @@ class GMemory(MASMemoryBase):
             trajectory=mas_message_copy.get_extra_field('clean_traj')
         )
         messages: list[Message] = [Message('system', system_prompt), Message('user', prompt)]
-        response: str = self.llm_model(messages, temperature=0)
+        try:
+            response: str = self.llm_model(messages, temperature=0)
+        except RuntimeError:
+            response = ""
         mas_message_copy.add_extra_field('key_steps', response)
 
-
         if mas_message_copy.label == False:
-            reason: str = self._detect_mistakes(mas_message_copy)
+            try:
+                reason: str = self._detect_mistakes(mas_message_copy)
+            except RuntimeError:
+                reason = ""
             mas_message_copy.add_extra_field('fail_reason', reason)
         
         return mas_message_copy

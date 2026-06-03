@@ -89,6 +89,15 @@ class GPTChat(LLM):
     def _is_fever_action_prompt(content: str) -> bool:
         text = str(content or "")
         lowered = text.lower()
+        # Exclude extraction/analysis prompts that contain FEVER trajectories as examples
+        # but are NOT asking for a FEVER action themselves.
+        extraction_markers = (
+            "you are an agent skilled at extracting key points",
+            "strictly follow the original trajectory",
+            "you are an analytical agent",  # detect_mistakes prompt
+        )
+        if any(m in lowered for m in extraction_markers):
+            return False
         markers = (
             "## successful examples",
             "## key insights from related tasks",
@@ -273,17 +282,20 @@ class GPTChat(LLM):
                 "chat_template_kwargs": {"enable_thinking": False}
             }
 
-        max_retries = 5  
-        wait_time = 1 
+        max_retries = 5
+        wait_time = 1
+        none_count = 0      # consecutive None responses from silent rate-limiting (OpenRouter)
+        max_none_count = 10
+        attempt = 0
 
-        for attempt in range(max_retries):
+        while attempt < max_retries:
             try:
                 prepared_messages, is_action_only, is_fever_action, action_prompt = self._prepare_messages(
                     messages,
                     strict_retry=(attempt > 0),
                 )
                 create_kwargs = dict(
-                    model=self.model_name,  
+                    model=self.model_name,
                     messages=prepared_messages,
                     max_tokens=max_tokens,
                     temperature=temperature,
@@ -297,11 +309,18 @@ class GPTChat(LLM):
                 answer = response.choices[0].message.content
                 prompt_tokens += response.usage.prompt_tokens
                 completion_tokens += response.usage.completion_tokens
-                
+
                 if answer is None:
-                    # Treat None as a hard error; upstream loops can otherwise hang.
-                    print("Error: LLM returned None")
+                    # OpenRouter returns HTTP 200 with content=None when silently rate-limiting
+                    # instead of a proper 429. Back off without burning the main retry budget.
+                    none_count += 1
+                    print(f"Error: LLM returned None ({none_count}/{max_none_count})")
+                    time.sleep(wait_time)
+                    wait_time = min(wait_time * 2, 60)
+                    if none_count >= max_none_count:
+                        attempt += 1  # give up waiting, burn one main retry
                     continue
+
                 answer = answer.strip()
                 if not answer:
                     # Avoid silent empty outputs causing infinite retries in downstream parsers.
@@ -318,7 +337,7 @@ class GPTChat(LLM):
                 if is_action_only and self._is_gpt4omini and self._looks_like_prompt_echo(answer):
                     fallback = self._safe_action_only_fallback(action_prompt)
                     return fallback or answer
-                return answer  
+                return answer
 
             except Exception as e:
                 # Convert error to string as safely as possible (avoid nested Unicode errors)
@@ -330,6 +349,7 @@ class GPTChat(LLM):
                 # For rate limit or 429 errors, back off and retry
                 if "rate limit" in error_message.lower() or "429" in error_message:
                     time.sleep(wait_time)
+                    attempt += 1
                     continue
 
                 if request_kwargs and any(
@@ -338,6 +358,7 @@ class GPTChat(LLM):
                 ):
                     request_kwargs = {}
                     time.sleep(wait_time)
+                    attempt += 1
                     continue
 
                 # For all other errors, print a short preview and retry a few times,
@@ -345,6 +366,7 @@ class GPTChat(LLM):
                 preview = (error_message or repr(e))[:500]
                 print(f"[GPTChat] error: {type(e).__name__}: {preview}")
                 time.sleep(wait_time)
+                attempt += 1
                 continue
 
         raise RuntimeError("GPTChat failed after retries")
