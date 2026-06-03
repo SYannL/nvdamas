@@ -988,6 +988,14 @@ def main() -> None:
     )
     parser.add_argument("--fever_test_jsonl", type=str, default="data/fever/fever_ab_test_v3.jsonl")
     parser.add_argument(
+        "--eval_global_only_once",
+        action="store_true",
+        help=(
+            "Graph memory eval: only run the merged test split once against shared global memory. "
+            "This avoids repeating the same mixed test set once per local domain."
+        ),
+    )
+    parser.add_argument(
         "--pddl_domains",
         type=str,
         default="gripper,blockworld,barman,tyreworld",
@@ -1903,6 +1911,7 @@ def main() -> None:
         memory_scope: str,
         memory_dir: str,
         owner_scene: str,
+        graph_settings_override: str | None = None,
     ) -> dict[str, Any]:
         eval_tasks = copy.deepcopy(merged_eval_tasks[split_name])
         log_eval = os.path.join(log_base, "eval", memory_scope, split_name)
@@ -1919,7 +1928,7 @@ def main() -> None:
         manager.tasks = eval_tasks
         manager.mas_config.update({"silent_mas": True, "insights_topk": 1})
         manager.mem_config.update({"freeze_memory": True, **graph_memory_common, **memskill_common})
-        graph_memory_settings = graph_settings_value
+        graph_memory_settings = str(graph_settings_override or graph_settings_value)
         if args.mas_memory in _GM_GRAPH_MEMORY:
             apply_gm_graph_scene_config(
                 manager,
@@ -1989,17 +1998,29 @@ def main() -> None:
             "wall_time_sec": wall,
         }
 
-    for split_name in eval_splits:
-        for domain in domains:
-            local_dir = os.path.join(local_root, domain)
+    if args.eval_global_only_once:
+        for split_name in eval_splits:
             eval_results.append(
                 eval_one(
                     split_name=split_name,
-                    memory_scope=f"local+global:{domain}",
-                    memory_dir=local_dir,
-                    owner_scene=domain,
+                    memory_scope="global_only",
+                    memory_dir=global_dir,
+                    owner_scene="global",
+                    graph_settings_override="global_only",
                 )
             )
+    else:
+        for split_name in eval_splits:
+            for domain in domains:
+                local_dir = os.path.join(local_root, domain)
+                eval_results.append(
+                    eval_one(
+                        split_name=split_name,
+                        memory_scope=f"local+global:{domain}",
+                        memory_dir=local_dir,
+                        owner_scene=domain,
+                    )
+                )
 
     global_avg_score = _weighted_global_avg_score(eval_results) if args.dataset_family == "scienceworld" else None
     output = {
@@ -2007,9 +2028,9 @@ def main() -> None:
         "run_id": run_id,
         "batch_size": int(args.batch_size),
         "domains": domains,
-        "global_only_eval": False,
-        "eval_injection_mode": "local_plus_global_per_domain",
-        "expected_eval_result_count": len(eval_splits) * len(domains),
+        "global_only_eval": bool(args.eval_global_only_once),
+        "eval_injection_mode": "global_only_once" if args.eval_global_only_once else "local_plus_global_per_domain",
+        "expected_eval_result_count": len(eval_splits) if args.eval_global_only_once else len(eval_splits) * len(domains),
         "memory_type": args.mas_memory,
         "merged_eval_manifest_path": merge_manifest_path,
         "train_results": train_results,

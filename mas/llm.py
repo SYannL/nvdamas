@@ -199,6 +199,8 @@ class GPTChat(LLM):
                     "Your entire answer must be exactly one of: Search[...], Lookup[...], Finish[SUPPORTS], Finish[REFUTES], Finish[NOT ENOUGH INFO].\n"
                     "No prose, no Thought, no Action 1 label, no explanation, no XML, no extra lines.\n"
                 )
+            if self._is_qwen and "/no_think" not in content:
+                prefix = "/no_think\n" + prefix
             if prefix not in content:
                 return prefix + content
             return content

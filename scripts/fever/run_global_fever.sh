@@ -18,12 +18,19 @@ if [ -z "${OPENAI_API_BASE:-}" ]; then
         gpt*|o[0-9]*|o[0-9]-*)
             export OPENAI_API_BASE="https://api.openai.com/v1"
             ;;
+        qwen*|*qwen*)
+            export OPENAI_API_BASE="${QWEN_OPENAI_API_BASE:-http://127.0.0.1:8000/v1}"
+            ;;
         *)
             export OPENAI_API_BASE="https://api.anthropic.com/v1/"
             ;;
     esac
 else
     export OPENAI_API_BASE
+fi
+
+if [ -z "${OPENAI_API_KEY:-}" ] && [[ "$MODEL" == qwen* || "$MODEL" == *qwen* ]]; then
+    export OPENAI_API_KEY="dummy"
 fi
 
 if [ -z "${OPENAI_API_KEY:-}" ]; then

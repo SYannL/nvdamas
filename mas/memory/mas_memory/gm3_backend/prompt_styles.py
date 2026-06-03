@@ -207,10 +207,10 @@ class PDDLPromptStyle(BasePromptStyle):
             return f"prefer current valid operator `{hint}` because it directly achieves an unsatisfied goal literal; do not invent actions."
         if setup_action:
             if bool(getattr(renderer, "_gm3_is_gpt4omini_model", lambda: False)()):
-                return "choose a currently valid operator from the admissible list; if the valid list is stale, issue `check valid actions` first."
+                return "choose a currently valid non-meta operator from the admissible list that advances unsatisfied goal literals; do not spend turns on meta-actions unless no task operator is valid."
             return f"execute memory-grounded setup operator `{setup_action}` only if it prepares a remaining goal precondition; do not invent actions."
         if admissible:
-            return "choose a currently valid operator that advances unsatisfied goal literals; do not invent actions."
+            return "choose a currently valid non-meta operator that advances unsatisfied goal literals; do not invent actions or loop on meta-actions."
         return "continue planning from current predicates and goal literals."
 
 

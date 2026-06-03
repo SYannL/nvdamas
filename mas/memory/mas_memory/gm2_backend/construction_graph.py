@@ -1316,6 +1316,14 @@ class LocalGraphMaintainer:
         for prev_step, next_step in zip(episode.steps, episode.steps[1:]):
             if prev_step.feedback.failure_label and next_step.feedback.success:
                 abstract_repair = _abstract_action_text(next_step.action, roles)
+                if family.startswith("pddl") and abstract_repair in {
+                    "check_valid_actions",
+                    "check valid actions",
+                    "check valid action",
+                    "look",
+                    "look around",
+                }:
+                    continue
                 cid = f"repair:{family}:{prev_step.feedback.failure_label}:{next_step.action.verb}"
                 candidate = PromotionCandidate(
                     candidate_id=cid,
@@ -1491,6 +1499,14 @@ class LocalGraphMaintainer:
             if prev_step.feedback.failure_label and next_step.feedback.success:
                 repair = _generic_action_text(next_step)
                 surface_repair = _generic_action_text(next_step, prefer_surface=True)
+                if family.startswith("pddl") and repair in {
+                    "check_valid_actions",
+                    "check valid actions",
+                    "check valid action",
+                    "look",
+                    "look around",
+                }:
+                    continue
                 candidate = PromotionCandidate(
                     candidate_id=f"repair:{domain}:{family}:{prev_step.feedback.failure_label}:{_safe_pattern_id(repair)}",
                     candidate_type=CandidateType.REPAIR,
@@ -2890,6 +2906,7 @@ class GlobalPromoter:
     def _global_artifact_copy(self, artifact: MemoryArtifact) -> MemoryArtifact | None:
         raw_pattern_kind = str(artifact.payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
         raw_artifact_role = str(artifact.anchor.get("artifact_role", ""))
+        fever_pattern = str(artifact.payload.get("fever_pattern", "") or "")
         if artifact.kind == ArtifactKind.REFLECTION:
             return None
         if raw_pattern_kind == "scene_relation" or raw_artifact_role == "scene_relation":
@@ -2909,6 +2926,61 @@ class GlobalPromoter:
                 "source_base": artifact.payload.get("source_base", ""),
                 "goal_object": artifact.payload.get("goal_object", ""),
                 "action_patterns": artifact.payload.get("action_patterns", []),
+            }
+        elif fever_pattern == "content_search_route" or raw_artifact_role == "fever_content_search_route":
+            # FEVER route memories should transfer as claim-type/search-role
+            # procedures. Drop per-episode query variants so support can
+            # aggregate into a real global route instead of many singleton
+            # artifacts.
+            claim_type = str(
+                artifact.payload.get("claim_type")
+                or artifact.anchor.get("claim_type")
+                or "claim_verification"
+            )
+            anchor = {
+                "task_family": artifact.anchor.get("task_family", "fever:claim_verification"),
+                "goal_arity": artifact.anchor.get("goal_arity", 1),
+                "progress_state": "need_search",
+                "artifact_role": "fever_content_search_route",
+                "domain": "fever",
+                "claim_type": claim_type,
+            }
+            payload = {
+                "source": "fever_episode_graph",
+                "pattern_kind": "workflow",
+                "fever_pattern": "content_search_route",
+                "claim_type": claim_type,
+                "search_role": artifact.payload.get("search_role", "primary entity"),
+                "route_shape": artifact.payload.get("route_shape", "search_finish"),
+                "action_patterns": [
+                    "Search[current claim focused query]",
+                    "Lookup[current claim relation keyword]",
+                ],
+            }
+        elif fever_pattern in {"claim_type_no_results_recovery", "generic_no_results_recovery"}:
+            claim_type = str(
+                artifact.payload.get("claim_type")
+                or artifact.anchor.get("claim_type")
+                or "claim_verification"
+            )
+            generic = fever_pattern == "generic_no_results_recovery"
+            anchor = {
+                "task_family": "fever:claim_verification" if generic else artifact.anchor.get("task_family", "fever:claim_verification"),
+                "goal_arity": artifact.anchor.get("goal_arity", 1),
+                "progress_state": "search_failed",
+                "artifact_role": "fever_generic_no_results_recovery" if generic else "fever_no_results_recovery",
+                "domain": "fever",
+                "claim_type": "claim_verification" if generic else claim_type,
+            }
+            payload = {
+                "source": "fever_episode_graph",
+                "pattern_kind": "workflow",
+                "fever_pattern": fever_pattern,
+                "claim_type": "claim_verification" if generic else claim_type,
+                "repair_patterns": [
+                    "Search[focused current claim query]",
+                    "Lookup[current claim relation keyword]",
+                ],
             }
         else:
             anchor = _abstract_global_mapping(artifact.anchor)

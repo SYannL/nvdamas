@@ -529,6 +529,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
 
         if task_family.startswith("fever"):
+            self._gm3_last_fever_memory_render_count = 0
             hint_payload = self._gm3_fever_direct_retrieval_hint(
                 query=query,
                 local_memory=local_memory,
@@ -537,10 +538,16 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 step_index=step_index,
             )
             hint = str(hint_payload.get("prompt", "") or "")
+            debug = dict(hint_payload.get("debug", {}) or {})
+            debug.setdefault("mode", "fever_pattern_hint")
+            debug["flow"] = "fever_searchonly_direct_hint"
+            debug["uses_textloss_summary"] = False
             if hint:
                 self._gm3_last_fever_memory_render_count = 1
-                return {"prompt": hint, "debug": hint_payload.get("debug", {})}
-            return {"prompt": "", "debug": hint_payload.get("debug", {})}
+                debug["memory_render_count"] = 1
+                return {"prompt": hint, "debug": debug}
+            debug["memory_render_count"] = 0
+            return {"prompt": "", "debug": debug}
 
         candidates = self._gm3_candidate_sections(
             query=query,
@@ -787,6 +794,17 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             and self._gm3_norm(last_action) == self._gm3_norm(f"Search[{primary}]")
         )
         relation_missing = bool(secondary and self._gm3_norm(secondary) not in last_obs_norm)
+        debug.update(
+            {
+                "searched_count": len(searched),
+                "lookup_count": len(looked_up),
+                "last_action": self._gm2_debug_text(last_action, limit=160),
+                "search_failed": search_failed,
+                "lookup_failed": lookup_failed,
+                "last_search_primary_only": last_search_primary_only,
+                "relation_missing": relation_missing,
+            }
+        )
 
         # Tier 1: route reformulation pattern.
         # Memory has seen claims of this type succeed with entity-pair or
@@ -1038,17 +1056,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 return True, "bfcl_phase_policy"
 
         if task_family.startswith("fever"):
-            if "failure_avoidance" in slots and progress in {"search_failed", "invalid_action"}:
-                return True, "fever_failure_recovery_gate"
-            if "local_grounding" in slots and self._gm3_selected_slot_has_real_item(selected, "local_grounding"):
-                return True, "fever_local_evidence_or_recovery_gate"
-            if "global_workflow" in slots and self._gm3_selected_slot_has_real_item(selected, "global_workflow"):
-                global_line = self._gm3_summary_slot(selected, "global_workflow", default="")
-                norm_global = self._gm3_norm(global_line)
-                if any(marker in norm_global for marker in ("recovery", "failure", "claim evidence", "evidence memory")):
-                    return True, "fever_high_signal_global_gate"
-                return False, "fever_suppress_weak_global_workflow"
-            return False, "fever_no_high_signal_memory"
+            return False, "fever_uses_direct_pattern_hint_path"
 
         if task_family.startswith("pddl"):
             if priority_items:
@@ -1630,14 +1638,10 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         if is_content_route and source_label.lower() != "global":
             return ""
 
-        if is_content_route and progress == "need_search":
-            # The base FEVER prompt already teaches Search[current entity].
-            # Re-injecting this high-frequency prototype on every task adds
-            # procedural noise but no evidence, and it becomes more dominant as
-            # train memory grows.
+        if is_content_route:
             return ""
 
-        if is_content_route:
+        if is_stop_rule and progress == "need_lookup_or_finish":
             return ""
 
         if is_recovery and progress in {"search_failed", "invalid_action"}:
@@ -1655,11 +1659,6 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 "claim; use the current page/search result, not memory, to decide the label."
             )
 
-        if is_stop_rule and progress == "need_lookup_or_finish":
-            return (
-                f"{source_label} FEVER stop rule ({ctx['claim_type']}): if the current evidence directly supports, "
-                "or clearly contradicts the claim on the correct subject page, finish from that evidence; otherwise use a relation/entity query before NOT ENOUGH INFO."
-            )
         return ""
 
     def _gm3_filter_fever_selected_sections(self, *, query: Any, selected: list[dict[str, Any]]) -> list[dict[str, Any]]:

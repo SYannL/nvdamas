@@ -80,6 +80,9 @@ class FeverEnv(BaseEnv):
             return observation, 0, False
         
         action_type, argument = self._parse_action(action)
+        if action_type in {"Search", "Lookup"}:
+            argument = self._normalize_query_argument(action_type, argument)
+            action = f"{action_type}[{argument}]"
 
         if action_type == 'Finish':
             if self.success_fn(argument):
@@ -148,15 +151,104 @@ class FeverEnv(BaseEnv):
     
     @staticmethod
     def process_action(action: str) -> str:
-        action = action.strip().replace('<', '').split('\n')[0]
+        raw = str(action or "").strip().replace('<', '').replace('>', '')
+        extracted = FeverEnv._extract_action_command(raw)
+        if extracted:
+            return extracted
+        action = raw.split('\n')[0]
         action = action.replace('>', '').replace('OK.', '').replace('OK', '').strip()
-        
+        extracted = FeverEnv._extract_action_command(action)
+        if extracted:
+            return extracted
+
         if FeverEnv._parse_action_type(action) == 'thought':
             return action
         if ':' in action:
             action = action.split(':')[1].strip()
+            extracted = FeverEnv._extract_action_command(action)
+            if extracted:
+                return extracted
 
         return action
+
+    @staticmethod
+    def _extract_action_command(text: str) -> str:
+        """Recover an executable command from Qwen-style verbose FEVER output."""
+        raw = str(text or "").strip()
+        match = re.search(r"\b(Search|Lookup|Finish)\[([^\]\n]+)\]", raw, flags=re.IGNORECASE)
+        if match:
+            action_type = match.group(1).lower()
+            argument = match.group(2).strip()
+            if action_type == "finish":
+                normalized = re.sub(r"\s+", " ", argument.upper())
+                if normalized in {"SUPPORTS", "REFUTES", "NOT ENOUGH INFO"}:
+                    return f"Finish[{normalized}]"
+            elif action_type == "search":
+                return f"Search[{argument}]"
+            elif action_type == "lookup":
+                return f"Lookup[{argument}]"
+        lowered = raw.lower()
+        if lowered:
+            if any(
+                phrase in lowered
+                for phrase in (
+                    "not enough information",
+                    "not enough info",
+                    "cannot be verified or refuted",
+                    "cannot verify or refute",
+                    "cannot confirm",
+                    "unable to determine from the available information",
+                )
+            ):
+                return "Finish[NOT ENOUGH INFO]"
+
+            if any(
+                phrase in lowered
+                for phrase in (
+                    "claim is false",
+                    "claim is refuted",
+                    "therefore, the claim is refuted",
+                    "this directly refutes the claim",
+                    "this contradicts the claim",
+                    "the claim is contradicted",
+                    "the claim is not supported",
+                )
+            ):
+                return "Finish[REFUTES]"
+
+            if any(
+                phrase in lowered
+                for phrase in (
+                    "claim is true",
+                    "claim is supported",
+                    "therefore, the claim is supported",
+                    "this directly supports the claim",
+                    "the evidence supports the claim",
+                )
+            ):
+                return "Finish[SUPPORTS]"
+
+            quoted_search_matches = list(re.finditer(
+                r'(?:search(?:ing)?(?:\s+for)?|search)\s+["“]([^"\n\]]+)["”]',
+                raw,
+                flags=re.IGNORECASE,
+            ))
+            if quoted_search_matches:
+                query = quoted_search_matches[-1].group(1).strip(" \"'.,:;!?")
+                if query:
+                    return f"Search[{query}]"
+
+            quoted_lookup_matches = list(re.finditer(
+                r'(?:look\s*up|lookup)(?:\s+for)?\s+["“]([^"\n\]]+)["”]',
+                raw,
+                flags=re.IGNORECASE,
+            ))
+            if quoted_lookup_matches:
+                keyword = quoted_lookup_matches[-1].group(1).strip(" \"'.,:;!?")
+                if keyword:
+                    return f"Lookup[{keyword}]"
+
+        return ""
 
     @staticmethod
     def _parse_action(string: str) -> tuple[str, str]:
@@ -170,6 +262,72 @@ class FeverEnv(BaseEnv):
             return action_type, argument
         else:
             return None, None
+
+    def _normalize_query_argument(self, action_type: str, argument: str) -> str:
+        text = str(argument or "").strip()
+        if not text:
+            return text
+
+        text = re.sub(r"\s+", " ", text).strip(" \"'`")
+        lowered = text.lower()
+        claim_anchor = self._claim_anchor(str(getattr(self, "claim", "") or ""))
+
+        generic_queries = {
+            "result",
+            "results",
+            "strategy",
+            "related terms",
+            "terms related to the claim",
+            "attempts did not yield results",
+            "the broader franchise or related terms",
+        }
+        if lowered in generic_queries:
+            return claim_anchor or text
+
+        stop_phrases = (
+            " to determine ",
+            " and determine ",
+            " to gather ",
+            " and find ",
+            " to find ",
+            " to check ",
+            " and check ",
+            " to see if ",
+            " and see if ",
+            " to focus on ",
+            " specifically ",
+            " result indicates ",
+            " results repeatedly mention ",
+            " attempts did not yield results",
+        )
+        for marker in stop_phrases:
+            idx = lowered.find(marker)
+            if idx > 0:
+                text = text[:idx].strip(" ,.:;!?")
+                lowered = text.lower()
+                break
+
+        quoted = re.search(r'["“]([^"\n]+)["”]', text)
+        if quoted:
+            candidate = quoted.group(1).strip(" \"'.,:;!?")
+            if candidate:
+                return candidate
+
+        if action_type == "Search":
+            title_match = re.search(r"\b([A-Z][\w'&.-]*(?:\s+[A-Z][\w'&().-]*){0,6})\b", text)
+            if title_match:
+                candidate = title_match.group(1).strip(" \"'.,:;!?")
+                if candidate and candidate.lower() not in {"search", "lookup"}:
+                    return candidate
+
+        if claim_anchor:
+            anchor_lower = claim_anchor.lower()
+            if anchor_lower in lowered or lowered in generic_queries or len(text.split()) > 6:
+                return claim_anchor
+
+        if len(text.split()) > 8:
+            return " ".join(text.split()[:8]).strip(" ,.:;!?")
+        return text
         
     def success_fn(self, agent_ans: str) -> bool:
         return match_exactly(agent_ans, self.config.get('answer'))
