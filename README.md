@@ -62,4 +62,4 @@ Each run writes a structured report and a Markdown summary under the configured 
 
 ## Acknowledgement
 
-Our architecture is based on the framework provided by [bingreeky/GMemory](https://github.com/bingreeky/GMemory).
+We sincerely thank [bingreeky/GMemory](https://github.com/bingreeky/GMemory) for providing the framework on which our architecture is based.
