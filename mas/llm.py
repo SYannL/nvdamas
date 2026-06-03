@@ -81,6 +81,7 @@ class GPTChat(LLM):
             "the goal is to satisfy the following conditions",
             "what action would you like to do next",
             "valid commands",
+            "valid actions from the scienceworld engine",
         )
         return any(marker in lowered for marker in markers)
 

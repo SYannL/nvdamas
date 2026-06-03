@@ -33,6 +33,7 @@ class ScienceWorldEnv(BaseEnv):
         self.last_observation = ""
         self.last_reward = 0.0
         self.last_score = 0.0
+        self.best_score = 0.0
         self.last_completed = False
         self.has_positive_progress = False
         self.sw_task: str = ""
@@ -43,6 +44,90 @@ class ScienceWorldEnv(BaseEnv):
         self._step_count: int = 0
         self.current_history: list = []
         self.last_admissible_commands: list = []
+
+    def _valid_action_limit(self) -> int:
+        try:
+            return max(0, int(self.env_config.get("valid_action_prompt_limit", 120)))
+        except Exception:
+            return 120
+
+    @staticmethod
+    def _action_overlap_score(action: str, *contexts: str) -> tuple[int, int, int, str]:
+        action_text = str(action or "").lower()
+        action_words = {tok for tok in re.findall(r"[a-z0-9]+", action_text) if len(tok) > 2}
+        context_words: set[str] = set()
+        for ctx in contexts:
+            context_words.update(tok for tok in re.findall(r"[a-z0-9]+", str(ctx or "").lower()) if len(tok) > 2)
+        navigation_prefixes = ("open ", "go to ")
+        good_prefixes = (
+            "look ", "read ", "take ", "put ", "place ", "focus on ", "activate ",
+            "deactivate ", "connect wire", "disconnect wire", "measure ", "examine ",
+            "use ", "wait",
+        )
+        noisy_prefixes = (
+            "pour ", "move ", "connect ", "disconnect ", "mix ",
+        )
+        action_priority = 0
+        if any(action_text.startswith(prefix) or action_text == prefix.strip() for prefix in navigation_prefixes):
+            action_priority = 5
+        elif any(action_text.startswith(prefix) or action_text == prefix.strip() for prefix in good_prefixes):
+            action_priority = 3
+        if action_text in {"look around", "inventory", "task"}:
+            action_priority = 2
+        if any(action_text.startswith(prefix) for prefix in noisy_prefixes):
+            action_priority = -2
+        if action_text in {"reset task", "stop", "focus on agent"}:
+            action_priority = -4
+
+        overlap = len(action_words & context_words)
+        focus_target_bonus = 1 if action_text.startswith("focus on ") and overlap else 0
+        return (action_priority, focus_target_bonus, overlap, action_text)
+
+    def _rank_valid_actions_for_prompt(self, actions: list[str]) -> list[str]:
+        if not actions:
+            return []
+        if all(str(a).strip().isdigit() for a in actions):
+            return actions
+        context = " ".join(
+            [
+                str(getattr(self, "sw_task_desc", "") or ""),
+                str(getattr(self, "last_observation", "") or ""),
+            ]
+        )
+        observation_only = {"look around", "inventory", "task"}
+        primary = [a for a in actions if self._normalize_action_for_match(a) not in observation_only]
+        secondary = [a for a in actions if self._normalize_action_for_match(a) in observation_only]
+        primary = sorted(
+            primary,
+            key=lambda a: self._action_overlap_score(a, context),
+            reverse=True,
+        )
+        return primary + secondary
+
+    def _format_valid_actions_block(self) -> str:
+        actions = [str(a).strip() for a in self.last_admissible_commands if str(a).strip()]
+        if not actions:
+            return "Valid actions: <unavailable>"
+        ranked = self._rank_valid_actions_for_prompt(actions)
+        limit = self._valid_action_limit()
+        shown = ranked if limit <= 0 else ranked[:limit]
+        lines = [
+            f"Valid actions from the ScienceWorld engine ({len(actions)} total; choose exactly one shown command):"
+        ]
+        lines.extend(f"- {action}" for action in shown)
+        omitted = max(0, len(actions) - len(shown))
+        if omitted:
+            lines.append(f"- <{omitted} additional low-priority valid actions omitted>")
+        return "\n".join(lines)
+
+    def _format_step_context(self, observation: str, *, reward: float | None = None) -> str:
+        parts = [str(observation or "").strip()]
+        score_line = f"Current ScienceWorld score: {self.last_score:g}."
+        if reward is not None:
+            score_line += f" Last reward delta: {float(reward):g}."
+        parts.append(score_line)
+        parts.append(self._format_valid_actions_block())
+        return "\n\n".join(part for part in parts if part)
 
     def set_env(self, configs: dict) -> tuple[str, str]:
         task_name = str(
@@ -73,6 +158,7 @@ class ScienceWorldEnv(BaseEnv):
         self.simplification = simplification
         self.last_observation = observation or ""
         self.last_score = float(info.get("score", 0))
+        self.best_score = self.last_score
         self.last_reward = 0.0
         self.last_completed = False
         self.has_positive_progress = self.last_score > 0
@@ -95,7 +181,7 @@ class ScienceWorldEnv(BaseEnv):
         task_main = f"scienceworld-{self.task_name}-v{self.variation_idx}"
         task_description = (
             f"{self.env.get_task_description()}\n\n"
-            f"Initial observation:\n{self.last_observation}"
+            f"Initial observation:\n{self._format_step_context(self.last_observation)}"
         )
         return task_main, task_description
 
@@ -109,7 +195,9 @@ class ScienceWorldEnv(BaseEnv):
             if parts:
                 text = parts[0]
         first_line = text.splitlines()[0].strip()
+        first_line = re.sub(r"^\s*[-*]\s*", "", first_line)
         first_line = re.sub(r"^Action\s+\d+:\s*", "", first_line, flags=re.IGNORECASE)
+        first_line = re.sub(r"^(?:Action|Command)\s*:\s*", "", first_line, flags=re.IGNORECASE)
         first_line = first_line.strip("`").strip().strip('"').strip("'")
         first_line = re.sub(r"[\[\]\(\)\{\}<>]", "", first_line)
         first_line = re.sub(r"\s+", " ", first_line).strip()
@@ -177,8 +265,9 @@ class ScienceWorldEnv(BaseEnv):
         self.last_observation = observation or ""
         self.last_reward = float(reward)
         self.last_score = float(step_info.get("score", self.last_score))
+        self.best_score = max(float(getattr(self, "best_score", 0.0) or 0.0), self.last_score)
         self.last_completed = bool(completed)
-        if self.last_reward > 0 or self.last_score > 0:
+        if self.last_reward > 0 or self.last_score > 0 or self.best_score > 0:
             self.has_positive_progress = True
         self._step_count += 1
         self._refresh_admissible_commands()
@@ -192,7 +281,7 @@ class ScienceWorldEnv(BaseEnv):
             "Admissible Commands": list(self.last_admissible_commands),
             "Action Repair": repair_info,
         })
-        return self.last_observation, self.last_reward, self.last_completed
+        return self._format_step_context(self.last_observation, reward=self.last_reward), self.last_reward, self.last_completed
 
     def has_exportable_history(self) -> bool:
         return bool(getattr(self, "current_history", None))
@@ -207,6 +296,7 @@ class ScienceWorldEnv(BaseEnv):
         if not self.has_exportable_history():
             return None
         final_score = float(getattr(self, "last_score", 0.0) or 0.0)
+        best_score = float(getattr(self, "best_score", final_score) or 0.0)
         success = bool(getattr(self, "last_completed", False) and final_score > 0)
         status = status_override or ("success" if success else "fail")
         sw_task = str(getattr(self, "sw_task", "") or "unknown")
@@ -224,6 +314,8 @@ class ScienceWorldEnv(BaseEnv):
             "status": status,
             "step_count": max(len(self.current_history) - 1, 0),
             "final_score": final_score,
+            "best_score": best_score,
+            "had_positive_progress": bool(getattr(self, "has_positive_progress", False)),
             "history": list(self.current_history),
             "model_id": model_id,
             "gm3_domain": "scienceworld",
@@ -246,9 +338,9 @@ class ScienceWorldEnv(BaseEnv):
         success = bool(self.last_completed and self.last_score > 0)
         reward = 1.0 if success else 0.0
         feedback = (
-            f"ScienceWorld episode finished. completed={self.last_completed}, score={self.last_score}."
+            f"ScienceWorld episode finished. completed={self.last_completed}, score={self.last_score}, best_score={self.best_score}."
             if self.last_completed
-            else f"ScienceWorld episode not finished. score={self.last_score}."
+            else f"ScienceWorld episode not finished. score={self.last_score}, best_score={self.best_score}."
         )
         return reward, success, feedback
 

@@ -824,12 +824,59 @@ class MemSkillMASMemory(MASMemoryBase):
         self._finalizing = False
         self._ppo_adapter: _MemSkillPPOAdapter | None = None
         self._ppo_adapter_error: str | None = None
+        self._prompt_char_budget = int(self._cfg("memskill_prompt_char_budget", default=14000))
+        self._chunk_char_budget = int(self._cfg("memskill_chunk_chars", default=3500))
+        self._retrieved_memory_char_budget = int(self._cfg("memskill_retrieved_memory_chars", default=1200))
 
     def _cfg(self, *names: str, default: Any = None) -> Any:
         for name in names:
             if name in self.global_config and self.global_config.get(name) is not None:
                 return self.global_config.get(name)
         return default
+
+    @staticmethod
+    def _truncate_text(text: Any, max_chars: int, *, keep_tail: bool = False) -> str:
+        raw = str(text or "")
+        if max_chars <= 0:
+            return "[TRUNCATED]"
+        if len(raw) <= max_chars:
+            return raw
+        if keep_tail:
+            return "[TRUNCATED]\n" + raw[-max_chars:].lstrip()
+        return raw[:max_chars].rstrip() + "\n[TRUNCATED]"
+
+    def _truncate_messages(
+        self,
+        messages: list[Message],
+        *,
+        label: str,
+        max_chars: int | None = None,
+    ) -> list[Message]:
+        budget = int(max_chars if max_chars is not None else self._prompt_char_budget)
+        if budget <= 0:
+            return messages
+        total = sum(len(str(message.content or "")) for message in messages)
+        if total <= budget:
+            return messages
+        kept: list[Message] = []
+        remaining = budget
+        for idx, message in enumerate(messages):
+            content = str(message.content or "")
+            if idx == 0 and len(content) < remaining:
+                kept.append(message)
+                remaining -= len(content)
+                continue
+            kept.append(Message(message.role, self._truncate_text(content, max(0, remaining))))
+            remaining = 0
+        self._trace(
+            {
+                "kind": "memskill_prompt_truncated",
+                "label": label,
+                "chars_before": total,
+                "chars_after": sum(len(str(message.content or "")) for message in kept),
+            }
+        )
+        return kept
 
     def _load_external_operation_bank(self, *, skip_noop: bool) -> None:
         bank_path = str(
@@ -1188,7 +1235,7 @@ class MemSkillMASMemory(MASMemoryBase):
         return "\n\n".join(part.strip() for part in parts if str(part).strip())
 
     def _chunk_text(self, text: str) -> list[str]:
-        chunk_chars = int(self._cfg("memskill_chunk_chars", default=0))
+        chunk_chars = int(self._cfg("memskill_chunk_chars", default=self._chunk_char_budget))
         text = str(text or "").strip()
         if not text:
             return []
@@ -1262,17 +1309,25 @@ class MemSkillMASMemory(MASMemoryBase):
             skills.append(
                 f"- {op.name}: {op.description} (action type: {op.update_type.upper()})"
             )
-        memories = "\n".join(f"{i}. {m}" for i, m in enumerate(retrieved_memories)) or "(none)"
+        mem_budget = max(200, int(self._retrieved_memory_char_budget))
+        memories = "\n".join(
+            f"{i}. {self._truncate_text(m, mem_budget)}"
+            for i, m in enumerate(retrieved_memories)
+        ) or "(none)"
         prompt = (
             "Select the MemSkill memory-management skills that should be applied to the current text chunk.\n"
             "Return JSON only: {\"skills\": [\"insert\", \"update\", ...]}.\n\n"
             f"Available skills:\n{chr(10).join(skills)}\n\n"
             f"Retrieved memories:\n{memories}\n\n"
-            f"Current text chunk:\n{session_text[:6000]}"
+            f"Current text chunk:\n{self._truncate_text(session_text, self._chunk_char_budget)}"
         )
         try:
-            response = self.llm_model(
+            messages = self._truncate_messages(
                 [Message("system", "You are a deterministic memory-skill controller."), Message("user", prompt)],
+                label="controller",
+            )
+            response = self.llm_model(
+                messages,
                 temperature=0,
                 max_tokens=256,
             )
@@ -1295,10 +1350,14 @@ class MemSkillMASMemory(MASMemoryBase):
             return [_ExecutionResult("NOOP", True, reasoning="Selected NOOP only")]
         prompt = self._build_executor_prompt(non_noop, session_text, retrieved_memories)
         try:
-            response = self.llm_model(
+            messages = self._truncate_messages(
                 [Message("system", "You are a memory management executor."), Message("user", prompt)],
+                label="executor",
+            )
+            response = self.llm_model(
+                messages,
                 temperature=float(self._cfg("memskill_executor_temperature", "temperature", default=0.0)),
-                max_tokens=int(self._cfg("memskill_executor_max_tokens", "max_new_tokens", default=1024)),
+                max_tokens=int(self._cfg("memskill_executor_max_tokens", "max_new_tokens", default=512)),
             )
         except Exception as exc:
             return [_ExecutionResult("NOOP", False, reasoning=f"Executor LLM call failed: {exc}")]
@@ -1310,7 +1369,11 @@ class MemSkillMASMemory(MASMemoryBase):
         session_text: str,
         retrieved_memories: list[str],
     ) -> str:
-        mem_text = "\n".join(f"{i}. {mem}" for i, mem in enumerate(retrieved_memories)) or "(No existing memories retrieved)"
+        mem_budget = max(200, int(self._retrieved_memory_char_budget))
+        mem_text = "\n".join(
+            f"{i}. {self._truncate_text(mem, mem_budget)}"
+            for i, mem in enumerate(retrieved_memories)
+        ) or "(No existing memories retrieved)"
         skill_blocks = []
         for idx, op in enumerate(operations, start=1):
             skill_blocks.append(
@@ -1322,7 +1385,7 @@ class MemSkillMASMemory(MASMemoryBase):
         return (
             "You are a memory management executor. Apply the selected skills to the input text "
             "chunk and retrieved memories, then output memory actions.\n\n"
-            f"Input Text Chunk:\n{session_text}\n\n"
+            f"Input Text Chunk:\n{self._truncate_text(session_text, self._chunk_char_budget)}\n\n"
             f"Retrieved Memories (0-based index):\n{mem_text}\n\n"
             f"Selected Skills:\n{chr(10).join(skill_blocks)}\n\n"
             "Guidelines:\n"
@@ -1526,7 +1589,9 @@ class MemSkillMASMemory(MASMemoryBase):
             for op in self.operation_bank.candidates()
         )
         case_text = "\n\n".join(
-            f"Task: {row.get('task_main')}\nFeedback: {row.get('feedback')}\nTrajectory: {str(row.get('trajectory', ''))[:1000]}"
+            f"Task: {self._truncate_text(row.get('task_main'), 500)}\n"
+            f"Feedback: {self._truncate_text(row.get('feedback'), 500)}\n"
+            f"Trajectory: {self._truncate_text(row.get('trajectory', ''), 1000)}"
             for row in cases
         )
         prompt = (
@@ -1536,10 +1601,14 @@ class MemSkillMASMemory(MASMemoryBase):
             f"Trigger query: {trigger_query}\n\nExisting skills:\n{existing}\n\nFailure cases:\n{case_text}"
         )
         try:
-            response = self.llm_model(
+            messages = self._truncate_messages(
                 [Message("system", "You evolve reusable memory skills."), Message("user", prompt)],
+                label="designer",
+            )
+            response = self.llm_model(
+                messages,
                 temperature=0,
-                max_tokens=int(self._cfg("memskill_designer_max_tokens", "max_new_tokens", default=1024)),
+                max_tokens=int(self._cfg("memskill_designer_max_tokens", "max_new_tokens", default=512)),
             )
         except Exception as exc:
             self._trace({"kind": "designer_error", "error": str(exc)})

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .graph_memory2 import GraphMemory2MASMemory
+from .gm2_backend import rank_messages_for_query
 from .gm3_backend.prompt_styles import prompt_style_for_query
 
 
@@ -38,6 +39,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
     _gm3_textgrad_disabled_reason: str = field(default="", init=False, repr=False)
     _gm3_textgrad_calls_this_episode: int = field(default=0, init=False, repr=False)
     _gm3_search_bias_queue: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
+    _gm3_runtime_blocked_actions: set[str] = field(default_factory=set, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -137,6 +139,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         self._gm3_textgrad_route_key_hits = {}
         self._gm3_textgrad_calls_this_episode = 0
         self._gm3_search_bias_queue = []
+        self._gm3_runtime_blocked_actions = set()
         self._gm3_debug_append(
             "task_start",
             step_index=0,
@@ -149,6 +152,10 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
 
     def move_memory_state(self, action: str, observation: str, **kargs) -> None:
         super().move_memory_state(action, observation, **kargs)
+        action_norm = self._normalize_action_text(str(action or ""))
+        observation_norm = self._gm3_norm(str(observation or "")).strip(".!")
+        if action_norm.startswith("examine ") and observation_norm == "ok":
+            self._gm3_runtime_blocked_actions.add(self._gm3_norm(action_norm))
         self._gm3_debug_append(
             "env_feedback",
             step_index=int(getattr(self, "_gm2_debug_env_step", 0) or 0),
@@ -196,6 +203,217 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             lines.append(f"{action.strip()}\n{obs}\n>")
         return "\n".join(lines)
 
+    def _gm3_scienceworld_repair_action(
+        self,
+        *,
+        raw_response: str,
+        processed_action: str,
+        env_ref: Any,
+        task_config: dict | None,
+        step_index: int,
+        admissible: list[str],
+    ) -> str:
+        final_action = str(processed_action or "")
+        try:
+            query = self._build_external_query(env_ref=env_ref, task_config=task_config, step_index=step_index)
+        except Exception:
+            query = None
+        profile = self._gm3_scienceworld_task_profile(query=query, env_ref=env_ref, task_config=task_config or {})
+        processed_norm = self._normalize_action_text(final_action)
+        admissible_by_norm = {self._normalize_action_text(cmd): cmd for cmd in admissible}
+        processed_admissible = admissible_by_norm.get(processed_norm, "")
+        best_score = self._gm3_scienceworld_float_attr(env_ref, "best_score", 0.0)
+        last_score = self._gm3_scienceworld_float_attr(env_ref, "last_score", 0.0)
+        blocked_actions = self._gm3_scienceworld_recent_invalid_actions(env_ref)
+        reason = "scienceworld_advisory_only"
+
+        if processed_admissible and not final_action:
+            final_action = processed_admissible
+
+        self._gm3_debug_append(
+            "action_hook_observe",
+            step_index=step_index,
+            payload={
+                "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                "processed_action": str(processed_action or ""),
+                "final_action": str(final_action or ""),
+                "changed": str(final_action or "") != str(processed_action or ""),
+                "reason": reason,
+                "scienceworld_profile": self._gm2_debug_jsonable(profile),
+                "last_score": last_score,
+                "best_score": best_score,
+                "blocked_actions": sorted(blocked_actions)[:20],
+                "admissible_sample": admissible[:20],
+            },
+        )
+        return final_action
+
+    def _gm3_scienceworld_task_profile(
+        self,
+        *,
+        query: Any,
+        env_ref: Any,
+        task_config: dict,
+    ) -> dict[str, Any]:
+        belief = getattr(query, "belief", {}) if query is not None else {}
+        dynamic = getattr(query, "dynamic_context", {}) if query is not None else {}
+        goal = str(
+            task_config.get("sw_task_desc", "")
+            or getattr(query, "goal", "")
+            or getattr(env_ref, "task_description", "")
+            or task_config.get("game_task", "")
+            or ""
+        )
+        task_name = str(
+            task_config.get("sw_task_name", "")
+            or belief.get("sw_task_name", "")
+            or dynamic.get("sw_task_name", "")
+            or task_config.get("sw_task", "")
+            or ""
+        )
+        text = self._normalize_action_text(f"{task_name}. {goal}")
+        targets: list[str] = []
+        answer_targets: list[str] = []
+        task_kind = "generic"
+
+        state_patterns = (
+            r"\b(?:boil|melt|freeze|combust)\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)",
+            r"\bchange (?:the )?state of matter of\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)",
+            r"\bchange\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)\s+state of matter(?:[.;,]|$)",
+        )
+        for pattern in state_patterns:
+            match = re.search(pattern, text)
+            if match:
+                task_kind = "state_change"
+                targets.append(match.group(1))
+                break
+
+        for match in re.finditer(r"\b(?:first|next|then),?\s*focus on\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
+            target = match.group(1)
+            if target not in {"substance", "object", "thing"}:
+                targets.append(target)
+                task_kind = "ordered_focus"
+
+        for match in re.finditer(r"\bif\b[^.;]*?\bfocus on\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
+            answer_targets.append(match.group(1))
+            task_kind = "conditional_focus"
+
+        if "dominant" in text or "recessive" in text:
+            task_kind = "genetics"
+
+        targets = self._gm3_scienceworld_dedupe_phrases(targets)
+        answer_targets = self._gm3_scienceworld_dedupe_phrases(answer_targets)
+        return {
+            "task_kind": task_kind,
+            "targets": targets,
+            "answer_targets": answer_targets,
+            "goal": goal[:300],
+            "task_name": task_name[:120],
+        }
+
+    @staticmethod
+    def _gm3_scienceworld_dedupe_phrases(values: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for value in values:
+            clean = re.sub(r"\b(?:first|next|then|for compounds.*)$", "", str(value or "").strip())
+            clean = re.sub(r"\s+", " ", clean).strip(" .,:;")
+            norm = re.sub(r"^(?:the|a|an)\s+", "", clean.lower())
+            if norm and norm not in seen:
+                seen.add(norm)
+                out.append(norm)
+        return out
+
+    @staticmethod
+    def _gm3_scienceworld_float_attr(env_ref: Any, name: str, default: float) -> float:
+        try:
+            return float(getattr(env_ref, name, default) or default)
+        except Exception:
+            return default
+
+    def _gm3_scienceworld_focus_matches_profile(self, action: str, profile: dict[str, Any]) -> bool:
+        target_text = self._gm3_scienceworld_action_target_text(action)
+        if not target_text:
+            return False
+        if self._gm3_scienceworld_is_distractor_focus(target_text, profile):
+            return False
+        targets = list(profile.get("targets") or [])
+        answer_targets = list(profile.get("answer_targets") or [])
+        if answer_targets and self._gm3_scienceworld_phrase_matches_any(target_text, answer_targets):
+            return True
+        if targets:
+            return self._gm3_scienceworld_phrase_matches_any(target_text, targets)
+        return not self._gm3_scienceworld_is_generic_bad_target(target_text)
+
+    def _gm3_scienceworld_action_matches_profile(self, action: str, profile: dict[str, Any]) -> bool:
+        norm = self._normalize_action_text(action)
+        targets = list(profile.get("targets") or []) + list(profile.get("answer_targets") or [])
+        if not targets:
+            return not self._gm3_scienceworld_is_generic_bad_target(self._gm3_scienceworld_action_target_text(norm))
+        return self._gm3_scienceworld_phrase_matches_any(norm, targets)
+
+    def _gm3_scienceworld_recent_invalid_actions(self, env_ref: Any) -> set[str]:
+        blocked: set[str] = set()
+        if env_ref is None:
+            return blocked
+        for record in list(getattr(env_ref, "current_history", []) or []):
+            if not isinstance(record, dict):
+                continue
+            action = self._normalize_action_text(str(record.get("Action", "") or ""))
+            observation = self._gm3_norm(str(record.get("Observation", "") or ""))
+            if action and (
+                "no known action matches" in observation
+                or "not a known action" in observation
+            ):
+                blocked.add(self._gm3_norm(action))
+        return blocked
+
+    @staticmethod
+    def _gm3_scienceworld_is_high_risk_action(action: str) -> bool:
+        norm = re.sub(r"\s+", " ", str(action or "").strip().lower())
+        return norm.startswith(("focus on ", "move ", "put ", "pour ", "mix ", "activate ", "connect "))
+
+    @staticmethod
+    def _gm3_scienceworld_action_target_text(action: str) -> str:
+        norm = re.sub(r"\s+", " ", str(action or "").strip().rstrip(".。").lower())
+        for prefix in ("focus on ", "move ", "put ", "pour ", "mix ", "activate ", "connect ", "open ", "go to ", "examine "):
+            if norm.startswith(prefix):
+                return norm[len(prefix):].strip()
+        return norm
+
+    def _gm3_scienceworld_is_distractor_focus(self, target_text: str, profile: dict[str, Any]) -> bool:
+        target_norm = self._normalize_action_text(target_text)
+        if target_norm in {"air", "inventory", "agent", "object", "thing"}:
+            return True
+        return False
+
+    @staticmethod
+    def _gm3_scienceworld_is_generic_bad_target(target_text: str) -> bool:
+        norm = re.sub(r"\s+", " ", str(target_text or "").strip().lower())
+        return norm in {"air", "inventory", "agent", "object", "thing"}
+
+    def _gm3_scienceworld_phrase_matches_any(self, text: str, phrases: list[str]) -> bool:
+        text_tokens = set(self._gm3_scienceworld_tokens(text))
+        if not text_tokens:
+            return False
+        for phrase in phrases:
+            phrase_tokens = self._gm3_scienceworld_tokens(phrase)
+            if phrase_tokens and set(phrase_tokens).issubset(text_tokens):
+                return True
+        return False
+
+    @staticmethod
+    def _gm3_scienceworld_tokens(text: str) -> list[str]:
+        stop = {
+            "a", "an", "the", "of", "in", "on", "to", "with", "and", "or", "for",
+            "substance", "object", "thing", "material", "unknown",
+        }
+        return [
+            token
+            for token in re.findall(r"[a-z0-9]+", str(text or "").lower())
+            if token not in stop and len(token) > 1
+        ]
+
     def repair_action(
         self,
         *,
@@ -212,19 +430,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         ]
         domain = self._infer_external_domain(task_config or {}, env_ref)
         if domain == "scienceworld":
-            self._gm3_debug_append(
-                "action_hook_observe",
+            return self._gm3_scienceworld_repair_action(
+                raw_response=raw_response,
+                processed_action=processed_action,
+                env_ref=env_ref,
+                task_config=task_config,
                 step_index=step_index,
-                payload={
-                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
-                    "processed_action": str(processed_action or ""),
-                    "final_action": str(processed_action or ""),
-                    "changed": False,
-                    "reason": "gm3_prompt_only_for_scienceworld",
-                    "admissible_sample": admissible[:20],
-                },
+                admissible=admissible,
             )
-            return str(processed_action or "")
         if domain != "alfworld":
             self._gm3_debug_append(
                 "action_hook_observe",
@@ -246,6 +459,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         )
         final_action = str(processed_action or "")
         change_reason = ""
+        blocked_actions = self._gm3_recent_examine_ok_actions(env_ref)
 
         def _debug_return(selected_action: str, reason: str) -> str:
             self._gm3_debug_append(
@@ -258,22 +472,13 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     "changed": str(selected_action or "") != str(processed_action or ""),
                     "reason": reason,
                     "search_bias_queue": self._gm2_debug_jsonable(self._gm3_search_bias_queue[:6]),
+                    "blocked_actions": sorted(blocked_actions)[:10],
                     "admissible_sample": admissible[:20],
                 },
             )
             return selected_action
 
         if admissible and query is not None:
-            object_guard = self._deterministic_object_guard_repair(
-                processed_action=processed_action,
-                admissible_actions=admissible,
-                env_ref=env_ref,
-                task_config=task_config or {},
-                step_index=step_index,
-            )
-            if object_guard:
-                return _debug_return(object_guard, "gm3_object_guard")
-
             held_count = int(getattr(query, "held_relevant_count", 0) or 0)
             visible_match = bool(getattr(query, "goal_object_matches_visible", False))
             progress = str(getattr(query, "progress_state", "") or "")
@@ -281,6 +486,35 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             admissible_by_norm = {self._normalize_action_text(cmd): cmd for cmd in admissible}
             processed_admissible = admissible_by_norm.get(processed_norm, "")
             is_concrete = self._is_concrete_alfworld_action(processed_action)
+
+            embedded_action = self._gm3_embedded_phase_action(
+                query=query,
+                processed_action=processed_action,
+                admissible=admissible,
+                blocked_actions=blocked_actions,
+            )
+            if embedded_action:
+                return _debug_return(embedded_action, "gm3_embedded_phase_action")
+
+            object_guard = self._gm3_role_aware_object_guard_repair(
+                query=query,
+                processed_action=processed_action,
+                admissible_actions=admissible,
+                env_ref=env_ref,
+                task_config=task_config or {},
+                step_index=step_index,
+            )
+            if object_guard:
+                if not self._gm3_action_is_blocked(object_guard, blocked_actions):
+                    return _debug_return(object_guard, "gm3_object_guard")
+                self._gm3_debug_append(
+                    "action_hook_skip_blocked",
+                    step_index=step_index,
+                    payload={
+                        "candidate": str(object_guard or ""),
+                        "reason": "object_guard_examine_ok",
+                    },
+                )
 
             if held_count > 0:
                 goal_roles = getattr(query, "goal_roles", {}) or {}
@@ -314,17 +548,20 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 and held_count <= 0
                 and not visible_match
                 and progress.startswith("search")
+                and self._gm3_search_bias_repair_allowed(
+                    query=query,
+                    processed_action=processed_action,
+                    processed_admissible=processed_admissible,
+                )
             ):
-                bias = self._gm3_search_bias_queue[:1]
+                bias = [
+                    item for item in self._gm3_search_bias_queue[:4]
+                    if not self._gm3_action_is_blocked(str(item.get("action", "") or ""), blocked_actions)
+                ][:1]
                 if bias:
                     preferred = str(bias[0].get("action", "") or "").strip()
                     preferred_base = self._gm3_base(str(bias[0].get("base", "") or ""))
-                    preferred_score = float(bias[0].get("score", 0.0) or 0.0)
-                    strong_bias = (
-                        str(bias[0].get("evidence_level", "") or "") in {"exact", "same_family"}
-                        or str(bias[0].get("source_scope", "") or "") == "previous_success_source"
-                        or preferred_score >= 0.75
-                    )
+                    strong_bias = self._gm3_search_bias_is_strong(bias[0])
                     if preferred and strong_bias:
                         if not is_concrete or not processed_admissible:
                             return _debug_return(preferred, "gm3_search_bias_for_non_actionable_output")
@@ -338,6 +575,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                                 and (current_count >= 2 or preferred_count < current_count)
                             ):
                                 return _debug_return(preferred, "gm3_search_bias_override")
+                elif self._gm3_search_bias_queue:
+                    return _debug_return(final_action, "gm3_search_bias_all_blocked_examine_ok")
 
         self._gm3_debug_append(
             "action_hook_observe",
@@ -405,6 +644,10 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 "### GM3 MEMORY DECISION SUMMARY\n"
                 + str(route["prompt"]).strip()
             )
+        execution_patterns = self._gm3_scienceworld_execution_patterns(
+            query=query,
+            query_task=str(kargs.get("query_task") or ""),
+        )
 
         self._gm2_debug_append(
             "gm3_retrieve",
@@ -422,7 +665,14 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                         self._gm2_debug_text(item, limit=3000)
                         for item in planner_notes[:3]
                     ],
-                    "counts": {"planner_notes": len(planner_notes)},
+                    "execution_patterns": [
+                        self._gm2_debug_text(item, limit=3000)
+                        for item in execution_patterns[:1]
+                    ],
+                    "counts": {
+                        "planner_notes": len(planner_notes),
+                        "execution_patterns": len(execution_patterns),
+                    },
                 },
             },
         )
@@ -437,17 +687,374 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
                 "bundle": self._gm2_debug_bundle_snapshot(bundle),
                 "gm3_textloss": route.get("debug", {}),
-                "rendered_prompt": self._gm2_debug_text("\n\n".join(planner_notes), limit=5000),
+                "rendered_prompt": self._gm2_debug_text(
+                    "\n\n".join(execution_patterns + planner_notes),
+                    limit=5000,
+                ),
             },
         )
         return {
             "reference_cases": [],
-            "execution_patterns": [],
+            "execution_patterns": execution_patterns,
             "insights": [],
             "planner_notes": planner_notes,
             "action_constraints": [],
             "repair_hints": [],
         }
+
+    def _gm3_scienceworld_execution_patterns(self, *, query: Any, query_task: str) -> list[str]:
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        if not task_family.startswith("scienceworld"):
+            return []
+
+        # ScienceWorld needs concrete procedural memory, but old valid-action
+        # lists are too large and can pollute the current state's grounding.
+        query_text = str(query_task or getattr(query, "goal", "") or "")
+        successful, _, _ = super().retrieve_memory(
+            query_task=query_text,
+            successful_topk=8,
+            failed_topk=0,
+            insight_topk=0,
+        )
+        ranked_any_label = rank_messages_for_query(
+            query_text,
+            self.committed_messages,
+            topk=16,
+            label=None,
+        )
+        candidates: list[Any] = []
+        for message in list(successful) + list(ranked_any_label):
+            if message in candidates:
+                continue
+            if not self._gm3_message_is_scienceworld(message):
+                continue
+            if not self._gm3_scienceworld_message_has_progress(message):
+                continue
+            candidates.append(message)
+
+        scored: list[tuple[float, Any]] = []
+        for message in candidates:
+            score = self._gm3_scienceworld_candidate_score(query=query, query_text=query_text, message=message)
+            if score <= 0:
+                continue
+            scored.append((score, message))
+        scored.sort(key=lambda item: item[0], reverse=True)
+
+        patterns: list[str] = []
+        for score, message in scored[:4]:
+            pattern = self._gm3_scienceworld_progress_execution_pattern(message, match_score=score)
+            if pattern:
+                patterns.append(pattern)
+            if len(patterns) >= 2:
+                break
+        return patterns
+
+    def _gm3_scienceworld_progress_execution_pattern(self, message: Any, *, match_score: float = 0.0) -> str:
+        description = self._gm3_scienceworld_clean_task_query(str(getattr(message, "task_description", "") or ""))
+        trajectory = self._gm3_scienceworld_success_prefix(str(getattr(message, "task_trajectory", "") or ""))
+        parts: list[str] = []
+        if description:
+            header = "### Similar task query"
+            if match_score > 0:
+                header += f" (match={match_score:.2f})"
+            parts.append(header + ":\n" + description)
+        if trajectory:
+            parts.append("### Useful score-improving trajectory fragment:\n" + trajectory)
+        return "\n\n".join(parts).strip()
+
+    def _gm3_scienceworld_success_prefix(self, trajectory: str) -> str:
+        segments = [seg.strip() for seg in str(trajectory or "").split("\n>") if seg.strip()]
+        if not segments:
+            return ""
+
+        parsed: list[tuple[str, str, float | None, float | None, bool]] = []
+        best_score = 0.0
+        for segment in segments:
+            action, _, observation = segment.partition("\n")
+            action = re.sub(r"^\s*>\s*", "", action).strip()
+            obs = observation.strip()
+            score = self._gm3_scienceworld_score_from_text(obs)
+            reward = self._gm3_scienceworld_reward_from_text(obs)
+            is_failure = self._gm3_scienceworld_observation_is_failed_step(obs)
+            if score is not None:
+                best_score = max(best_score, score)
+            parsed.append((action, obs, score, reward, is_failure))
+
+        progress_steps: list[tuple[str, str, float | None, float | None]] = []
+        setup_window: list[tuple[str, str, float | None, float | None]] = []
+        emitted_actions: set[str] = set()
+        previous_score = 0.0
+        for action, obs, score, reward, is_failure in parsed:
+            current_score = previous_score if score is None else score
+            score_gain = current_score > previous_score
+            reward_gain = reward is not None and reward > 0
+            if is_failure:
+                if score is not None:
+                    previous_score = max(previous_score, score)
+                continue
+            if score_gain or reward_gain:
+                for setup_action, setup_obs, setup_score, setup_reward in setup_window[-2:]:
+                    setup_key = self._gm3_norm(setup_action)
+                    if setup_key and setup_key not in emitted_actions:
+                        progress_steps.append((setup_action, setup_obs, setup_score, setup_reward))
+                        emitted_actions.add(setup_key)
+                action_key = self._gm3_norm(action)
+                if action_key and action_key not in emitted_actions:
+                    progress_steps.append((action, self._gm3_scienceworld_clean_observation(obs), score, reward))
+                    emitted_actions.add(action_key)
+            elif action and not self._gm3_scienceworld_action_is_low_value(action):
+                setup_window.append((action, self._gm3_scienceworld_clean_observation(obs), score, reward))
+                setup_window = setup_window[-3:]
+            if best_score > 0 and score is not None and score >= best_score:
+                break
+            if best_score <= 0 and reward is not None and reward > 0:
+                break
+            if score is not None:
+                previous_score = max(previous_score, score)
+
+        lines: list[str] = []
+        for action, obs, score, reward in progress_steps[:8]:
+            if not action:
+                continue
+            meta = []
+            if score is not None:
+                meta.append(f"score={score:g}")
+            if reward is not None and reward > 0:
+                meta.append(f"reward_delta={reward:g}")
+            obs_line = f"Obs: {obs}" if obs else "Obs: progress observed."
+            if meta:
+                obs_line += " (" + ", ".join(meta) + ")"
+            lines.append(f"{action}\n{obs_line}\n>")
+        text = "\n".join(lines).strip()
+        if len(text) > 1800:
+            text = text[:1800].rstrip() + "\n..."
+        return text
+
+    def _gm3_scienceworld_candidate_score(self, *, query: Any, query_text: str, message: Any) -> float:
+        current_text = self._gm3_scienceworld_clean_task_query(
+            "\n".join(
+                [
+                    str(query_text or ""),
+                    str(getattr(query, "goal", "") or ""),
+                    str((getattr(query, "belief", {}) or {}).get("sw_task_name", "") or ""),
+                    str((getattr(query, "dynamic_context", {}) or {}).get("sw_task_name", "") or ""),
+                ]
+            )
+        )
+        candidate_text = self._gm3_scienceworld_clean_task_query(
+            "\n".join(
+                [
+                    str(getattr(message, "task_main", "") or ""),
+                    str(getattr(message, "task_description", "") or ""),
+                ]
+            )
+        )
+        if not current_text or not candidate_text:
+            return 0.0
+
+        current_name = self._gm3_scienceworld_task_name(current_text)
+        candidate_name = self._gm3_scienceworld_task_name(candidate_text)
+        current_kind = self._gm3_scienceworld_task_kind(current_text)
+        candidate_kind = self._gm3_scienceworld_task_kind(candidate_text)
+        overlap = self._gm3_scienceworld_token_overlap(current_text, candidate_text)
+        score = overlap * 20.0
+
+        if current_name and candidate_name:
+            if current_name == candidate_name:
+                score += 80.0
+            elif current_kind and candidate_kind and current_kind == candidate_kind:
+                score += 30.0
+            else:
+                score -= 100.0
+        elif current_kind and candidate_kind:
+            score += 35.0 if current_kind == candidate_kind else -70.0
+
+        current_group = str((getattr(query, "goal_roles", {}) or {}).get("scienceworld_family", "") or "").strip()
+        if current_group and f"scienceworld_family={current_group}" in candidate_text:
+            score += 12.0
+
+        best = self._gm3_scienceworld_best_score_from_message(message)
+        if best <= 0:
+            score -= 25.0
+        else:
+            score += min(best, 100.0) / 10.0
+
+        if "valid actions from the scienceworld engine" in candidate_text:
+            score -= 35.0
+        return score
+
+    @staticmethod
+    def _gm3_scienceworld_clean_task_query(text: str) -> str:
+        cleaned = str(text or "").strip()
+        markers = (
+            "\nInitial observation:",
+            "\nCurrent ScienceWorld score:",
+            "\nValid actions from the ScienceWorld engine",
+            "\n- Environment feedback",
+            "\nEnvironment feedback",
+            "\n### Detailed trajectory:",
+        )
+        for marker in markers:
+            idx = cleaned.lower().find(marker.lower())
+            if idx >= 0:
+                cleaned = cleaned[:idx].strip()
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        match = re.search(r"(Your task is to .+?)(?: Initial observation:| Current ScienceWorld score:| Valid actions from the ScienceWorld engine|$)", cleaned, flags=re.I)
+        if match:
+            cleaned = match.group(1).strip()
+        if len(cleaned) > 420:
+            cleaned = cleaned[:420].rstrip() + "..."
+        return cleaned
+
+    @staticmethod
+    def _gm3_scienceworld_task_name(text: str) -> str:
+        norm = re.sub(r"[_\-]+", " ", str(text or "").lower())
+        patterns = (
+            r"\bscienceworld\s+([a-z][a-z0-9 ]{1,40}?)(?:\s+v\d+|\s+train|\s+test|$)",
+            r"\byour task is to\s+([a-z][a-z0-9 ]{1,40}?)(?:\s+the\b|\s+a\b|\s+an\b|\.|,|$)",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, norm)
+            if not match:
+                continue
+            candidate = re.sub(r"\b(?:determine whether|find|measure|test|use|the|a|an)\b", " ", match.group(1))
+            candidate = re.sub(r"\s+", " ", candidate).strip()
+            if candidate:
+                first = candidate.split()[0]
+                aliases = {
+                    "boil": "boil",
+                    "melt": "melt",
+                    "freeze": "freeze",
+                    "combust": "combust",
+                    "conductivity": "conductivity",
+                    "conduct": "conductivity",
+                    "identify": "identify",
+                    "classify": "classify",
+                    "grow": "grow",
+                }
+                return aliases.get(first, first)
+        for token in ("boil", "melt", "freeze", "combust", "conductivity", "conduct", "identify", "classify", "grow"):
+            if re.search(rf"\b{re.escape(token)}\b", norm):
+                return "conductivity" if token == "conduct" else token
+        return ""
+
+    @staticmethod
+    def _gm3_scienceworld_task_kind(text: str) -> str:
+        norm = str(text or "").lower()
+        if any(token in norm for token in ("boil", "melt", "freeze", "combust", "state of matter")):
+            return "state_change"
+        if any(token in norm for token in ("conductivity", "conductive", "conduct electricity", "circuit", "electrical")):
+            return "conductivity"
+        if any(token in norm for token in ("unknown", "identify", "determine the substance", "which substance")):
+            return "unknown_testing"
+        if any(token in norm for token in ("living", "nonliving", "animal", "plant", "organism", "dominant", "recessive", "classification", "classify")):
+            return "classification"
+        if any(token in norm for token in ("inclined plane", "friction", "force", "mendelian", "genetics")):
+            return "domain_specific"
+        return ""
+
+    @staticmethod
+    def _gm3_scienceworld_token_overlap(a: str, b: str) -> float:
+        stop = {
+            "the", "a", "an", "to", "of", "and", "or", "is", "are", "in", "on", "for",
+            "your", "task", "scienceworld", "current", "score", "valid", "actions",
+            "from", "engine", "with", "then", "first", "also", "without",
+        }
+        ta = {tok for tok in re.findall(r"[a-z0-9]+", str(a or "").lower()) if tok not in stop and len(tok) > 2}
+        tb = {tok for tok in re.findall(r"[a-z0-9]+", str(b or "").lower()) if tok not in stop and len(tok) > 2}
+        if not ta or not tb:
+            return 0.0
+        return len(ta & tb) / max(1, len(ta | tb))
+
+    @staticmethod
+    def _gm3_scienceworld_best_score_from_message(message: Any) -> float:
+        text = "\n".join(
+            [
+                str(getattr(message, "task_description", "") or ""),
+                str(getattr(message, "task_trajectory", "") or ""),
+            ]
+        )
+        best = 0.0
+        for match in re.finditer(r"\b(?:current scienceworld score|best_score|score)\s*[=:]\s*(-?\d+(?:\.\d+)?)", text, flags=re.I):
+            try:
+                best = max(best, float(match.group(1)))
+            except Exception:
+                continue
+        return best
+
+    @staticmethod
+    def _gm3_scienceworld_clean_observation(text: str) -> str:
+        obs = str(text or "").strip()
+        obs = re.split(r"\bCurrent ScienceWorld score:", obs, maxsplit=1, flags=re.I)[0].strip()
+        obs = re.split(r"\bValid actions from the ScienceWorld engine\b", obs, maxsplit=1, flags=re.I)[0].strip()
+        obs = re.sub(r"\s+", " ", obs).strip()
+        if len(obs) > 260:
+            obs = obs[:260].rstrip() + "..."
+        return obs
+
+    @staticmethod
+    def _gm3_scienceworld_action_is_low_value(action: str) -> bool:
+        norm = re.sub(r"\s+", " ", str(action or "").strip().lower())
+        return norm.startswith(("think", "look around")) or norm in {"inventory", "wait"}
+
+    @staticmethod
+    def _gm3_scienceworld_score_from_text(text: str) -> float | None:
+        match = re.search(r"\bCurrent ScienceWorld score:\s*(-?\d+(?:\.\d+)?)", str(text or ""), flags=re.I)
+        if not match:
+            return None
+        try:
+            return float(match.group(1))
+        except Exception:
+            return None
+
+    @staticmethod
+    def _gm3_scienceworld_reward_from_text(text: str) -> float | None:
+        match = re.search(r"\bLast reward delta:\s*(-?\d+(?:\.\d+)?)", str(text or ""), flags=re.I)
+        if not match:
+            return None
+        try:
+            return float(match.group(1))
+        except Exception:
+            return None
+
+    @staticmethod
+    def _gm3_scienceworld_observation_is_failed_step(text: str) -> bool:
+        norm = re.sub(r"\s+", " ", str(text or "").strip().lower())
+        return any(
+            phrase in norm
+            for phrase in (
+                "no known action matches",
+                "doesn't appear",
+                "do not know how to",
+                "can't do that",
+                "cannot do that",
+                "nothing happens",
+            )
+        )
+
+    @staticmethod
+    def _gm3_message_is_scienceworld(message: Any) -> bool:
+        task_main = str(getattr(message, "task_main", "") or "").lower()
+        task_description = str(getattr(message, "task_description", "") or "").lower()
+        return "scienceworld" in task_main or "scienceworld" in task_description
+
+    @staticmethod
+    def _gm3_scienceworld_message_has_progress(message: Any) -> bool:
+        if bool(getattr(message, "label", False)):
+            return True
+        text = "\n".join(
+            [
+                str(getattr(message, "task_description", "") or ""),
+                str(getattr(message, "task_trajectory", "") or ""),
+            ]
+        )
+        for match in re.finditer(r"\b(?:current scienceworld score|best_score|score)\s*[=:]\s*(-?\d+(?:\.\d+)?)", text, flags=re.I):
+            try:
+                if float(match.group(1)) > 0:
+                    return True
+            except Exception:
+                continue
+        return False
 
     def _render_gm3_textloss_evidence(
         self,
@@ -471,6 +1078,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         visible = [str(x) for x in dynamic.get("visible_objects", []) or [] if str(x).strip()]
         held = [str(x) for x in dynamic.get("held_objects", []) or [] if str(x).strip()]
         exhausted = [str(x) for x in dynamic.get("exhausted_locations", []) or [] if str(x).strip()]
+        blocked_actions = self._gm3_recent_examine_ok_actions(env_ref)
 
         candidates = self._gm3_candidate_sections(
             query=query,
@@ -481,6 +1089,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             visible=visible,
             held=held,
             exhausted=exhausted,
+            blocked_actions=blocked_actions,
             setting=setting,
             owner_scene=owner_scene,
             env_ref=env_ref,
@@ -518,6 +1127,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             task_family=task_family,
             admissible=admissible,
             exhausted=exhausted,
+            blocked_actions=blocked_actions,
             setting=setting,
             owner_scene=owner_scene,
         )
@@ -527,6 +1137,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 query=query,
                 env_ref=env_ref,
                 admissible=admissible,
+                blocked_actions=blocked_actions,
             ),
         )
         supported_source_scores = {
@@ -559,6 +1170,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 self._gm3_concrete_priority_items(
                     self._gm3_items_for_slot(selected, slot, limit=4),
                     admissible=admissible,
+                    blocked_actions=blocked_actions,
                     limit=2,
                 )
             )
@@ -569,6 +1181,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 self._gm3_failure_alternative_actions(
                     admissible=admissible,
                     exhausted=exhausted,
+                    blocked_actions=blocked_actions,
                     supported_source_scores=supported_source_scores,
                     limit=2,
                 )
@@ -719,6 +1332,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         visible: list[str],
         held: list[str],
         exhausted: list[str],
+        blocked_actions: set[str] | None = None,
         setting: str,
         owner_scene: str,
         env_ref: Any,
@@ -761,6 +1375,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             admissible=admissible,
             visible=visible,
             exhausted=exhausted,
+            blocked_actions=blocked_actions,
             progress=progress,
         )
         if setting not in {"base", "global_only"} and local_items:
@@ -777,6 +1392,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             task_family=task_family,
             setting=setting,
             owner_scene=owner_scene,
+            blocked_actions=blocked_actions,
         )
         source_table = self._gm3_merge_source_evidence_table(
             source_table,
@@ -784,6 +1400,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 query=query,
                 env_ref=env_ref,
                 admissible=admissible,
+                blocked_actions=blocked_actions,
             ),
         )
         source_items = self._gm3_source_role_items(source_table=source_table, progress=progress)
@@ -973,6 +1590,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         admissible: list[str],
         visible: list[str],
         exhausted: list[str],
+        blocked_actions: set[str] | None = None,
         progress: str = "",
     ) -> list[str]:
         rendered: list[str] = []
@@ -1014,11 +1632,19 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if source_instance_norm and any(source_instance_norm == self._gm3_norm(x) for x in exhausted):
                 continue
             mapped = self._gm3_admissible_source_action(source_instance, admissible) if source_instance else ""
+            if self._gm3_action_is_blocked(mapped, blocked_actions):
+                mapped = ""
             if mapped and source_instance_norm and source_instance_norm in self._gm3_norm(mapped):
                 rendered.append(f"local graph links target_object={target} to source `{source_instance.replace('_', ' ')}`; currently admissible grounding is `{mapped}`.")
                 continue
             if source_base_norm:
-                actions = self._gm3_admissible_source_base_actions(source_base_norm, admissible, exhausted, limit=2)
+                actions = self._gm3_admissible_source_base_actions(
+                    source_base_norm,
+                    admissible,
+                    exhausted,
+                    blocked_actions=blocked_actions,
+                    limit=2,
+                )
                 if actions:
                     queue = " -> ".join(f"`{action}`" for action in actions)
                     rendered.append(f"local graph links target_object={target} to source type `{source_base_norm}`; current admissible queue: {queue}.")
@@ -1859,6 +2485,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         exhausted: list[str],
         setting: str,
         owner_scene: str,
+        blocked_actions: set[str] | None = None,
     ) -> list[dict[str, Any]]:
         grouped: dict[str, dict[str, Any]] = {}
         strength = {"exact": 3, "same_family": 2, "role": 1}
@@ -1907,7 +2534,13 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             count = int(exhausted_counts.get(base, 0) or 0)
             if count:
                 row["exhausted_penalty"] = 0.20 * min(count, 6)
-            row["admissible_actions"] = self._gm3_admissible_source_base_actions(base, admissible, exhausted, limit=4)
+            row["admissible_actions"] = self._gm3_admissible_source_base_actions(
+                base,
+                admissible,
+                exhausted,
+                blocked_actions=blocked_actions,
+                limit=4,
+            )
             row["final_score"] = (
                 float(row.get("positive_score", 0.0) or 0.0)
                 - float(row.get("negative_score", 0.0) or 0.0)
@@ -1918,6 +2551,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     str(row.get("source_role", "") or ""),
                     admissible,
                     exhausted,
+                    blocked_actions=blocked_actions,
                     excluded_bases=set(exhausted_counts) | {base},
                     limit=3,
                 )
@@ -2000,6 +2634,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         query: Any,
         env_ref: Any,
         admissible: list[str],
+        blocked_actions: set[str] | None = None,
     ) -> list[dict[str, Any]]:
         if not self._gm2_is_two_object_second_search(query):
             return []
@@ -2039,9 +2674,15 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             seen_sources.add(key)
             actions = []
             exact = self._gm3_admissible_source_action(source_instance, admissible)
-            if exact and source_instance not in checked_exact:
+            if exact and source_instance not in checked_exact and not self._gm3_action_is_blocked(exact, blocked_actions):
                 actions.append(exact)
-            for action in self._gm3_admissible_source_base_actions(source_base, admissible, exhausted=[], limit=6):
+            for action in self._gm3_admissible_source_base_actions(
+                source_base,
+                admissible,
+                exhausted=[],
+                blocked_actions=blocked_actions,
+                limit=6,
+            ):
                 action_target = self._normalize_action_text(self._gm3_command_target_text(action)).replace(" ", "_")
                 if action_target == source_instance and source_instance in checked_exact:
                     continue
@@ -2226,13 +2867,22 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                     return items
         return items
 
-    def _gm3_concrete_priority_items(self, items: list[str], *, admissible: list[str], limit: int = 2) -> list[str]:
+    def _gm3_concrete_priority_items(
+        self,
+        items: list[str],
+        *,
+        admissible: list[str],
+        blocked_actions: set[str] | None = None,
+        limit: int = 2,
+    ) -> list[str]:
         """Return only current admissible actions mentioned by memory items."""
         out: list[str] = []
         seen: set[str] = set()
         for item in items:
             action = self._gm3_first_admissible_action_in_text(str(item or ""), admissible)
             if not action:
+                continue
+            if self._gm3_action_is_blocked(action, blocked_actions):
                 continue
             key = self._gm3_norm(action)
             if key in seen:
@@ -2248,6 +2898,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         *,
         admissible: list[str],
         exhausted: list[str],
+        blocked_actions: set[str] | None = None,
         supported_source_scores: dict[str, float] | None = None,
         limit: int = 2,
     ) -> list[str]:
@@ -2279,6 +2930,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 continue
             if any(location and location in cmd for location in exhausted_locations):
                 continue
+            if self._gm3_action_is_blocked(command, blocked_actions):
+                continue
             key = self._gm3_norm(command)
             if key in seen:
                 continue
@@ -2291,6 +2944,160 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
     def _gm3_is_search_navigation_action(action: str) -> bool:
         norm = " ".join(str(action or "").lower().split())
         return norm.startswith(("go to ", "open ", "examine "))
+
+    def _gm3_recent_examine_ok_actions(self, env_ref: Any) -> set[str]:
+        """Treat `examine X -> OK.` as negative search feedback for this episode."""
+        blocked: set[str] = set(getattr(self, "_gm3_runtime_blocked_actions", set()) or set())
+        if env_ref is None:
+            return blocked
+        for record in list(getattr(env_ref, "current_history", []) or []):
+            if not isinstance(record, dict):
+                continue
+            action = self._normalize_action_text(str(record.get("Action", "") or ""))
+            observation = self._gm3_norm(str(record.get("Observation", "") or "")).strip(".!")
+            if action.startswith("examine ") and observation == "ok":
+                blocked.add(self._gm3_norm(action))
+        return blocked
+
+    def _gm3_action_is_blocked(self, action: str, blocked_actions: set[str] | None) -> bool:
+        if not blocked_actions:
+            return False
+        return self._gm3_norm(action) in blocked_actions
+
+    def _gm3_is_two_object_task(self, query: Any) -> bool:
+        required = int(getattr(query, "required_count", 0) or 0)
+        if required >= 2:
+            return True
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        goal = self._gm3_norm(str(getattr(query, "goal", "") or ""))
+        return "pick_two_obj" in task_family or "pick two" in goal or "two " in goal
+
+    def _gm3_role_aware_object_guard_repair(
+        self,
+        *,
+        query: Any,
+        processed_action: str,
+        admissible_actions: list[str],
+        env_ref: Any,
+        task_config: dict,
+        step_index: int,
+    ) -> str | None:
+        obj_base = self._gm3_manipulated_object_base(processed_action)
+        if obj_base and obj_base in self._gm3_allowed_role_bases(query):
+            return None
+        return self._deterministic_object_guard_repair(
+            processed_action=processed_action,
+            admissible_actions=admissible_actions,
+            env_ref=env_ref,
+            task_config=task_config,
+            step_index=step_index,
+        )
+
+    def _gm3_allowed_role_bases(self, query: Any) -> set[str]:
+        goal_roles = getattr(query, "goal_roles", {}) or {}
+        roles = {
+            self._gm3_base(str(goal_roles.get("object", "") or "")),
+            self._gm3_base(str(goal_roles.get("tool", "") or "")),
+            self._gm3_base(str(goal_roles.get("destination", "") or "")),
+        }
+        return {role for role in roles if role}
+
+    def _gm3_manipulated_object_base(self, action: str) -> str:
+        norm = self._normalize_action_text(str(action or "")).replace("_", " ")
+        match = re.match(
+            r"^(take|heat|cool|clean|move|put|use)\s+(.+?)(?:\s+from\s+.+|\s+with\s+.+|\s+to\s+.+|\s+in/on\s+.+|\s+in\s+.+|\s+on\s+.+|$)",
+            norm,
+        )
+        if not match:
+            return ""
+        return self._gm3_base(str(match.group(2) or ""))
+
+    def _gm3_embedded_phase_action(
+        self,
+        *,
+        query: Any,
+        processed_action: str,
+        admissible: list[str],
+        blocked_actions: set[str] | None,
+    ) -> str:
+        text = self._gm3_norm(processed_action)
+        if not text.startswith("think"):
+            return ""
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        allowed_roles = self._gm3_allowed_role_bases(query)
+        phase_prefixes = ("take ", "put ", "move ", "heat ", "clean ", "cool ", "examine ")
+        for action in sorted((str(a).strip() for a in admissible if str(a).strip()), key=len, reverse=True):
+            action_norm = self._gm3_norm(action)
+            if not action_norm or action_norm not in text:
+                continue
+            if self._gm3_action_is_blocked(action, blocked_actions):
+                continue
+            if not action_norm.startswith(phase_prefixes):
+                continue
+            if action_norm.startswith("examine ") and not (
+                task_family.startswith("look_at") or "examine" in text or "look at" in text
+            ):
+                continue
+            obj_base = self._gm3_manipulated_object_base(action)
+            if obj_base and allowed_roles and obj_base not in allowed_roles and not action_norm.startswith("examine "):
+                continue
+            return action
+        return ""
+
+    def _gm3_search_bias_repair_allowed(
+        self,
+        *,
+        query: Any,
+        processed_action: str,
+        processed_admissible: str,
+    ) -> bool:
+        text = self._gm3_norm(processed_action)
+        task_family = self._gm3_norm(str(getattr(query, "task_family", "") or ""))
+        if task_family.startswith("look_at"):
+            return False
+        if self._gm3_mentions_completion(text):
+            return False
+        if self._gm3_mentions_phase_critical_action(query=query, text=text):
+            return False
+        if processed_admissible and not self._gm3_is_search_navigation_action(processed_admissible):
+            return False
+        return True
+
+    def _gm3_search_bias_is_strong(self, item: dict[str, Any]) -> bool:
+        source_scope = str(item.get("source_scope", "") or "")
+        if source_scope == "previous_success_source":
+            return True
+        level = str(item.get("evidence_level", "") or "")
+        score = float(item.get("score", 0.0) or 0.0)
+        return level == "exact" and score >= 0.75
+
+    @staticmethod
+    def _gm3_mentions_completion(text: str) -> bool:
+        low = str(text or "").lower()
+        return any(
+            phrase in low
+            for phrase in (
+                "task is complete",
+                "task complete",
+                "already completed",
+                "successfully completed",
+                "no further action",
+                "no further actions",
+            )
+        )
+
+    def _gm3_mentions_phase_critical_action(self, *, query: Any, text: str) -> bool:
+        low = str(text or "").lower()
+        if any(word in low for word in ("examine ", "look at ", "heat ", "clean ", "cool ", "put ", "move ")):
+            return True
+        goal_roles = getattr(query, "goal_roles", {}) or {}
+        tool = self._gm3_base(str(goal_roles.get("tool", "") or ""))
+        destination = self._gm3_base(str(goal_roles.get("destination", "") or ""))
+        if tool and tool in self._gm3_norm(low):
+            return True
+        if destination and any(word in low for word in ("deliver", "place", "put")) and destination in self._gm3_norm(low):
+            return True
+        return False
 
     def _gm3_search_bias_exhausted_count(self, query: Any, base: str) -> int:
         dynamic = getattr(query, "dynamic_context", {}) or {}
@@ -2376,6 +3183,9 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             task_family=task_family,
         ):
             global_line = "none."
+        local_line = style.format_memory_line(self, query=query, slot="local_grounding", text=local_line)
+        global_line = style.format_memory_line(self, query=query, slot="global_workflow", text=global_line)
+        failure_line = style.format_memory_line(self, query=query, slot="failure_avoidance", text=failure_line)
         if style.name in {"fever", "pddl"} and local_line == "none." and global_line == "none." and failure_line == "none.":
             return ""
         next_line = self._gm3_next_priority_line(
@@ -3050,7 +3860,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             "4. It must suppress memory that is weak, wrong-phase, repetitive, or likely to distract the solver.\n"
             "5. It must improve both seen and unseen robustness: helpful when memory is relevant, harmless when it is not.\n"
             "6. It must be concise and action-oriented, with a clear Next priority when possible.\n"
-            "7. It must use at most seven lines with these fields: Current phase, Current state, Local memory, Global memory, Failure memory, Next priority, Confidence / caveat.\n\n"
+            "7. It must use at most seven lines with these fields: Current phase, Current state, Local memory, Global memory, Failure memory, Next priority, Confidence / caveat.\n"
+            "8. For two-object ALFWorld tasks, preserve the policy to finish one target's full required workflow first, including any required processing, delivery, and put action; only then start another target.\n\n"
             "Context for this decision:\n"
             f"{context}\n\n"
             "Give gradients/feedback only for rewriting the GM3 memory prompt body."
@@ -3081,6 +3892,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             "- It must be seven lines or fewer.\n"
             "- If target is held, the prompt must prioritize process/delivery and ignore source search.\n"
             "- If target is visible, it must prioritize taking the matching target.\n"
+            "- For two-object ALFWorld tasks, it must preserve the one-target full-workflow policy, including any required processing, delivery, and put action before starting another target.\n"
             "- If in search phase, it may use source/action priorities only when they are task-relevant.\n"
             "- Local graph evidence should ground current actions; global evidence should stay abstract and transferable.\n"
             "- Penalize prompts that only say to execute a queued action without naming a concrete current priority.\n"
@@ -3348,6 +4160,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         admissible: list[str],
         exhausted: list[str],
         *,
+        blocked_actions: set[str] | None = None,
         limit: int = 3,
     ) -> list[str]:
         base_norm = self._gm3_base(base)
@@ -3361,6 +4174,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
                 continue
             if any(ex and ex in cmd for ex in exhausted_norm):
                 continue
+            if self._gm3_action_is_blocked(command, blocked_actions):
+                continue
             actions.append(command)
             if len(actions) >= limit:
                 break
@@ -3372,6 +4187,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         admissible: list[str],
         exhausted: list[str],
         *,
+        blocked_actions: set[str] | None = None,
         excluded_bases: set[str] | None = None,
         limit: int = 3,
     ) -> list[str]:
@@ -3393,6 +4209,8 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             if self._gm3_location_role(base) != role_norm:
                 continue
             if any(ex and ex in cmd for ex in exhausted_norm):
+                continue
+            if self._gm3_action_is_blocked(command, blocked_actions):
                 continue
             seen_bases.add(base)
             actions.append(str(command).strip())

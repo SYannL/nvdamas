@@ -485,8 +485,14 @@ class AutoGen(MetaMAS):
         feedback_block_s = time.perf_counter() - t0
         self.notify_observers(final_feedback)
         t0 = time.perf_counter()
+        env_name = str(task_config.get("env_name", "") or "").strip().lower()
+        memory_label = (
+            bool(getattr(self.env, "memory_success_label", final_done))
+            if env_name.startswith("scienceworld")
+            else bool(final_done)
+        )
         self.meta_memory.save_task_context(
-            label=final_done,
+            label=memory_label,
             feedback=final_feedback,
             env_ref=env,
             task_config=task_config,
