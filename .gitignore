@@ -21,7 +21,12 @@ data/medmcqa/train.json
 *.sqlite3
 .memos/
 .cache/
+.agents/
+.matplotlib-cache/
+.matplotlib_cache/
+.tmp_mpl_cache/
 nohup.out
+Models/
 Models/memskill/*.pt
 Models/memskill/**/*.pt
 .db/
