@@ -59,3 +59,7 @@ Large language model (LLM) agents increasingly operate in interactive environmen
 ## Outputs
 
 Each run writes a structured report and a Markdown summary under the configured log directory. At completion, the script prints the exact `report_json` and `report_md` paths, followed by per-domain accuracy, reward, step count, task count, and wall-clock summaries.
+
+## Acknowledgement
+
+We sincerely thank [bingreeky/GMemory](https://github.com/bingreeky/GMemory) for providing the framework on which our architecture is based.
