@@ -135,6 +135,25 @@ class AutoGen(MetaMAS):
         task_description: str = task_config.get('task_description')
         few_shots: list[str] =  task_config.get("few_shots", [])
         _intermediate_env: str | None = (task_config.get("env_name") or "").strip() or None
+        model_name = str(getattr(getattr(self.meta_memory, "llm_model", None), "model_name", "") or "").strip().lower()
+        env_kwargs = task_config.get("env_kwargs") if isinstance(task_config, dict) else {}
+        gamefile = ""
+        if isinstance(env_kwargs, dict):
+            gamefile = str(env_kwargs.get("gamefile", "") or "")
+        task_blob = " ".join(
+            [
+                str(task_main or ""),
+                str(task_description or ""),
+                gamefile,
+                str(task_config.get("env_name", "") or "") if isinstance(task_config, dict) else "",
+            ]
+        ).lower()
+        is_alfworld = (
+            ("alfworld" in task_blob)
+            or ("alfworld_official" in task_blob)
+            or ("game.tw-pddl" in task_blob)
+            or ("textworld" in task_blob and "alfred" in task_blob)
+        )
         prof = _timing_enabled(
             task_config=task_config,
             global_config=getattr(self.meta_memory, "global_config", None),
@@ -475,6 +494,49 @@ class AutoGen(MetaMAS):
             if prof:
                 row["move_memory_state_s"] = time.perf_counter() - t0
                 step_rows.append(row)
+
+            if is_alfworld and "gpt-4o-mini" in model_name and ((i + 1) % 5 == 0) and (not done):
+                try:
+                    admissible_all = [
+                        str(cmd).strip()
+                        for cmd in (getattr(env, "last_admissible_commands", []) or [])
+                        if str(cmd).strip()
+                    ]
+                except Exception:
+                    admissible_all = []
+                admissible_hint = "\n".join(f"- {a}" for a in admissible_all[:20])
+                reflect_prompt = (
+                    user_prompt
+                    + "\n\n"
+                    + "Meta-check (does NOT consume an environment step):\n"
+                      "Write EXACTLY ONE line starting with `think:` that states:\n"
+                      "- what is already done,\n"
+                      "- what is still missing,\n"
+                      "- and what the next concrete action should be.\n"
+                      "Keep it short. Do NOT output an environment action now.\n"
+                      "Admissible actions (for choosing your next step):\n"
+                    + (admissible_hint or "- (unavailable)")
+                    + "\n"
+                )
+                try:
+                    reflection_raw = solver.response(reflect_prompt, self.reasoning_config)
+                except Exception:
+                    reflection_raw = ""
+                reflection = str(reflection_raw or "").strip()
+                if reflection:
+                    self.notify_observers(f"[detail][step {i + 1}] alfworld_reflect.raw: {reflection}")
+                if reflection.lower().startswith("think"):
+                    try:
+                        agent_message_reflect: AgentMessage = AgentMessage(
+                            agent_name=solver.name,
+                            system_instruction=solver.system_instruction,
+                            user_instruction=reflect_prompt,
+                            message=reflection,
+                        )
+                        self.meta_memory.add_agent_node(agent_message_reflect, upstream_agent_ids=[])
+                        self.meta_memory.move_memory_state(reflection, "OK.", reward=0)
+                    except Exception:
+                        pass
 
             if done:  
                 break

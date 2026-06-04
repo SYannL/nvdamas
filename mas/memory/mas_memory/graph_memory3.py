@@ -126,12 +126,40 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             self.global_config.get("gm3_global_exclude_owner", True)
             and str(os.getenv("NV_GM3_GLOBAL_EXCLUDE_OWNER", "1")).strip() not in {"0", "false", "False", "no"}
         )
+        # ALFWorld + gpt-4o-mini only: allow per-domain global weight dampening.
+        # Keep defaults for all other models/datasets.
+        try:
+            weak = str(self.global_config.get("gm3_alfworld_weak_domains", "") or "").strip()
+            self._gm3_alfworld_weak_domains = (
+                {s.strip().lower() for s in weak.split(",") if s.strip()}
+                if weak
+                else {"bathroom", "bedroom", "kitchen", "living"}
+            )
+        except Exception:
+            self._gm3_alfworld_weak_domains = {"bathroom", "bedroom", "kitchen", "living"}
+        try:
+            self._gm3_alfworld_weak_global_weight = float(
+                self.global_config.get("gm3_alfworld_weak_global_weight", 0.35) or 0.35
+            )
+        except Exception:
+            self._gm3_alfworld_weak_global_weight = 0.35
 
     def _gm3_model_name(self) -> str:
         return str(getattr(getattr(self, "llm_model", None), "model_name", "") or "").lower()
 
     def _gm3_is_gpt4omini_model(self) -> bool:
         return "gpt-4o-mini" in self._gm3_model_name()
+
+    def _gm3_effective_global_weight(self, *, owner_scene: str, domain: str) -> float:
+        """Return global weight for current episode. Only dampen for ALFWorld+gpt-4o-mini."""
+        base = float(getattr(self, "_gm3_global_weight", 0.65) or 0.65)
+        if domain != "alfworld" or not self._gm3_is_gpt4omini_model():
+            return base
+        scene = str(owner_scene or "").strip().lower()
+        weak = getattr(self, "_gm3_alfworld_weak_domains", set()) or set()
+        if scene and scene in weak:
+            return min(base, float(getattr(self, "_gm3_alfworld_weak_global_weight", 0.35) or 0.35))
+        return base
 
     def init_task_context(self, task_main: str, task_description: str = None) -> Any:
         message = super().init_task_context(task_main, task_description)
@@ -3214,7 +3242,11 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         if setting not in {"base", "global_only"}:
             scan_source_type(local_memory, "local", getattr(self, "_gm3_local_weight", 1.0))
         if setting not in {"base", "local_only"}:
-            scan_source_type(global_memory, "global", getattr(self, "_gm3_global_weight", 0.65))
+            scene = self._gm3_norm(str(owner_scene or ""))
+            tf = self._gm3_norm(str(task_family or ""))
+            is_alfworld_like = scene in {"bathroom", "bedroom", "kitchen", "living"} or tf.startswith("pick_") or tf.startswith("look_")
+            eff = self._gm3_effective_global_weight(owner_scene=owner_scene, domain="alfworld" if is_alfworld_like else "")
+            scan_source_type(global_memory, "global", eff)
         return rows
 
     def _gm3_source_transfer_level(
