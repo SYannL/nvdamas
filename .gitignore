@@ -20,7 +20,13 @@ data/medmcqa/train.json
 .pydeps/
 *.sqlite3
 .memos/
+.cache/
+.agents/
+.matplotlib-cache/
+.matplotlib_cache/
+.tmp_mpl_cache/
 nohup.out
+Models/
 Models/memskill/*.pt
 Models/memskill/**/*.pt
 .db/
@@ -36,3 +42,6 @@ data
 
 Qwen3-4B 错误调试.docx
 pids/
+# Reviewer package: keep only the root README visible to Git.
+*.md
+!README.md

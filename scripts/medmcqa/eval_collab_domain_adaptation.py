@@ -693,6 +693,8 @@ def run_tasks(
             "error_type": error_type,
             "error_message": error_message,
         }
+        if str(task_manager.task_name).startswith("fever"):
+            record.update(_fever_task_health_record(task_manager, skipped=skipped))
         for key in ("_source_index_1based", "_smoke_source_index_1based", "_regression_label"):
             if key in task_config:
                 record[key] = task_config.get(key)
@@ -713,6 +715,62 @@ def run_tasks(
         except Exception:
             # Diagnostics must never alter task execution, scoring, or memory updates.
             pass
+
+    def _fever_task_health_record(task_manager: TaskManager, *, skipped: bool) -> dict[str, Any]:
+        history = [
+            row
+            for row in (getattr(getattr(task_manager, "env", None), "current_history", []) or [])
+            if isinstance(row, dict)
+        ]
+        search_miss_count = 0
+        search_recovery_attempt_count = 0
+        finish_after_search_error_count = 0
+        single_search_nei_count = 0
+        total_searches = 0
+        last_search_was_miss = False
+
+        def is_miss(text: str) -> bool:
+            low = str(text or "").lower()
+            return any(
+                marker in low
+                for marker in (
+                    "could not find",
+                    "cannot find",
+                    "searcherrors",
+                    "jsondecodeerror",
+                    "pageerror",
+                    "disambiguationerror",
+                )
+            )
+
+        for row in history:
+            action = str(row.get("Action", "") or "")
+            obs = str(row.get("Observation", "") or "")
+            action_lower = action.lower()
+            if action_lower.startswith("search["):
+                total_searches += 1
+                miss = is_miss(obs)
+                if miss:
+                    search_miss_count += 1
+                elif last_search_was_miss:
+                    search_recovery_attempt_count += 1
+                last_search_was_miss = miss
+                continue
+            if action_lower.startswith("finish["):
+                if last_search_was_miss:
+                    finish_after_search_error_count += 1
+                if last_search_was_miss and total_searches <= 1 and "not enough info" in action_lower:
+                    single_search_nei_count += 1
+
+        memory = getattr(getattr(task_manager, "mas", None), "meta_memory", None)
+        return {
+            "fever_eval_completed": not bool(skipped),
+            "fever_search_miss_count": int(search_miss_count),
+            "fever_search_recovery_attempt_count": int(search_recovery_attempt_count),
+            "fever_finish_after_search_error_count": int(finish_after_search_error_count),
+            "fever_single_search_nei_count": int(single_search_nei_count),
+            "fever_memory_render_count": int(getattr(memory, "_gm3_last_fever_memory_render_count", 0) or 0),
+        }
 
     def _format_progress_line() -> str:
         partial_rate = (successes / attempted) if attempted else 0.0

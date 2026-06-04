@@ -13,10 +13,9 @@ LOG_DIR="${ROOT_DIR}/logs"
 PID_DIR="${ROOT_DIR}/pids"
 mkdir -p "${LOG_DIR}" "${PID_DIR}"
 
-# In this container's default CUDA order, CUDA_VISIBLE_DEVICES=1 maps to the 3090.
-# Do not set CUDA_DEVICE_ORDER=PCI_BUS_ID here unless you intentionally want
-# nvidia-smi physical indexing instead.
-export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
+# Default to the first visible GPU; override CUDA_VISIBLE_DEVICES explicitly on
+# multi-GPU machines when targeting a specific device.
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 DEFAULT_MODEL_PATH="/Model/Qwen3-Embedding-0.6B"
 if [[ ! -e "${DEFAULT_MODEL_PATH}" ]]; then
@@ -66,7 +65,8 @@ nohup "${PYTHON_BIN}" -m vllm.entrypoints.openai.api_server \
   --served-model-name "${SERVED_MODEL_NAME}" \
   --host "${HOST}" \
   --port "${PORT}" \
-  --task embed \
+  --runner pooling \
+  --convert embed \
   --max-model-len "${MAX_MODEL_LEN}" \
   --gpu-memory-utilization "${GPU_MEM_UTIL}" \
   --trust-remote-code \
