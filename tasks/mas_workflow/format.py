@@ -41,6 +41,14 @@ SECTION_HOW_TO_USE_MTMIND2WEB = """## How to Use Your Intermediate Findings
 - If memory and the current candidate list conflict, follow the current candidate list and output format rules.
 
 """
+SECTION_HOW_TO_USE_SCIENCEWORLD = """## How to Use Your Intermediate Findings
+- Treat retrieved memory as a science-procedure hint, not as an action source. Your executable command must come from the current ScienceWorld valid-action list when it is shown.
+- Prefer actions that increase score: navigate to relevant rooms, open needed containers/doors, inspect or measure the relevant object, then focus/move/place the answer object.
+- Do not copy old object names from memory unless they are present in the current observation or valid-action list.
+- If the simulator asks for a number to resolve ambiguity, output exactly one listed number.
+- If an action fails or gives no progress, choose a different listed action rather than repeating it.
+
+"""
 SECTION_YOUR_TURN = """## Your Turn: Take Action!
 Use the above examples and insights as a foundation, and now work on the following task:
 {task_description}
@@ -98,6 +106,7 @@ def format_task_prompt_with_insights(
 ) -> str:
     """Build task prompt; include each of the three reference sections only when it has content."""
     parts: list[str] = []
+    env_name = (intermediate_findings_env or "").strip().lower()
 
     if few_shots:
         cleaned_few_shots = [_strip_textworld_banner(s) for s in few_shots if str(s).strip()]
@@ -128,13 +137,14 @@ def format_task_prompt_with_insights(
     else:
         body = ""
 
-    env_name = (intermediate_findings_env or "").strip().lower()
     if env_name == "mtmind2web":
         how_section = SECTION_HOW_TO_USE_MTMIND2WEB
     elif env_name == "fever":
         how_section = SECTION_HOW_TO_USE_FEVER
     elif env_name.startswith("pddl"):
         how_section = SECTION_HOW_TO_USE_PDDL
+    elif env_name.startswith("scienceworld"):
+        how_section = SECTION_HOW_TO_USE_SCIENCEWORLD
     else:
         how_section = SECTION_HOW_TO_USE_SEARCH
     user_prompt = (

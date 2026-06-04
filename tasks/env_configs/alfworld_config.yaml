@@ -10,9 +10,9 @@ split: eval_out_of_distribution
 ai_name: alfred
 
 dataset:
-  data_path: 'data/alfworld/json_2.1.1/train'
-  eval_id_data_path: 'data/alfworld/json_2.1.1/valid_seen'    # null/None to disable
-  eval_ood_data_path: 'data/alfworld/json_2.1.1/valid_unseen' # null/None to disable
+  data_path: 'data/alfworld/alfworld_official_042/json_2.1.1/train'
+  eval_id_data_path: 'data/alfworld/alfworld_official_042/json_2.1.1/valid_seen'    # null/None to disable
+  eval_ood_data_path: 'data/alfworld/alfworld_official_042/json_2.1.1/valid_unseen' # null/None to disable
   num_train_games: -1                                          # max training games (<=0 indicates full dataset)
   num_eval_games: -1                                           # max evaluation games (<=0 indicates full dataset)
 

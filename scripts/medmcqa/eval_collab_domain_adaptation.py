@@ -312,12 +312,51 @@ def _snapshot_env_task_metrics(env: Any) -> dict[str, float]:
                 out["step_budget_used"] = out["trajectory_steps"] / max_trials
     except (TypeError, ValueError):
         pass
+    final_score_value: Any = getattr(env, "last_score", None)
+    if final_score_value is None:
+        current_history = getattr(env, "current_history", None)
+        if isinstance(current_history, list) and current_history:
+            last_row = current_history[-1]
+            if isinstance(last_row, dict):
+                final_score_value = last_row.get("Score")
     try:
-        final_score = float(getattr(env, "last_score", 0.0) or 0.0)
-        out["final_score"] = final_score
+        out["final_score"] = float(final_score_value or 0.0)
+    except (TypeError, ValueError):
+        pass
+    best_score_value: Any = getattr(env, "best_score", None)
+    if best_score_value is None:
+        current_history = getattr(env, "current_history", None)
+        if isinstance(current_history, list) and current_history:
+            scores: list[float] = []
+            for row in current_history:
+                if not isinstance(row, dict) or "Score" not in row:
+                    continue
+                try:
+                    scores.append(float(row.get("Score", 0.0) or 0.0))
+                except (TypeError, ValueError):
+                    continue
+            if scores:
+                best_score_value = max(scores)
+    try:
+        best_score = float(best_score_value if best_score_value is not None else out.get("final_score", 0.0))
+        out["best_score"] = best_score
+        out["had_positive_progress"] = 1.0 if best_score > 0 else 0.0
     except (TypeError, ValueError):
         pass
     return out
+
+
+def _snapshot_task_metrics_from_refs(*env_refs: Any) -> dict[str, float]:
+    merged: dict[str, float] = {}
+    for env_ref in env_refs:
+        if env_ref is None:
+            continue
+        for key, value in _snapshot_env_task_metrics(env_ref).items():
+            if key not in merged:
+                merged[key] = value
+            elif key == "final_score" and float(merged.get(key, 0.0) or 0.0) == 0.0:
+                merged[key] = value
+    return merged
 
 
 def build_mas(
@@ -345,7 +384,7 @@ def build_mas(
 
 # Per-episode subprocess isolation (captures stdout/stderr) for long / noisy env families.
 _SUBPROCESS_ISOLATED_FAMILIES = frozenset(
-    {"alfworld", "fever", "pddl", "pddl_2", "scienceworld", "scienceworld_2", "bfcl_mt"}
+    {"alfworld", "fever", "pddl", "pddl_2", "scienceworld", "bfcl_mt"}
 )
 
 
@@ -403,6 +442,8 @@ def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, re
     post_error: str | None = None
 
     seg: dict[str, Any] = {}
+    manager: Any = None
+    task_manager: Any = None
     try:
         t0 = time.perf_counter()
         manager = build_task_manager(
@@ -511,6 +552,28 @@ def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, re
         # If we already have a valid outcome, treat this as non-fatal and keep exit_code=0
         # so parent counts success correctly. Otherwise, re-raise to preserve skip behavior.
         if not got_outcome:
+            try:
+                env_refs = []
+                if task_manager is not None:
+                    env_refs.extend([getattr(task_manager.mas, "env", None), getattr(task_manager, "env", None)])
+                elif manager is not None:
+                    env_refs.extend([getattr(manager.mas, "env", None), getattr(manager, "env", None)])
+                partial_metrics = _snapshot_task_metrics_from_refs(*env_refs)
+                with open(result_path, "w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "reward": float(reward),
+                            "done": bool(done),
+                            "saved_message": None,
+                            "worker_post_error": f"{type(e).__name__}: {e}",
+                            "worker_error": f"{type(e).__name__}: {e}",
+                            "latest_metrics": partial_metrics,
+                        },
+                        f,
+                        ensure_ascii=False,
+                    )
+            except Exception:
+                pass
             raise
         post_error = post_error or f"post_exception: {type(e).__name__}: {e}"
     finally:
@@ -545,7 +608,10 @@ def _run_one_alfworld_task_worker(args_json_path: str, task_config_path: str, re
     except Exception:
         saved_payload = None
 
-    mt_metrics = _snapshot_env_task_metrics(task_manager.mas.env)
+    mt_metrics = _snapshot_task_metrics_from_refs(
+        getattr(task_manager.mas, "env", None),
+        getattr(task_manager, "env", None),
+    )
 
     with open(result_path, "w", encoding="utf-8") as f:
         json.dump(
@@ -637,6 +703,8 @@ def run_tasks(
             "max_trials",
             "step_budget_used",
             "final_score",
+            "best_score",
+            "had_positive_progress",
         ):
             if task_metrics and key in task_metrics:
                 record[key] = float(task_metrics[key])
@@ -711,6 +779,28 @@ def run_tasks(
             return (
                 f"{progress_msg} full_success_rate={full_rate:.2%} ({full_successes}/{attempted}) "
                 f"partial_progress_rate={partial_rate:.2%} ({successes}/{attempted})"
+            )
+        if str(task_manager.task_name) == "scienceworld":
+            score_rows = [row for row in per_task_mt if isinstance(row, dict)]
+            final_scores = [
+                max(float(row.get("final_score", 0.0) or 0.0), 0.0)
+                for row in score_rows
+                if "final_score" in row
+            ]
+            best_scores = [
+                max(float(row.get("best_score", row.get("final_score", 0.0)) or 0.0), 0.0)
+                for row in score_rows
+                if "best_score" in row or "final_score" in row
+            ]
+            partial_successes = sum(1 for score in best_scores if score > 0)
+            partial_process_rate = (partial_successes / len(best_scores)) if best_scores else 0.0
+            avg_final_score = sum(final_scores) / len(final_scores) if final_scores else 0.0
+            avg_best_score = sum(best_scores) / len(best_scores) if best_scores else 0.0
+            return (
+                f"{progress_msg} success_rate={partial_rate:.2%} ({successes}/{attempted}) "
+                f"partial_progress_rate={partial_process_rate:.2%} ({partial_successes}/{len(best_scores)}) "
+                f"avg_final_score={avg_final_score:.2f} "
+                f"avg_best_score={avg_best_score:.2f}"
             )
         return f"{progress_msg} success_rate={partial_rate:.2%} ({successes}/{attempted})"
 
@@ -940,6 +1030,14 @@ def run_tasks(
                 gamefile = (task_config.get("env_kwargs") or {}).get("gamefile")
                 pddl_crash = _is_pddl_crash(gamefile, exc)
                 err_msg = str(exc)
+                partial_task_metrics: dict[str, float] = {}
+                try:
+                    with open(result_path, "r", encoding="utf-8") as f:
+                        maybe_result = json.load(f)
+                    lm = maybe_result.get("latest_metrics") if isinstance(maybe_result, dict) else None
+                    partial_task_metrics = _mt_metrics_from_saved(lm) if isinstance(lm, dict) else {}
+                except Exception:
+                    partial_task_metrics = {}
                 # 对 BFCL multi-turn（bfcl_mt），将这类错误视为一次“尝试且失败”的 episode，
                 # 而不是整体样本跳过，以便在 multidomain 统计中正常计入分母。
                 if task_manager.task_name == "bfcl_mt" and not pddl_crash:
@@ -966,11 +1064,7 @@ def run_tasks(
                         progress_hook(done_count, effective_total, successes, attempted)
                     else:
                         if (attempted % 10 == 0) or (task_id == end - 1):
-                            rate = (successes / attempted) if attempted else 0.0
-                            print(
-                                f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
-                                flush=True,
-                            )
+                            print(_format_progress_line(), flush=True)
                 else:
                     skip_info = {
                         "task_id": task_id,
@@ -990,6 +1084,7 @@ def run_tasks(
                         done=False,
                         skipped=True,
                         pddl_crash=bool(pddl_crash),
+                        task_metrics=partial_task_metrics,
                         error_type=skip_info["error_type"],
                         error_message=skip_info["error_message"],
                     )
@@ -1005,16 +1100,12 @@ def run_tasks(
                         done_count += 1
                         rewards.append(0.0)
                         dones.append(False)
-                        per_task_mt.append({})
+                        per_task_mt.append(partial_task_metrics)
                     if progress_hook is not None:
                         progress_hook(done_count, effective_total, successes, attempted)
                     else:
                         if (attempted % 10 == 0) or (task_id == end - 1):
-                            rate = (successes / attempted) if attempted else 0.0
-                            print(
-                                f"{progress_msg} success_rate={rate:.2%} ({successes}/{attempted})",
-                                flush=True,
-                            )
+                            print(_format_progress_line(), flush=True)
             finally:
                 for p in (args_path, task_path, result_path):
                     try:
@@ -1063,7 +1154,11 @@ def run_tasks(
             task_manager.recorder.task_end(reward, done)
             rewards.append(float(reward))
             dones.append(bool(done))
-            task_metrics = _snapshot_env_task_metrics(task_manager.mas.env)
+            task_metrics = _snapshot_task_metrics_from_refs(
+                getattr(task_manager.mas, "env", None),
+                getattr(task_manager, "env", None),
+                task_config.get("env_ref"),
+            )
             per_task_mt.append(task_metrics)
 
             if float(reward) > 0:
@@ -1203,6 +1298,9 @@ def _mt_metrics_from_saved(d: Any) -> dict[str, float]:
         "trajectory_steps",
         "max_trials",
         "step_budget_used",
+        "final_score",
+        "best_score",
+        "had_positive_progress",
     ):
         if k not in d:
             continue
@@ -1255,13 +1353,28 @@ def compute_metrics(
         if budget_vals:
             out["avg_step_budget_used"] = sum(budget_vals) / len(budget_vals)
         score_vals = [
-            float(row["final_score"])
+            max(float(row["final_score"]), 0.0)
             for row in per_task_mt
             if isinstance(row, dict) and "final_score" in row
         ]
         if score_vals:
             out["avg_final_score"] = sum(score_vals) / len(score_vals)
             out["global_avg_score"] = out["avg_final_score"]
+        best_score_vals = [
+            max(float(row["best_score"]), 0.0)
+            for row in per_task_mt
+            if isinstance(row, dict) and "best_score" in row
+        ]
+        if best_score_vals:
+            out["avg_best_score"] = sum(best_score_vals) / len(best_score_vals)
+            out["global_avg_best_score"] = out["avg_best_score"]
+        progress_vals = [
+            float(row["had_positive_progress"])
+            for row in per_task_mt
+            if isinstance(row, dict) and "had_positive_progress" in row
+        ]
+        if progress_vals:
+            out["partial_progress_rate_from_best_score"] = sum(1 for v in progress_vals if v > 0) / len(progress_vals)
     return out
 
 

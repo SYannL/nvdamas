@@ -680,32 +680,32 @@ def build_scienceworld_task(row: dict) -> dict:
     return task
 
 
-def build_scienceworld2_task(row: dict, *, domain: str | None = None, split: str | None = None) -> dict:
-    """Normalize isolated ScienceWorld_2 rows while reusing the ScienceWorld env."""
+def build_scienceworld_family_task(row: dict, *, domain: str | None = None, split: str | None = None) -> dict:
+    """Normalize current ScienceWorld family-domain rows for the collab eval pipeline."""
     task = build_scienceworld_task(row)
     domain_value = str(
-        task.get("scienceworld2_domain")
-        or task.get("sw2_domain")
+        task.get("scienceworld_domain")
+        or task.get("sw_domain")
         or task.get("subset_group")
         or domain
         or ""
     ).strip()
     family_value = str(
-        task.get("scienceworld2_family")
-        or task.get("sw2_family")
+        task.get("scienceworld_family")
+        or task.get("sw_family")
         or domain_value
         or task.get("sw_task_name", "")
     ).strip()
     task["env_name"] = "scienceworld"
-    task["task_type"] = "scienceworld_2"
-    task["dataset_family"] = "scienceworld_2"
+    task["task_type"] = "scienceworld"
+    task["dataset_family"] = "scienceworld"
     task["gm3_domain"] = "scienceworld"
     if domain_value:
-        task["scienceworld2_domain"] = domain_value
+        task["scienceworld_domain"] = domain_value
     if family_value:
-        task["scienceworld2_family"] = family_value
+        task["scienceworld_family"] = family_value
     if split:
-        task.setdefault("scienceworld2_split", split)
+        task.setdefault("scienceworld_split", split)
     return task
 
 
@@ -718,7 +718,6 @@ def _dataset_eval_title(dataset_family: str) -> str:
         "amabench": "AMA-Bench",
         "bfcl_mt": "BFCL multi_turn_base",
         "scienceworld": "ScienceWorld",
-        "scienceworld_2": "ScienceWorld_2",
     }.get(dataset_family, dataset_family.replace("_", " ").title())
 
 
@@ -735,11 +734,33 @@ def compute_family_metrics(
     per_task_mt: list[dict[str, float]] | None,
 ) -> dict[str, float]:
     metrics = compute_metrics(rewards, per_task_mt)
-    if dataset_family not in {"pddl_2", "scienceworld", "scienceworld_2"}:
+    if dataset_family not in {"pddl_2", "scienceworld"}:
         return metrics
-    partial_success = sum(1 for r in rewards if r > 0)
-    full_success = sum(1 for d in dones if d)
     total = len(dones) if len(dones) == len(rewards) else len(rewards)
+    if dataset_family == "scienceworld" and per_task_mt is not None and len(per_task_mt) == len(rewards):
+        partial_success = sum(
+            1
+            for row in per_task_mt
+            if float(row.get("best_score", row.get("final_score", 0.0)) or 0.0) > 0
+        )
+        # ScienceWorld subprocess crashes are appended as failed attempts. If the worker
+        # crashed before saving task metrics, count that episode as score 0 rather than
+        # dropping it from score averages.
+        final_scores = [
+            max(float((row or {}).get("final_score", 0.0) or 0.0), 0.0)
+            for row in per_task_mt
+        ]
+        best_scores = [
+            max(float((row or {}).get("best_score", (row or {}).get("final_score", 0.0)) or 0.0), 0.0)
+            for row in per_task_mt
+        ]
+        metrics["avg_final_score"] = sum(final_scores) / total if total else 0.0
+        metrics["global_avg_score"] = metrics["avg_final_score"]
+        metrics["avg_best_score"] = sum(best_scores) / total if total else 0.0
+        metrics["global_avg_best_score"] = metrics["avg_best_score"]
+    else:
+        partial_success = sum(1 for r in rewards if r > 0)
+    full_success = sum(1 for d in dones if d)
     metrics["partial_progress_rate"] = partial_success / total if total else 0.0
     metrics["num_partial_success"] = float(partial_success)
     metrics["full_success_rate"] = full_success / total if total else 0.0
@@ -753,6 +774,21 @@ def compute_family_metrics(
         if success_steps:
             metrics["avg_trajectory_steps_success"] = sum(success_steps) / len(success_steps)
     return metrics
+
+
+def _count_partial_success(
+    *,
+    dataset_family: str,
+    rewards: list[float],
+    per_task_mt: list[dict[str, float]] | None,
+) -> int:
+    if dataset_family == "scienceworld" and per_task_mt is not None and len(per_task_mt) == len(rewards):
+        return sum(
+            1
+            for row in per_task_mt
+            if float(row.get("best_score", row.get("final_score", 0.0)) or 0.0) > 0
+        )
+    return sum(1 for r in rewards if r > 0)
 
 
 def _weighted_global_avg_score(rows: list[dict[str, Any]]) -> float | None:
@@ -790,6 +826,7 @@ def _print_multidomain_run_summary(
                 f"full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
                 f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
                 f"global_avg_score={float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} "
+                f"avg_best_score={float(row.get('global_avg_best_score', row.get('avg_best_score', 0.0))):.4f} "
                 f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
                 f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
                 f"tasks={int(row.get('num_tasks', 0))} "
@@ -822,6 +859,7 @@ def _print_multidomain_run_summary(
                     f"full_success_rate={float(row.get('full_success_rate', row.get('accuracy', 0.0))):.4f} "
                     f"partial_progress_rate={float(row.get('partial_progress_rate', 0.0)):.4f} "
                     f"global_avg_score={float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} "
+                    f"avg_best_score={float(row.get('global_avg_best_score', row.get('avg_best_score', 0.0))):.4f} "
                     f"avg_reward={float(row.get('avg_reward', 0.0)):.4f} "
                     f"avg_steps={float(row.get('avg_trajectory_steps', 0.0)):.2f} | "
                     f"tasks={int(row.get('num_tasks', 0))} "
@@ -936,7 +974,6 @@ def main() -> None:
             "pddl_2",
             "bfcl_mt",
             "scienceworld",
-            "scienceworld_2",
         ],
         default="alfworld",
     )
@@ -1021,16 +1058,16 @@ def main() -> None:
         "--scienceworld_domains",
         dest="sw_domains",
         type=str,
-        default="art_studio,bathroom,greenhouse,hallway,kitchen,living_room",
-        help="ScienceWorld：按初始房间分组的 domain 列表，逗号分隔（与 v2_room subset 目录对应）。",
+        default="1,2,3,4,5,6,7,8,9,10",
+        help="ScienceWorld：task id major-number domain 列表，逗号分隔。",
     )
     parser.add_argument(
         "--sw_subset_dir",
         "--scienceworld_subset_dir",
         dest="sw_subset_dir",
         type=str,
-        default="data/ScienceWorld/collab_subsets/v2_room",
-        help="ScienceWorld collab subset 目录（含 {room}__train.json 和 merged__test.json）。",
+        default="data/ScienceWorld/collab_subsets/v4_id_grouped",
+        help="ScienceWorld collab subset 目录（含 {domain}__train.json 和 merged__test.json）。",
     )
     parser.add_argument(
         "--sw_test_json",
@@ -1039,30 +1076,6 @@ def main() -> None:
         type=str,
         default="",
         help="ScienceWorld 测试集 JSON；留空则用 sw_subset_dir/merged__test.json。",
-    )
-    parser.add_argument(
-        "--sw2_domains",
-        "--scienceworld2_domains",
-        dest="sw2_domains",
-        type=str,
-        default="conductivity,melting_point,friction,genetics",
-        help="ScienceWorld_2：family/domain 列表，逗号分隔。",
-    )
-    parser.add_argument(
-        "--sw2_subset_dir",
-        "--scienceworld2_subset_dir",
-        dest="sw2_subset_dir",
-        type=str,
-        default="data/ScienceWorld/collab_subsets/v3_family_mixed",
-        help="ScienceWorld_2 subset 目录（含 {domain}__train.json 和 merged__test.json）。",
-    )
-    parser.add_argument(
-        "--sw2_test_json",
-        "--scienceworld2_test_json",
-        dest="sw2_test_json",
-        type=str,
-        default="",
-        help="ScienceWorld_2 mixed held-out 测试 JSON；留空则用 sw2_subset_dir/merged__test.json。",
     )
     parser.add_argument(
         "--bfcl_domains",
@@ -1279,16 +1292,9 @@ def main() -> None:
     elif args.dataset_family == "scienceworld":
         subset_dir = (repo_root / args.sw_subset_dir).resolve()
         domains = parse_domains(args.sw_domains)
-        eval_splits = ["test"]
-        train_task_name = "scienceworld"
-        eval_task_name = "scienceworld"
-    elif args.dataset_family == "scienceworld_2":
-        subset_dir = (repo_root / args.sw2_subset_dir).resolve()
-        domains = parse_domains(args.sw2_domains)
         if len(domains) < 1:
-            raise ValueError("dataset_family=scienceworld_2 需要至少 1 个 --scienceworld2_domains。")
+            raise ValueError("dataset_family=scienceworld 需要至少 1 个 --scienceworld_domains。")
         eval_splits = ["test"]
-        # Keep the runtime env and prompts on the existing ScienceWorld task.
         train_task_name = "scienceworld"
         eval_task_name = "scienceworld"
     elif args.dataset_family == "bfcl_mt":
@@ -1448,10 +1454,8 @@ def main() -> None:
                 max_turns=int(args.amabench_max_traj_turns or 0),
             )
         elif args.dataset_family == "scienceworld":
-            rows = [build_scienceworld_task(r) for r in load_subset_file(subset_dir, domain, "train")]
-        elif args.dataset_family == "scienceworld_2":
             rows = [
-                build_scienceworld2_task(r, domain=domain, split="train")
+                build_scienceworld_family_task(r, domain=domain, split="train")
                 for r in load_subset_file(subset_dir, domain, "train")
             ]
         else:
@@ -1644,6 +1648,7 @@ def main() -> None:
             }
         elif args.dataset_family == "scienceworld":
             sw_test_rel = str(args.sw_test_json or "").strip()
+            using_external_sw_test = bool(sw_test_rel)
             if sw_test_rel:
                 sw_test_path = (repo_root / sw_test_rel).resolve()
             else:
@@ -1652,37 +1657,15 @@ def main() -> None:
                 raise FileNotFoundError(f"ScienceWorld 测试集不存在: {sw_test_path}")
             with sw_test_path.open("r", encoding="utf-8") as reader:
                 raw_test = json.load(reader)
-            rows = [build_scienceworld_task(r) for r in (raw_test if isinstance(raw_test, list) else [])]
-            rows = dedupe_tasks(rows)
-            merged_eval_dir.mkdir(parents=True, exist_ok=True)
-            out_path = merged_eval_dir / "merged__test.json"
-            with out_path.open("w", encoding="utf-8") as writer:
-                json.dump(rows, writer, ensure_ascii=False, indent=2)
-            meta = {
-                "split": split_name,
-                "output_file": str(out_path),
-                "num_tasks_raw": len(raw_test) if isinstance(raw_test, list) else 0,
-                "num_tasks_dedup": len(rows),
-                "source_files": [str(sw_test_path)],
-                "sw_domains": domains,
-            }
-        elif args.dataset_family == "scienceworld_2":
-            sw_test_rel = str(args.sw2_test_json or "").strip()
-            if sw_test_rel:
-                sw_test_path = (repo_root / sw_test_rel).resolve()
-            else:
-                sw_test_path = (subset_dir / "merged__test.json").resolve()
-            if not sw_test_path.is_file():
-                raise FileNotFoundError(f"ScienceWorld_2 测试集不存在: {sw_test_path}")
-            with sw_test_path.open("r", encoding="utf-8") as reader:
-                raw_test = json.load(reader)
             rows = [
-                build_scienceworld2_task(r, split="test")
+                build_scienceworld_family_task(r, split="test")
                 for r in (raw_test if isinstance(raw_test, list) else [])
             ]
             rows = dedupe_tasks(rows)
-            merged_eval_dir.mkdir(parents=True, exist_ok=True)
-            out_path = merged_eval_dir / "merged__test.json"
+            # Do not overwrite the curated subset when a one-off external eval JSON is used.
+            sw_merged_eval_dir = Path(report_base) if using_external_sw_test else merged_eval_dir
+            sw_merged_eval_dir.mkdir(parents=True, exist_ok=True)
+            out_path = sw_merged_eval_dir / "merged__test.json"
             with out_path.open("w", encoding="utf-8") as writer:
                 json.dump(rows, writer, ensure_ascii=False, indent=2)
             meta = {
@@ -1691,8 +1674,8 @@ def main() -> None:
                 "num_tasks_raw": len(raw_test) if isinstance(raw_test, list) else 0,
                 "num_tasks_dedup": len(rows),
                 "source_files": [str(sw_test_path)],
-                "sw2_domains": domains,
-                "scienceworld2_subset_dir": str(subset_dir),
+                "scienceworld_domains": domains,
+                "scienceworld_subset_dir": str(subset_dir),
             }
         else:
             raise ValueError(f"merged eval 不支持的 dataset_family: {args.dataset_family}")
@@ -1838,7 +1821,11 @@ def main() -> None:
                     "num_completed": len(rewards),
                     "num_skipped": len(skipped),
                     "num_success": sum(1 for d in dones if d) if args.dataset_family in {"pddl_2", "scienceworld"} else sum(1 for r in rewards if r > 0),
-                    "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family in {"pddl_2", "scienceworld"} else None,
+                    "num_partial_success": _count_partial_success(
+                        dataset_family=args.dataset_family,
+                        rewards=rewards,
+                        per_task_mt=per_task_mt,
+                    ) if args.dataset_family in {"pddl_2", "scienceworld"} else None,
                     "wall_time_sec": wall,
                 }
             )
@@ -1994,7 +1981,11 @@ def main() -> None:
             "num_completed": len(rewards),
             "num_skipped": len(skipped),
             "num_success": sum(1 for d in dones if d) if args.dataset_family in {"pddl_2", "scienceworld"} else sum(1 for r in rewards if r > 0),
-            "num_partial_success": sum(1 for r in rewards if r > 0) if args.dataset_family in {"pddl_2", "scienceworld"} else None,
+            "num_partial_success": _count_partial_success(
+                dataset_family=args.dataset_family,
+                rewards=rewards,
+                per_task_mt=per_task_mt,
+            ) if args.dataset_family in {"pddl_2", "scienceworld"} else None,
             "wall_time_sec": wall,
         }
 
@@ -2022,7 +2013,7 @@ def main() -> None:
                     )
                 )
 
-    global_avg_score = _weighted_global_avg_score(eval_results) if args.dataset_family == "scienceworld" else None
+    global_avg_score = _weighted_global_avg_score(eval_results) if args.dataset_family in {"scienceworld"} else None
     output = {
         "dataset_family": args.dataset_family,
         "run_id": run_id,
@@ -2059,12 +2050,12 @@ def main() -> None:
         if global_avg_score is not None:
             writer.write(f"Global average score: {global_avg_score:.4f}\n\n")
         writer.write("## Eval Results\n\n")
-        _use_partial_table = args.dataset_family in {"pddl_2", "scienceworld", "scienceworld_2"}
-        _include_score_col = args.dataset_family == "scienceworld"
+        _use_partial_table = args.dataset_family in {"pddl_2", "scienceworld"}
+        _include_score_col = args.dataset_family in {"scienceworld"}
         if _use_partial_table:
             if _include_score_col:
-                writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Global Avg Score | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
-                writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+                writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Global Avg Score | Avg Best Score | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+                writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
             else:
                 writer.write("| Split | Memory Scope | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
                 writer.write("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
@@ -2075,6 +2066,7 @@ def main() -> None:
             if _use_partial_table:
                 score_cell = (
                     f"{float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} | "
+                    f"{float(row.get('global_avg_best_score', row.get('avg_best_score', 0.0))):.4f} | "
                     if _include_score_col
                     else ""
                 )
@@ -2099,8 +2091,8 @@ def main() -> None:
             writer.write("\n## Train Results (Per Domain Local)\n\n")
             if _use_partial_table:
                 if _include_score_col:
-                    writer.write("| Domain | Full Success Rate | Partial Progress Rate | Global Avg Score | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
-                    writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+                    writer.write("| Domain | Full Success Rate | Partial Progress Rate | Global Avg Score | Avg Best Score | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
+                    writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
                 else:
                     writer.write("| Domain | Full Success Rate | Partial Progress Rate | Avg Reward | Avg Steps | Tasks | Completed | Skipped | Full Success | Partial Progress | Wall Time(s) |\n")
                     writer.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
@@ -2111,6 +2103,7 @@ def main() -> None:
                 if _use_partial_table:
                     score_cell = (
                         f"{float(row.get('global_avg_score', row.get('avg_final_score', 0.0))):.4f} | "
+                        f"{float(row.get('global_avg_best_score', row.get('avg_best_score', 0.0))):.4f} | "
                         if _include_score_col
                         else ""
                     )

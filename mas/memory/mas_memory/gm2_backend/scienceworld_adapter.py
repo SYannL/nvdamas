@@ -25,7 +25,7 @@ def _short_text(text: str, *, limit: int = 500) -> str:
     return re.sub(r"\s+", " ", str(text or "").strip())[:limit]
 
 
-_SCIENCEWORLD2_FAMILY_ALIASES = {
+_SCIENCEWORLD_FAMILY_ALIASES = {
     "test_conductivity": "conductivity",
     "test_conductivity_of_unknown_substances": "conductivity",
     "measure_melting_point_known_substance": "melting_point",
@@ -181,28 +181,28 @@ class ScienceWorldAdapter:
             return f"scienceworld:{_normalize(room)}"
         return "scienceworld:task"
 
-    def scienceworld2_family(self, task_config: dict | None, *, task_name: str = "") -> str:
+    def scienceworld_family(self, task_config: dict | None, *, task_name: str = "") -> str:
         task_config = task_config or {}
-        for key in ("scienceworld2_family", "sw2_family", "transfer_family"):
+        for key in ("scienceworld_family", "sw_family", "transfer_family"):
             value = str(task_config.get(key, "") or "").strip()
             if value:
                 return _normalize(value)
         token = _normalize(task_name or str(task_config.get("sw_task_name", "") or ""))
-        if token in _SCIENCEWORLD2_FAMILY_ALIASES:
-            return _SCIENCEWORLD2_FAMILY_ALIASES[token]
-        domain = str(task_config.get("scienceworld2_domain", "") or task_config.get("sw2_domain", "") or "").strip()
+        if token in _SCIENCEWORLD_FAMILY_ALIASES:
+            return _SCIENCEWORLD_FAMILY_ALIASES[token]
+        domain = str(task_config.get("scienceworld_domain", "") or task_config.get("sw_domain", "") or "").strip()
         if domain:
             return _normalize(domain)
         return ""
 
-    def scienceworld2_domain(self, task_config: dict | None, *, task_name: str = "") -> str:
+    def scienceworld_domain(self, task_config: dict | None, *, task_name: str = "") -> str:
         task_config = task_config or {}
-        for key in ("scienceworld2_domain", "sw2_domain", "transfer_domain", "subset_group"):
+        for key in ("scienceworld_domain", "sw_domain", "transfer_domain", "subset_group"):
             value = str(task_config.get(key, "") or "").strip()
             if value:
                 return _normalize(value)
-        if str(task_config.get("dataset_family", "") or "").strip().lower() == "scienceworld_2":
-            return self.scienceworld2_family(task_config, task_name=task_name)
+        if str(task_config.get("dataset_family", "") or "").strip().lower() == "scienceworld":
+            return self.scienceworld_family(task_config, task_name=task_name)
         return ""
 
     # ---------- state / query building ----------
@@ -252,10 +252,10 @@ class ScienceWorldAdapter:
         room = str(task_config.get("sw_scene_room", "") or getattr(env_ref, "sw_scene_room", "") or "").strip()
         variation_idx = task_config.get("variation_idx", getattr(env_ref, "variation_idx", 0))
 
-        sw2_domain = self.scienceworld2_domain(task_config, task_name=sw_task_name)
-        sw2_family = self.scienceworld2_family(task_config, task_name=sw_task_name)
-        scene_id = f"scienceworld_2:{sw2_domain}" if sw2_domain else self.derive_scene_id(room, sw_task_name)
-        task_family = f"scienceworld_2:{sw2_family}" if sw2_family else self.infer_task_family(sw_task_name, room)
+        sw_domain = self.scienceworld_domain(task_config, task_name=sw_task_name)
+        sw_family = self.scienceworld_family(task_config, task_name=sw_task_name)
+        scene_id = f"scienceworld:{sw_domain}" if sw_domain else self.derive_scene_id(room, sw_task_name)
+        task_family = f"scienceworld:{sw_family}" if sw_family else self.infer_task_family(sw_task_name, room)
 
         # State from env_ref
         observation = str(getattr(env_ref, "last_observation", "") or "")
@@ -292,8 +292,8 @@ class ScienceWorldAdapter:
                     f"domain=scienceworld",
                     f"room={_normalize(room)}" if room else "",
                     f"task={_normalize(sw_task_name)}" if sw_task_name else "",
-                    f"sw2_domain={sw2_domain}" if sw2_domain else "",
-                    f"sw2_family={sw2_family}" if sw2_family else "",
+                    f"scienceworld_domain={sw_domain}" if sw_domain else "",
+                    f"scienceworld_family={sw_family}" if sw_family else "",
                     f"progress={progress}",
                     f"score={score:.2f}",
                     *[_normalize(obj) for obj in state.visible_objects[:8]],
@@ -310,8 +310,8 @@ class ScienceWorldAdapter:
             goal_roles={
                 "task": _normalize(sw_task_name) if sw_task_name else "science_task",
                 "room": _normalize(room) if room else "unknown",
-                "scienceworld2_domain": sw2_domain,
-                "scienceworld2_family": sw2_family,
+                "scienceworld_domain": sw_domain,
+                "scienceworld_family": sw_family,
             },
             required_count=1,
             placed_relevant_count=1 if progress in {"near_completion", "goal_satisfied"} else 0,
@@ -341,8 +341,8 @@ class ScienceWorldAdapter:
                 "sw_task": sw_task,
                 "sw_task_name": sw_task_name,
                 "room": room,
-                "scienceworld2_domain": sw2_domain,
-                "scienceworld2_family": sw2_family,
+                "scienceworld_domain": sw_domain,
+                "scienceworld_family": sw_family,
             },
         )
 
@@ -355,10 +355,10 @@ class ScienceWorldAdapter:
         room = str(payload.get("sw_scene_room") or task_config.get("sw_scene_room") or "unknown")
         variation_idx = payload.get("variation_idx", task_config.get("variation_idx", 0))
         goal = str(payload.get("sw_task_desc") or task_config.get("sw_task_desc") or payload.get("game_task") or "")
-        sw2_domain = self.scienceworld2_domain(task_config, task_name=sw_task_name)
-        sw2_family = self.scienceworld2_family(task_config, task_name=sw_task_name)
-        scene_id = f"scienceworld_2:{sw2_domain}" if sw2_domain else self.derive_scene_id(room, sw_task_name, history_path)
-        task_family = f"scienceworld_2:{sw2_family}" if sw2_family else self.infer_task_family(sw_task_name, room)
+        sw_domain = self.scienceworld_domain(task_config, task_name=sw_task_name)
+        sw_family = self.scienceworld_family(task_config, task_name=sw_task_name)
+        scene_id = f"scienceworld:{sw_domain}" if sw_domain else self.derive_scene_id(room, sw_task_name, history_path)
+        task_family = f"scienceworld:{sw_family}" if sw_family else self.infer_task_family(sw_task_name, room)
         task_id = f"{sw_task_name}-v{variation_idx}"
         history = [row for row in payload.get("history", []) if isinstance(row, dict)]
         episode = EpisodeRecord(
@@ -375,8 +375,8 @@ class ScienceWorldAdapter:
                 "sw_task": sw_task,
                 "sw_task_name": sw_task_name,
                 "room": room,
-                "scienceworld2_domain": sw2_domain,
-                "scienceworld2_family": sw2_family,
+                "scienceworld_domain": sw_domain,
+                "scienceworld_family": sw_family,
             },
         )
         previous = history[0] if history else {}

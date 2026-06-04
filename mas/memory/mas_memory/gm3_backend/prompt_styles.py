@@ -13,6 +13,7 @@ class BasePromptStyle:
         progress = str(getattr(query, "progress_state", "") or "")
         held = int(getattr(query, "held_relevant_count", 0) or 0)
         visible = bool(getattr(query, "goal_object_matches_visible", False))
+        is_two_object = bool(renderer._gm3_is_two_object_task(query))
         items: list[str] = []
         if held > 0:
             if tool and progress in {"carry_target", "process_target"}:
@@ -26,6 +27,11 @@ class BasePromptStyle:
             items.append(f"target_object={target} is visible; take the matching target before broad search.")
         elif progress.startswith("search"):
             items.append(f"search target_object={target}; if graph priority gives an admissible queue, execute the next queued action.")
+        if is_two_object:
+            items.append(
+                "two-object policy: finish one target's full required workflow first, including any required processing, "
+                "delivery, and put action; only then start another target."
+            )
         return items
 
     def keep_global_text(self, renderer: Any, *, text: str, norm_text: str, task_family: str) -> bool:
@@ -41,6 +47,9 @@ class BasePromptStyle:
         norm_text: str,
     ) -> bool:
         return True
+
+    def format_memory_line(self, renderer: Any, *, query: Any, slot: str, text: str) -> str:
+        return text
 
     def phase_label(self, renderer: Any, *, query: Any, macro: str) -> str:
         labels = {
@@ -70,6 +79,8 @@ class BasePromptStyle:
             f"tool={tool or 'none'}",
             f"destination={destination or 'unknown'}",
         ]
+        if renderer._gm3_is_two_object_task(query):
+            parts.append("two_object=finish one full required workflow before starting another")
         if held:
             parts.append("held=" + ", ".join(renderer._gm3_base(x) for x in held[:2] if str(x).strip()))
         elif visible:
@@ -100,6 +111,7 @@ class BasePromptStyle:
         progress = str(getattr(query, "progress_state", "") or "")
         held_count = int(getattr(query, "held_relevant_count", 0) or 0)
         visible_match = bool(getattr(query, "goal_object_matches_visible", False))
+        is_two_object = bool(renderer._gm3_is_two_object_task(query))
 
         if held_count > 0:
             actions: list[str] = []
@@ -109,12 +121,16 @@ class BasePromptStyle:
                 actions = renderer._gm3_destination_priority_actions(target=target, destination=destination, admissible=admissible)
             if actions:
                 return actions[0]
+            if is_two_object:
+                return "continue the held target's required workflow now; do not search or take another target until it is processed if needed and put at destination."
             return "use the admissible process or delivery action for the held target; ignore source search."
 
         if visible_match:
             actions = renderer._gm3_take_priority_actions(target=target, admissible=admissible)
             if actions:
                 return actions[0]
+            if is_two_object:
+                return "take one visible target, then finish its required processing and delivery before searching another."
             return "take the visible matching target before broad search."
 
         for item in priority_items[:2]:
@@ -122,12 +138,263 @@ class BasePromptStyle:
             if text:
                 return text
         if progress.startswith("search"):
+            if is_two_object:
+                return "start one target's full required workflow; after taking it, finish any required processing and delivery before searching another."
             return "search for the target using current admissible actions; avoid repeating exhausted source types."
         return "follow the current observation and admissible actions."
 
 
 class ALFWorldPromptStyle(BasePromptStyle):
     name = "alfworld"
+
+
+class ScienceWorldPromptStyle(BasePromptStyle):
+    name = "scienceworld"
+
+    _WEAK_OBJECT_PRIOR_PHRASES = (
+        "substance in toilet",
+        "focus on air",
+        "mix air",
+    )
+    _WEAK_OBJECT_PRIOR_WORDS = {"air", "inventory", "agent"}
+
+    def phase_items(self, renderer: Any, *, query: Any, target: str, tool: str, destination: str) -> list[str]:
+        progress = str(getattr(query, "progress_state", "") or "")
+        belief = getattr(query, "belief", {}) or {}
+        task_name = renderer._gm3_clean(str(belief.get("sw_task_name", "") or "science task"))
+        score = belief.get("score", 0)
+        items = [
+            f"ScienceWorld stage={progress or 'unknown'}, task={task_name}; use the current valid-action list as grounding."
+        ]
+        if progress in {"initial_planning", "exploring"}:
+            items.append("navigation/open/inspect actions are often useful setup before committing to a final focus or move action.")
+        elif progress == "partial_progress":
+            items.append("score has improved; continuing the same experiment thread is often better than restarting broad search.")
+        elif progress == "near_completion":
+            items.append("near completion; consider whether a current focus/move/place command now matches the task's answer condition.")
+        if score:
+            items.append(f"current score={score}; recent no-progress actions are weak evidence and should be reconsidered.")
+        return items
+
+    def phase_label(self, renderer: Any, *, query: Any, macro: str) -> str:
+        progress = str(getattr(query, "progress_state", "") or "")
+        labels = {
+            "initial_planning": "read task and choose valid setup action",
+            "exploring": "explore with valid science action",
+            "partial_progress": "continue progress-making experiment",
+            "near_completion": "consider answer/focus action",
+            "goal_satisfied": "finished",
+        }
+        return labels.get(progress, progress.replace("_", " ") or "scienceworld planning")
+
+    def state_summary(
+        self,
+        renderer: Any,
+        *,
+        query: Any,
+        target: str,
+        tool: str,
+        destination: str,
+        held: list[str],
+        visible: list[str],
+        exhausted: list[str],
+    ) -> str:
+        belief = getattr(query, "belief", {}) or {}
+        dynamic = getattr(query, "dynamic_context", {}) or {}
+        task_name = renderer._gm3_clean(str(belief.get("sw_task_name", "") or dynamic.get("sw_task_name", "") or ""))
+        room = renderer._gm3_clean(str(belief.get("room", "") or dynamic.get("room", "") or ""))
+        score = belief.get("score", 0)
+        parts = [
+            f"task={task_name or 'unknown'}",
+            f"room={room or 'unknown'}",
+            f"score={score}",
+            f"stage={str(getattr(query, 'progress_state', '') or 'unknown')}",
+        ]
+        if visible:
+            parts.append("visible=" + ", ".join(renderer._gm3_base(x) for x in visible[:4] if str(x).strip()))
+        return "; ".join(parts)
+
+    def next_priority_line(
+        self,
+        renderer: Any,
+        *,
+        query: Any,
+        priority_items: list[str],
+        admissible: list[str],
+    ) -> str:
+        belief = getattr(query, "belief", {}) or {}
+        goal_text = renderer._gm3_norm(
+            f"{getattr(query, 'goal', '')} {belief.get('sw_task', '')} {belief.get('sw_task_name', '')}"
+        )
+        task_kind = self._task_kind(goal_text)
+        recipe_task = any(token in goal_text for token in ("recipe", "book", "instruction", "read"))
+        has_read = any(renderer._gm3_norm(action).startswith("read ") for action in admissible)
+        has_focus = any(renderer._gm3_norm(action).startswith("focus on ") for action in admissible)
+        has_measure = any(renderer._gm3_norm(action).startswith(("measure ", "read ")) for action in admissible)
+        has_observe = any(renderer._gm3_norm(action).startswith(("look", "examine ", "measure ")) for action in admissible)
+        has_setup = any(renderer._gm3_norm(action).startswith(("open ", "go to ")) for action in admissible)
+        has_state_change = any(
+            renderer._gm3_norm(action).startswith(("heat ", "cool ", "activate ", "move ", "put ", "pour ", "mix "))
+            for action in admissible
+        )
+        if recipe_task and has_read:
+            return "use memory as procedural advice: consider reading current task instructions first, then ground all object choices in the current valid-action list."
+        if task_kind == "state_change":
+            target = self._state_change_target(goal_text)
+            named_focus = self._has_named_focus(renderer, admissible, target)
+            if named_focus:
+                return "state-change workflow: the named material appears in current valid actions; consider focusing that material, then use valid heat/cool/combust or transfer actions."
+            if has_setup:
+                return "state-change workflow: if the named material is not clearly available, prefer open/go/search setup; avoid generic focus targets like air, inventory, or toilet substances."
+            if has_focus:
+                return "state-change workflow: focus is useful only when it matches the task material; otherwise inspect/search before committing to a substance."
+            return "state-change workflow: continue from a currently grounded material toward valid heat/cool/combust state-change actions."
+        if task_kind == "conductivity":
+            return "conductivity workflow: ground in the current material and circuit/instrument actions; measure/read only after the current setup supports it."
+        if task_kind == "unknown":
+            return "unknown-material workflow: test the current unknown with available valid actions; use remembered substances only as examples, not answers."
+        if task_kind == "classification":
+            return "classification workflow: inspect/read current evidence first, then focus or select the object that matches the current criterion."
+        if has_observe:
+            return "use memory as procedural advice: inspect the current task-relevant object, then continue with a valid experiment action that fits the latest observation."
+        if has_setup:
+            return "use memory as procedural advice: setup actions such as navigating/opening can expose the current task objects before committing to a focus or move."
+        if has_state_change or has_measure:
+            return "use memory as procedural advice: continue the experiment thread that matches the current goal; old object names are weak evidence only."
+        return "use memory as soft experience; choose a valid current action from the observation, not a copied historical object/action."
+
+    def format_memory_line(self, renderer: Any, *, query: Any, slot: str, text: str) -> str:
+        stripped = str(text or "").strip()
+        if not stripped or stripped == "none.":
+            return stripped
+        norm_text = renderer._gm3_norm(stripped)
+        goal_text = renderer._gm3_norm(
+            f"{getattr(query, 'goal', '')} {getattr(query, 'task_family', '')} "
+            f"{(getattr(query, 'belief', {}) or {}).get('sw_task', '')} "
+            f"{(getattr(query, 'belief', {}) or {}).get('sw_task_name', '')}"
+        )
+        if self._has_weak_object_prior(norm_text):
+            if slot == "failure_avoidance":
+                return "prior failures suggest rechecking the current valid-action list before repeating no-progress commands."
+            return "prior traces are procedural only here; transfer the workflow, not old object names or exact actions."
+        if "no known action matches" in norm_text or "invalid action" in norm_text:
+            return "prior failures suggest choosing from the current valid-action list and avoiding repeated invalid phrasing."
+        task_kind = self._task_kind(goal_text)
+        if slot == "local_grounding" and ("currently admissible" in norm_text or "`" in stripped):
+            if task_kind == "state_change":
+                return "local memory may ground setup/search steps; for state change, prefer it only when it helps find the current task material, not generic substances."
+            if task_kind == "conductivity":
+                return "local memory may ground current circuit/material steps; verify the material and instrument are from this task."
+            if task_kind == "unknown":
+                return "local memory may ground testing steps; do not copy remembered material names as the unknown's identity."
+            return "local memory may ground a current valid action; verify it fits the current observation before using it."
+        if task_kind == "unknown":
+            return "prior traces may help with the testing workflow; do not treat remembered material names as current answers."
+        if any(mark in norm_text for mark in ("`", "focus on ", "move ", "put ", "pour ", "mix ", "activate ")):
+            return self._workflow_memory_line(task_kind)
+        return stripped
+
+    def _has_weak_object_prior(self, norm_text: str) -> bool:
+        if any(phrase in norm_text for phrase in self._WEAK_OBJECT_PRIOR_PHRASES):
+            return True
+        tokens = set(re.findall(r"[a-z0-9]+", norm_text))
+        return bool(tokens & self._WEAK_OBJECT_PRIOR_WORDS)
+
+    @staticmethod
+    def _task_kind(goal_text: str) -> str:
+        text = str(goal_text or "")
+        if any(token in text for token in ("boil", "melt", "freeze", "combust", "state of matter")):
+            return "state_change"
+        if "conduct" in text or "circuit" in text or "electric" in text:
+            return "conductivity"
+        if any(token in text for token in ("unknown", "identify", "determine")):
+            return "unknown"
+        if any(token in text for token in ("living", "nonliving", "animal", "plant", "organism", "classification", "classify")):
+            return "classification"
+        return "generic"
+
+    @staticmethod
+    def _workflow_memory_line(task_kind: str) -> str:
+        if task_kind == "state_change":
+            return "prior traces suggest a state-change workflow: locate the current named material first; avoid focusing generic substances before it is grounded."
+        if task_kind == "conductivity":
+            return "prior traces suggest a conductivity workflow: setup current material/instrument context before measuring or reading results."
+        if task_kind == "unknown":
+            return "prior traces suggest a testing workflow; exact historical material names are examples only."
+        if task_kind == "classification":
+            return "prior traces suggest an evidence-gathering workflow before selecting the current matching object."
+        return "prior traces may suggest the experiment pattern, but exact historical actions and object names must be re-grounded."
+
+    @staticmethod
+    def _state_change_target(goal_text: str) -> str:
+        text = str(goal_text or "")
+        patterns = (
+            r"\b(?:boil|melt|freeze|combust)\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)",
+            r"\bchange (?:the )?state of matter of\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)",
+            r"\bchange\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)\s+state of matter(?:[.;,]|$)",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                target = re.sub(r"\b(?:first|then|next|for compounds.*)$", "", match.group(1)).strip()
+                return target
+        return ""
+
+    @staticmethod
+    def _has_named_focus(renderer: Any, admissible: list[str], target: str) -> bool:
+        target_tokens = {
+            token
+            for token in re.findall(r"[a-z0-9]+", str(target or "").lower())
+            if token not in {"the", "a", "an", "substance", "material", "object", "state", "matter"}
+        }
+        if not target_tokens:
+            return False
+        generic = {"air", "inventory", "agent", "toilet"}
+        for action in admissible:
+            norm = renderer._gm3_norm(action)
+            if not norm.startswith("focus on "):
+                continue
+            action_tokens = set(re.findall(r"[a-z0-9]+", norm))
+            if target_tokens <= action_tokens and not (action_tokens & generic and not target_tokens & generic):
+                return True
+        return False
+
+    def keep_global_text(self, renderer: Any, *, text: str, norm_text: str, task_family: str) -> bool:
+        noisy = (
+            "target_object=",
+            "two-object policy",
+            "receptacle",
+            "alfworld",
+            "pddl",
+            "fever",
+            "mix air",
+            "focus on air",
+            "substance in toilet",
+        )
+        return not any(token in norm_text for token in noisy)
+
+    def keep_local_artifact_text(
+        self,
+        renderer: Any,
+        *,
+        domain: str,
+        task_family: str,
+        text: str,
+        norm_text: str,
+    ) -> bool:
+        if not (str(domain).startswith("scienceworld") or str(task_family).startswith("scienceworld")):
+            return False
+        noisy = (
+            "two-object policy",
+            "receptacle",
+            "alfworld",
+            "pddl",
+            "fever",
+            "mix air",
+            "focus on air",
+            "substance in toilet",
+        )
+        return not any(token in norm_text for token in noisy)
 
 
 class PDDLPromptStyle(BasePromptStyle):
@@ -648,9 +915,8 @@ def prompt_style_for_env(env_name: str) -> BasePromptStyle:
         return FeverPromptStyle()
     if env.startswith("pddl"):
         return PDDLPromptStyle()
-    # ScienceWorld shares the interactive exploration style with ALFWorld.
     if env.startswith("scienceworld"):
-        return ALFWorldPromptStyle()
+        return ScienceWorldPromptStyle()
     return ALFWorldPromptStyle()
 
 
@@ -663,7 +929,6 @@ def prompt_style_for_query(query: Any, task_family: str = "") -> BasePromptStyle
         return FeverPromptStyle()
     if scene_id.startswith("pddl:") or family.startswith("pddl"):
         return PDDLPromptStyle()
-    # ScienceWorld: interactive exploration matches ALFWorld style.
     if scene_id.startswith("scienceworld:") or family.startswith("scienceworld"):
-        return ALFWorldPromptStyle()
+        return ScienceWorldPromptStyle()
     return ALFWorldPromptStyle()
