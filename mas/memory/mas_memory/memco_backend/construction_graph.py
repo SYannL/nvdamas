@@ -51,7 +51,7 @@ def _episode_success(episode: EpisodeRecord) -> bool:
 
 
 def _episode_domain(episode: EpisodeRecord) -> str:
-    domain = str(episode.metadata.get("gm3_domain", "") or "").strip().lower()
+    domain = str(episode.metadata.get("memco_domain", "") or "").strip().lower()
     if domain:
         return domain
     if episode.scene_id.startswith("pddl:"):
@@ -1141,13 +1141,13 @@ class LocalGraphMaintainer:
         # additional refinement for artifacts: unify object_location_prior entries and remove low-support noise
         import os
         try:
-            gm3_min_support = int(os.getenv("NV_GM3_MIN_ARTIFACT_SUPPORT", "2"))
+            memco_min_support = int(os.getenv("NV_MEMCO_MIN_ARTIFACT_SUPPORT", "2"))
         except Exception:
-            gm3_min_support = 2
+            memco_min_support = 2
         try:
-            gm3_min_confidence = float(os.getenv("NV_GM3_MIN_ARTIFACT_CONFIDENCE", "0.4"))
+            memco_min_confidence = float(os.getenv("NV_MEMCO_MIN_ARTIFACT_CONFIDENCE", "0.4"))
         except Exception:
-            gm3_min_confidence = 0.4
+            memco_min_confidence = 0.4
         unified: dict = {}
         to_remove: set[str] = set()
         for aid, artifact in list(memory.artifacts_by_id.items()):
@@ -1163,7 +1163,7 @@ class LocalGraphMaintainer:
                     # filter low-support noisy artifacts
                     support = artifact.stats.support
                     conf = artifact.stats.confidence
-                    if support < gm3_min_support and conf < gm3_min_confidence:
+                    if support < memco_min_support and conf < memco_min_confidence:
                         to_remove.add(aid)
                         continue
                     # Local graph should preserve exact source instances when
@@ -1187,7 +1187,7 @@ class LocalGraphMaintainer:
                     # optionally filter general low-support/low-confidence artifacts
                     support = artifact.stats.support
                     conf = artifact.stats.confidence
-                    if support < gm3_min_support and conf < gm3_min_confidence:
+                    if support < memco_min_support and conf < memco_min_confidence:
                         to_remove.add(aid)
             except Exception:
                 continue

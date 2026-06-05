@@ -45,15 +45,14 @@ def _literal_texts(value: Any) -> list[str]:
     return items
 
 
-class PDDLAdapter:
-    """GraphMemory adapter for language-facing PDDL tasks.
+class PDDL2Adapter:
+    """Strict GraphMemory adapter for the pddl_2 task flow.
 
-    It intentionally keeps the schema domain-generic: actions become canonical
-    verb/argument records, states expose compact fact tokens, and progress is
-    measured by satisfied goal literals rather than ALFWorld object slots.
+    pddl_2 keeps PDDL graph memory separate from the legacy pddl flow and only
+    treats actions as positive when they increase satisfied goal literals.
     """
 
-    domain_name = "pddl"
+    domain_name = "pddl_2"
 
     def canonicalize_action(self, raw_action: str) -> CanonicalAction:
         surface = str(raw_action or "").strip()
@@ -88,9 +87,9 @@ class PDDLAdapter:
 
     def infer_task_family(self, goal: str, game_name: str | None = None) -> str:
         if game_name:
-            return f"pddl:{_normalize(game_name)}"
+            return f"pddl_2:{_normalize(game_name)}"
         goal_token = _normalize(goal)[:60]
-        return f"pddl:{goal_token or 'task'}"
+        return f"pddl_2:{goal_token or 'task'}"
 
     def goal_slots(self, goal: str) -> dict[str, str]:
         conditions = self._goal_conditions(goal)
@@ -193,7 +192,7 @@ class PDDLAdapter:
                 "unsatisfied_goal_literals": unsatisfied_goal_literals,
                 "layout_id": self.derive_layout_id(game_name, getattr(env_ref, "problem_index", None)),
                 "task_config_env_name": str(task_config.get("env_name", "")),
-                "gm3_domain": self.domain_name,
+                "memco_domain": self.domain_name,
             },
         )
 
@@ -215,26 +214,33 @@ class PDDLAdapter:
                 "status": payload.get("status", ""),
                 "final_score": float(payload.get("final_score", 0.0) or 0.0),
                 "layout_id": self.derive_layout_id(game_name, problem_index, history_path),
-                "gm3_domain": self.domain_name,
+                "memco_domain": self.domain_name,
                 "task_family": self.infer_task_family(goal, game_name),
             },
         )
         goal_literals = _literal_texts(payload.get("goal_literals"))
         previous = history[0] if history else {}
         prev_state = self._state_from_record(previous, scene_id=scene_id, goal=goal, goal_literals=goal_literals)
+        prev_satisfied = self._satisfied_goal_count(previous, goal_literals)
         for idx, record in enumerate(history[1:], start=1):
             action_text = str(record.get("Action") or "").strip()
             if not action_text:
                 continue
             next_state = self._state_from_record(record, scene_id=scene_id, goal=goal, goal_literals=goal_literals)
             failure_label = self._failure_label(record)
-            success = failure_label is None and float(record.get("Reward", record.get("Score", 0.0)) or 0.0) >= 0
+            action = self.canonicalize_action(action_text)
+            next_satisfied = self._satisfied_goal_count(record, goal_literals)
+            control_or_observe = (
+                action.verb in {"check_valid_actions", "look_around", "think"}
+                or action.family in {ActionFamily.SEARCH, ActionFamily.INSPECT}
+            )
+            success = failure_label is None and not control_or_observe and next_satisfied > prev_satisfied
             delta = self._state_delta(prev_state, next_state)
             episode.steps.append(
                 EpisodeStep(
                     step_idx=len(episode.steps),
                     state=prev_state,
-                    action=self.canonicalize_action(action_text),
+                    action=action,
                     next_state=next_state,
                     feedback=StepFeedback(
                         success=bool(success),
@@ -247,6 +253,7 @@ class PDDLAdapter:
                 )
             )
             prev_state = next_state
+            prev_satisfied = next_satisfied
         return episode
 
     def _state_from_record(self, record: dict[str, Any], *, scene_id: str, goal: str, goal_literals: list[str]) -> StateSummary:
@@ -296,6 +303,14 @@ class PDDLAdapter:
             "remaining_relevant_count": remaining,
             "progress_state": progress_state,
         }
+
+    @staticmethod
+    def _satisfied_goal_count(record: dict[str, Any], goal_literals: list[str]) -> int:
+        if not isinstance(record, dict):
+            return 0
+        goals = [_normalize(x) for x in goal_literals if _normalize(x)]
+        current = {_normalize(x) for x in _literal_texts(record.get("Current Literals") or record.get("State Literals"))}
+        return sum(1 for item in goals if item in current)
 
     @staticmethod
     def _goal_conditions(goal: str) -> list[str]:

@@ -12,7 +12,7 @@ from .memory import (
     GMemory,
     GMemoryGraphMASMemory,
     SelectiveMemMASMemory,
-    GraphMemory3MASMemory,
+    MemCoMASMemory,
     MemRLMASMemory,
     MemSkillMASMemory,
     AMemMASMemory,
@@ -37,7 +37,7 @@ def module_map(
         'g-memory': GMemory,
         'gmemgraph': GMemoryGraphMASMemory,
         'selectivemem': SelectiveMemMASMemory,
-        'graph_memory3': GraphMemory3MASMemory,
+        'memco': MemCoMASMemory,
         'memrl': MemRLMASMemory,
         'memskill': MemSkillMASMemory,
     }

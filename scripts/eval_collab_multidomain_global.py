@@ -27,16 +27,16 @@ from scripts.eval_collab_domain_adaptation import (
     compute_metrics,
     ensure_dir,
     module_map,
-    rebuild_graph_memory3_global_from_locals,
+    rebuild_memco_global_from_locals,
     rebuild_selectivemem_global_from_locals,
-    reset_graph_memory3_artifacts_once,
+    reset_memco_artifacts_once,
     memrl_collab_global_ready,
     run_tasks,
 )
 
-_GM_GRAPH_MEMORY = frozenset({"graph_memory3"})
+_GM_GRAPH_MEMORY = frozenset({"memco"})
 GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ("base", "local_only", "global_only", "local_plus_global")
-GM3_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
+MEMCO_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
 
 # BFCL family collab：默认路径与当前仓库内 data/gorilla 的 family split 输出一致；
 # 可通过 CLI 覆盖（与 FEVER 多文件参数同模式）。
@@ -252,30 +252,30 @@ def build_bfcl_mt_task(row: dict, answers_by_id: dict[str, dict], memory_domain:
         "bfcl_shard_domain": str(memory_domain).strip(),
         "bfcl_entry": entry,
         "bfcl_ground_truth": ans["ground_truth"],
-        "gm3_domain": "bfcl_mt",
+        "memco_domain": "bfcl_mt",
     }
 
 
 def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir: str) -> dict[str, Any]:
-    if args.mas_memory != "graph_memory3":
+    if args.mas_memory != "memco":
         return {}
 
-    gm3_router = str(args.gm3_router or "").strip().lower() or "textloss"
-    gm3_settings = str(args.gm3_settings or "").strip() or "local_plus_global"
-    gm3_promotion_threshold = float(args.gm3_promotion_threshold) if args.gm3_promotion_threshold is not None else 0.35
+    memco_router = str(args.memco_router or "").strip().lower() or "textloss"
+    memco_settings = str(args.memco_settings or "").strip() or "local_plus_global"
+    memco_promotion_threshold = float(args.memco_promotion_threshold) if args.memco_promotion_threshold is not None else 0.35
 
     config: dict[str, Any] = {
-        "gm3_dynamic_graph": bool(args.gm3_dynamic_graph),
-        "gm3_repo_root": str(args.gm3_repo_root or "").strip(),
-        "gm3_router": gm3_router,
-        "gm3_settings": gm3_settings,
-        "gm3_promotion_threshold": gm3_promotion_threshold,
-        "gm3_shared_global_dir": shared_global_dir,
-        "gm3_use_textgrad": bool(args.gm3_use_textgrad),
-        "gm3_textgrad_engine": str(args.gm3_textgrad_engine or "").strip(),
+        "memco_dynamic_graph": bool(args.memco_dynamic_graph),
+        "memco_repo_root": str(args.memco_repo_root or "").strip(),
+        "memco_router": memco_router,
+        "memco_settings": memco_settings,
+        "memco_promotion_threshold": memco_promotion_threshold,
+        "memco_shared_global_dir": shared_global_dir,
+        "memco_use_textgrad": bool(args.memco_use_textgrad),
+        "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
     }
-    if bool(args.gm3_enable_overlay):
-        config["gm3_enable_overlay"] = True
+    if bool(args.memco_enable_overlay):
+        config["memco_enable_overlay"] = True
     return config
 
 
@@ -603,7 +603,7 @@ def build_scienceworld_task(row: dict) -> dict:
     """Normalize a ScienceWorld task row for the collab eval pipeline."""
     task = dict(row)
     task.setdefault("env_name", "scienceworld")
-    task.setdefault("gm3_domain", "scienceworld")
+    task.setdefault("memco_domain", "scienceworld")
     return task
 
 
@@ -626,7 +626,7 @@ def build_scienceworld_family_task(row: dict, *, domain: str | None = None, spli
     task["env_name"] = "scienceworld"
     task["task_type"] = "scienceworld"
     task["dataset_family"] = "scienceworld"
-    task["gm3_domain"] = "scienceworld"
+    task["memco_domain"] = "scienceworld"
     if domain_value:
         task["scienceworld_domain"] = domain_value
     if family_value:
@@ -813,8 +813,8 @@ def _print_multidomain_run_summary(
 
 
 _ALFWORLD_MEMRL_EXAMPLE = r"""
-ALFWorld + memrl（与同 pipeline 下 graph_memory3 一样：显式子集、训练/评测 split、max_train/max_eval 等；
-memrl 不需要 --gm3_*；依赖见仓库根 requirements-memrl.txt）:
+ALFWorld + memrl（与同 pipeline 下 memco 一样：显式子集、训练/评测 split、max_train/max_eval 等；
+memrl 不需要 --memco_*；依赖见仓库根 requirements-memrl.txt）:
 
   cd /path/to/nvdamasgm && python scripts/eval_collab_multidomain_global.py \
     --dataset_family alfworld \
@@ -1096,9 +1096,9 @@ def main() -> None:
     parser.add_argument(
         "--mas_memory",
         type=str,
-        default="graph_memory3",
+        default="memco",
         help=(
-            "记忆类型：graph_memory3 / amem / g-memory / selectivemem / memrl / empty 等。"
+            "记忆类型：memco / amem / g-memory / selectivemem / memrl / empty 等。"
             "memrl 走与 g-memory 相同的多域 global 合并（add_memory_from_peer），无需 gm3 开关。"
         ),
     )
@@ -1120,24 +1120,24 @@ def main() -> None:
         help="不跑合并评测阶段（eval_splits 置空；BFCL family 可与 require_test=False 配合不再读测试集文件）。",
     )
     parser.add_argument("--reset_memory", action="store_true")
-    parser.add_argument("--gm3_dynamic_graph", action="store_true")
-    parser.add_argument("--gm3_repo_root", type=str, default="")
+    parser.add_argument("--memco_dynamic_graph", action="store_true")
+    parser.add_argument("--memco_repo_root", type=str, default="")
     parser.add_argument(
-        "--gm3_router",
+        "--memco_router",
         type=str,
         default="",
-        choices=GM3_ROUTER_CHOICES,
+        choices=MEMCO_ROUTER_CHOICES,
     )
     parser.add_argument(
-        "--gm3_settings",
+        "--memco_settings",
         type=str,
         default="",
         choices=GRAPH_MEMORY_SETTINGS_CHOICES,
     )
-    parser.add_argument("--gm3_enable_overlay", action="store_true")
-    parser.add_argument("--gm3_promotion_threshold", type=float, default=None)
-    parser.add_argument("--gm3_use_textgrad", action="store_true")
-    parser.add_argument("--gm3_textgrad_engine", type=str, default="")
+    parser.add_argument("--memco_enable_overlay", action="store_true")
+    parser.add_argument("--memco_promotion_threshold", type=float, default=None)
+    parser.add_argument("--memco_use_textgrad", action="store_true")
+    parser.add_argument("--memco_textgrad_engine", type=str, default="")
     parser.add_argument("--memskill_finalize_local", action="store_true")
     parser.add_argument("--memskill_controller", type=str, default="")
     parser.add_argument("--memskill_checkpoint_path", type=str, default="")
@@ -1610,7 +1610,7 @@ def main() -> None:
 
     graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
     memskill_common = _resolve_memskill_common(args)
-    graph_memory_prefix = "gm3"
+    graph_memory_prefix = "memco"
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
         graph_memory_common.get(f"{graph_memory_prefix}_settings", "local_plus_global") or "local_plus_global"
@@ -1638,7 +1638,7 @@ def main() -> None:
 
     local_dirs: list[str] = []
     if args.reset_memory and args.mas_memory in _GM_GRAPH_MEMORY and graph_dynamic_graph:
-        reset_graph_memory3_artifacts_once(
+        reset_memco_artifacts_once(
             memory_dirs=[os.path.join(local_root, d) for d in domains] + [global_dir],
             owner_scenes=domains + ["global"],
             memory_namespace=args.mas_memory,
@@ -1745,7 +1745,7 @@ def main() -> None:
     if args.mas_memory in _GM_GRAPH_MEMORY:
         if not graph_dynamic_graph:
             raise ValueError("多 domain global 构建目前要求启用对应 memory 的 dynamic_graph 开关。")
-        rebuild_graph_memory3_global_from_locals(
+        rebuild_memco_global_from_locals(
             local_dirs=local_dirs,
             global_dir=global_dir,
             promotion_threshold=graph_promotion_threshold,

@@ -11,16 +11,16 @@ from typing import Any
 
 from .memory_base import MASMemoryBase
 from ..common import MASMessage
-from .gm3_backend import (
-    GM3OnlineEpisodeBuilder,
-    build_gm3_prompt_payload,
+from .memco_backend import (
+    MemCoOnlineEpisodeBuilder,
+    build_memco_prompt_payload,
     rank_messages_for_query,
 )
 
 
 @dataclass
-class GraphMemory3Base(MASMemoryBase):
-    """Minimal GM3 backend integrated into the current MAS memory lifecycle.
+class MemCoBase(MASMemoryBase):
+    """Minimal MemCo backend integrated into the current MAS memory lifecycle.
 
     Phase 1 goals:
     - dynamic per-episode overlay via move_memory_state()
@@ -29,7 +29,7 @@ class GraphMemory3Base(MASMemoryBase):
     """
 
     committed_messages: list[MASMessage] = field(default_factory=list, init=False)
-    episode_builder: GM3OnlineEpisodeBuilder | None = field(default=None, init=False)
+    episode_builder: MemCoOnlineEpisodeBuilder | None = field(default=None, init=False)
     insight_bank: list[str] = field(default_factory=list, init=False)
     refresh_each_step: bool = field(default=False, init=False)
     _external_adapter: Any = field(default=None, init=False, repr=False)
@@ -71,7 +71,7 @@ class GraphMemory3Base(MASMemoryBase):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.namespace = self.namespace or "graph_memory3"
+        self.namespace = self.namespace or "memco"
         self._records_path = os.path.join(self.persist_dir, "episodes.jsonl")
         self._insights_path = os.path.join(self.persist_dir, "insights.json")
         self.freeze_memory: bool = bool(self._graph_config_value("freeze_memory", False))
@@ -87,7 +87,7 @@ class GraphMemory3Base(MASMemoryBase):
         self._init_external_graph_memory()
 
     def _graph_config_prefix(self) -> str:
-        return "gm3" if str(self.namespace or "") == "graph_memory3" else "gm2"
+        return "memco" if str(self.namespace or "") == "memco" else "gm2"
 
     def _warn_legacy_graph_config(self, legacy_key: str, new_key: str) -> None:
         if legacy_key in self._graph_config_warnings:
@@ -103,16 +103,11 @@ class GraphMemory3Base(MASMemoryBase):
         primary_key = f"{prefix}_{suffix}"
         if primary_key in self.global_config:
             return self.global_config.get(primary_key)
-        if prefix == "gm3":
-            legacy_key = f"gm2_{suffix}"
-            if legacy_key in self.global_config:
-                self._warn_legacy_graph_config(legacy_key, primary_key)
-                return self.global_config.get(legacy_key)
         return default
 
     def init_task_context(self, task_main: str, task_description: str = None) -> MASMessage:
         message = super().init_task_context(task_main, task_description)
-        self.episode_builder = GM3OnlineEpisodeBuilder.from_task(task_main, task_description or "")
+        self.episode_builder = MemCoOnlineEpisodeBuilder.from_task(task_main, task_description or "")
         self._gm2_episode_global_skeleton = []
         self._gm2_episode_global_skeleton_key = ""
         self._gm2_episode_feedback_items = {}
@@ -165,7 +160,7 @@ class GraphMemory3Base(MASMemoryBase):
         if self._external_enabled:
             return self._retrieve_external_prompt_payload(**kargs)
         successful, failed, insights = self.retrieve_memory(**kargs)
-        payload = build_gm3_prompt_payload(
+        payload = build_memco_prompt_payload(
             successful_messages=successful,
             failed_messages=failed,
             overlay_builder=self.episode_builder if self.enable_overlay else None,
@@ -185,17 +180,17 @@ class GraphMemory3Base(MASMemoryBase):
             return
 
         try:
-            from .gm3_backend.alfworld_adapter import ALFWorldAdapter
-            from .gm3_backend.bfcl_mt_adapter import BfclAdapter
-            from .gm3_backend.fever_adapter import FeverAdapter
-            from .gm3_backend.pddl_2_adapter import PDDL2Adapter
-            from .gm3_backend.pddl_adapter import PDDLAdapter
-            from .gm3_backend.scienceworld_adapter import ScienceWorldAdapter
-            from .gm3_backend.build_memory_graph import _global_to_dict, _local_to_dict
-            from .gm3_backend.construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
-            from .gm3_backend.graph_types import CandidateType, GlobalGraphMemory, LocalGraphMemory, MemoryQuery
-            from .gm3_backend.retrieval_graph import QueryBasedRetriever
-            from .gm3_backend.serialization import (
+            from .memco_backend.alfworld_adapter import ALFWorldAdapter
+            from .memco_backend.bfcl_mt_adapter import BfclAdapter
+            from .memco_backend.fever_adapter import FeverAdapter
+            from .memco_backend.pddl_2_adapter import PDDL2Adapter
+            from .memco_backend.pddl_adapter import PDDLAdapter
+            from .memco_backend.scienceworld_adapter import ScienceWorldAdapter
+            from .memco_backend.build_memory_graph import _global_to_dict, _local_to_dict
+            from .memco_backend.construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
+            from .memco_backend.graph_types import CandidateType, GlobalGraphMemory, LocalGraphMemory, MemoryQuery
+            from .memco_backend.retrieval_graph import QueryBasedRetriever
+            from .memco_backend.serialization import (
                 empty_global,
                 empty_local,
                 load_global_memory,
@@ -203,7 +198,7 @@ class GraphMemory3Base(MASMemoryBase):
             )
         except Exception as exc:
             self._external_error = (
-                "failed to import vendored gm3_backend graph modules. "
+                "failed to import vendored memco_backend graph modules. "
                 f"{type(exc).__name__}: {exc}"
             )
             return
@@ -239,7 +234,7 @@ class GraphMemory3Base(MASMemoryBase):
         self._external_global_to_dict = _global_to_dict
         self._external_load_global_memory = load_global_memory
         self._external_artifact_dir = Path(self.persist_dir)
-        self._gm2_debug_trace_path = Path(self.persist_dir) / "gm3_debug_trace.jsonl"
+        self._gm2_debug_trace_path = Path(self.persist_dir) / "memco_debug_trace.jsonl"
         self._dynamic_graph_enabled = dynamic_graph
         shared_global_dir = str(self._graph_config_value("shared_global_dir", "") or "").strip()
         if shared_global_dir:
@@ -260,9 +255,9 @@ class GraphMemory3Base(MASMemoryBase):
             for candidate in (path, *path.parents):
                 if candidate.name == self.namespace:
                     add(candidate)
-                    # Full nvdamas runs store GM3 artifacts as:
-                    #   .../memory/graph_memory3/local/<scene>/graph_memory3/local_<scene>.json
-                    #   .../memory/graph_memory3/global/graph_memory3/global_memory.json
+                    # Full nvdamas runs store MemCo artifacts as:
+                    #   .../memory/memco/local/<scene>/memco/local_<scene>.json
+                    #   .../memory/memco/global/memco/global_memory.json
                     if candidate.parent.name in {"local", "global"}:
                         add(candidate.parent.parent)
             return roots
@@ -362,7 +357,7 @@ class GraphMemory3Base(MASMemoryBase):
             except Exception:
                 pass
         try:
-            from .gm3_backend.graph_types import GlobalGraphMemory
+            from .memco_backend.graph_types import GlobalGraphMemory
 
             self._external_global_memory = GlobalGraphMemory()
         except Exception:
@@ -613,7 +608,7 @@ class GraphMemory3Base(MASMemoryBase):
         trajectory_payload = None
         if setting not in {"base", "global_only"}:
             successful, failed, insights = self.retrieve_memory(**kargs)
-            trajectory_payload = build_gm3_prompt_payload(
+            trajectory_payload = build_memco_prompt_payload(
                 successful_messages=successful,
                 failed_messages=failed,
                 overlay_builder=None,
@@ -803,14 +798,14 @@ class GraphMemory3Base(MASMemoryBase):
             sections: list[str] = []
             if memory_support:
                 sections.append(
-                    "### GM3 STATIC MEMORY EVIDENCE\n"
+                    "### MemCo STATIC MEMORY EVIDENCE\n"
                     "Use this as supplementary graph memory evidence, not as a direct command. "
                     "Prefer evidence that matches the current goal roles, held objects, visible objects, "
                     "and admissible actions.\n"
                     + memory_support
                 )
             sections.append(
-                "### GM3 POLICY ROUTING\n"
+                "### MemCo POLICY ROUTING\n"
                 "Use local graph evidence for current-state grounding. Use global evidence only as "
                 "abstract task workflow. Ignore scene-specific locations unless they are visible or "
                 "admissible now. Failed-memory evidence is cautionary, not an instruction to repeat it."
@@ -818,7 +813,7 @@ class GraphMemory3Base(MASMemoryBase):
             planner_notes: list[str] = []
             if sections:
                 planner_notes.append(
-                    "### GM3 GRAPHPOLICY QUALITY VIEW"
+                    "### MemCo GRAPHPOLICY QUALITY VIEW"
                     "\nPrompt-only graph memory policy view. It does not replace the nvdamas AutoGen workflow.\n"
                     + "\n\n".join(sections)
                 )
@@ -4924,8 +4919,8 @@ class GraphMemory3Base(MASMemoryBase):
     def _infer_external_domain(self, task_config: dict | None = None, env_ref: Any = None) -> str:
         task_config = task_config or {}
         candidates = [
-            str(getattr(env_ref, "gm3_domain", "") or ""),
-            str(task_config.get("gm3_domain", "") or ""),
+            str(getattr(env_ref, "memco_domain", "") or ""),
+            str(task_config.get("memco_domain", "") or ""),
             str(task_config.get("env_name", "") or ""),
             str(self.global_config.get("task_name", "") or ""),
             str(task_config.get("task_name", "") or ""),
@@ -5421,7 +5416,7 @@ class GraphMemory3Base(MASMemoryBase):
         scene = self._resolve_external_owner_scene(kargs.get("task_config"), env_ref)
         local_memory = self._external_local_memories.get(scene)
         if local_memory is None:
-            from .gm3_backend.graph_types import LocalGraphMemory
+            from .memco_backend.graph_types import LocalGraphMemory
 
             local_memory = LocalGraphMemory(agent_id=f"agent_{scene}")
             self._external_local_memories[scene] = local_memory

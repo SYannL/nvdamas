@@ -223,7 +223,7 @@ class FeverAdapter:
                 "visible_objects": list(state.visible_objects),
                 "layout_id": self.derive_layout_id(domain, task_config.get("task_id", "")),
                 "task_config_env_name": str(task_config.get("env_name", "")),
-                "gm3_domain": self.domain_name,
+                "memco_domain": self.domain_name,
                 "query_variants": query_variants,
                 "fever_health": self._history_health(history),
             },
@@ -246,7 +246,7 @@ class FeverAdapter:
                 "status": payload.get("status", ""),
                 "final_score": float(payload.get("final_score", 0.0) or 0.0),
                 "layout_id": self.derive_layout_id(domain, task_id, history_path),
-                "gm3_domain": self.domain_name,
+                "memco_domain": self.domain_name,
                 "task_family": self.infer_task_family(claim, domain),
             },
         )

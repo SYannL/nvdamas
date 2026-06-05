@@ -5,7 +5,7 @@ from typing import Any
 
 
 class BasePromptStyle:
-    """Dataset-facing language and transfer boundary for GM3 prompt injection."""
+    """Dataset-facing language and transfer boundary for MemCo prompt injection."""
 
     name = "alfworld"
 
@@ -13,7 +13,7 @@ class BasePromptStyle:
         progress = str(getattr(query, "progress_state", "") or "")
         held = int(getattr(query, "held_relevant_count", 0) or 0)
         visible = bool(getattr(query, "goal_object_matches_visible", False))
-        is_two_object = bool(renderer._gm3_is_two_object_task(query))
+        is_two_object = bool(renderer._memco_is_two_object_task(query))
         items: list[str] = []
         if held > 0:
             if tool and progress in {"carry_target", "process_target"}:
@@ -79,16 +79,16 @@ class BasePromptStyle:
             f"tool={tool or 'none'}",
             f"destination={destination or 'unknown'}",
         ]
-        if renderer._gm3_is_two_object_task(query):
+        if renderer._memco_is_two_object_task(query):
             parts.append("two_object=finish one full required workflow before starting another")
         if held:
-            parts.append("held=" + ", ".join(renderer._gm3_base(x) for x in held[:2] if str(x).strip()))
+            parts.append("held=" + ", ".join(renderer._memco_base(x) for x in held[:2] if str(x).strip()))
         elif visible:
-            visible_bases = [renderer._gm3_base(x) for x in visible[:3] if str(x).strip()]
+            visible_bases = [renderer._memco_base(x) for x in visible[:3] if str(x).strip()]
             if visible_bases:
                 parts.append("visible=" + ", ".join(visible_bases))
         if exhausted:
-            counts = renderer._gm3_exhausted_base_counts(exhausted)
+            counts = renderer._memco_exhausted_base_counts(exhausted)
             if counts:
                 top = ", ".join(
                     f"{base}x{count}" for base, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:2]
@@ -105,20 +105,20 @@ class BasePromptStyle:
         admissible: list[str],
     ) -> str:
         goal_roles = getattr(query, "goal_roles", {}) or {}
-        target = renderer._gm3_base(str(goal_roles.get("object", "") or ""))
-        tool = renderer._gm3_base(str(goal_roles.get("tool", "") or ""))
-        destination = renderer._gm3_base(str(goal_roles.get("destination", "") or ""))
+        target = renderer._memco_base(str(goal_roles.get("object", "") or ""))
+        tool = renderer._memco_base(str(goal_roles.get("tool", "") or ""))
+        destination = renderer._memco_base(str(goal_roles.get("destination", "") or ""))
         progress = str(getattr(query, "progress_state", "") or "")
         held_count = int(getattr(query, "held_relevant_count", 0) or 0)
         visible_match = bool(getattr(query, "goal_object_matches_visible", False))
-        is_two_object = bool(renderer._gm3_is_two_object_task(query))
+        is_two_object = bool(renderer._memco_is_two_object_task(query))
 
         if held_count > 0:
             actions: list[str] = []
             if tool and progress in {"carry_target", "process_target"}:
-                actions = renderer._gm3_tool_priority_actions(target=target, tool=tool, admissible=admissible)
+                actions = renderer._memco_tool_priority_actions(target=target, tool=tool, admissible=admissible)
             if not actions and destination:
-                actions = renderer._gm3_destination_priority_actions(target=target, destination=destination, admissible=admissible)
+                actions = renderer._memco_destination_priority_actions(target=target, destination=destination, admissible=admissible)
             if actions:
                 return actions[0]
             if is_two_object:
@@ -126,7 +126,7 @@ class BasePromptStyle:
             return "use the admissible process or delivery action for the held target; ignore source search."
 
         if visible_match:
-            actions = renderer._gm3_take_priority_actions(target=target, admissible=admissible)
+            actions = renderer._memco_take_priority_actions(target=target, admissible=admissible)
             if actions:
                 return actions[0]
             if is_two_object:
@@ -161,7 +161,7 @@ class ScienceWorldPromptStyle(BasePromptStyle):
     def phase_items(self, renderer: Any, *, query: Any, target: str, tool: str, destination: str) -> list[str]:
         progress = str(getattr(query, "progress_state", "") or "")
         belief = getattr(query, "belief", {}) or {}
-        task_name = renderer._gm3_clean(str(belief.get("sw_task_name", "") or "science task"))
+        task_name = renderer._memco_clean(str(belief.get("sw_task_name", "") or "science task"))
         score = belief.get("score", 0)
         items = [
             f"ScienceWorld stage={progress or 'unknown'}, task={task_name}; use the current valid-action list as grounding."
@@ -201,8 +201,8 @@ class ScienceWorldPromptStyle(BasePromptStyle):
     ) -> str:
         belief = getattr(query, "belief", {}) or {}
         dynamic = getattr(query, "dynamic_context", {}) or {}
-        task_name = renderer._gm3_clean(str(belief.get("sw_task_name", "") or dynamic.get("sw_task_name", "") or ""))
-        room = renderer._gm3_clean(str(belief.get("room", "") or dynamic.get("room", "") or ""))
+        task_name = renderer._memco_clean(str(belief.get("sw_task_name", "") or dynamic.get("sw_task_name", "") or ""))
+        room = renderer._memco_clean(str(belief.get("room", "") or dynamic.get("room", "") or ""))
         score = belief.get("score", 0)
         parts = [
             f"task={task_name or 'unknown'}",
@@ -211,7 +211,7 @@ class ScienceWorldPromptStyle(BasePromptStyle):
             f"stage={str(getattr(query, 'progress_state', '') or 'unknown')}",
         ]
         if visible:
-            parts.append("visible=" + ", ".join(renderer._gm3_base(x) for x in visible[:4] if str(x).strip()))
+            parts.append("visible=" + ", ".join(renderer._memco_base(x) for x in visible[:4] if str(x).strip()))
         return "; ".join(parts)
 
     def next_priority_line(
@@ -223,18 +223,18 @@ class ScienceWorldPromptStyle(BasePromptStyle):
         admissible: list[str],
     ) -> str:
         belief = getattr(query, "belief", {}) or {}
-        goal_text = renderer._gm3_norm(
+        goal_text = renderer._memco_norm(
             f"{getattr(query, 'goal', '')} {belief.get('sw_task', '')} {belief.get('sw_task_name', '')}"
         )
         task_kind = self._task_kind(goal_text)
         recipe_task = any(token in goal_text for token in ("recipe", "book", "instruction", "read"))
-        has_read = any(renderer._gm3_norm(action).startswith("read ") for action in admissible)
-        has_focus = any(renderer._gm3_norm(action).startswith("focus on ") for action in admissible)
-        has_measure = any(renderer._gm3_norm(action).startswith(("measure ", "read ")) for action in admissible)
-        has_observe = any(renderer._gm3_norm(action).startswith(("look", "examine ", "measure ")) for action in admissible)
-        has_setup = any(renderer._gm3_norm(action).startswith(("open ", "go to ")) for action in admissible)
+        has_read = any(renderer._memco_norm(action).startswith("read ") for action in admissible)
+        has_focus = any(renderer._memco_norm(action).startswith("focus on ") for action in admissible)
+        has_measure = any(renderer._memco_norm(action).startswith(("measure ", "read ")) for action in admissible)
+        has_observe = any(renderer._memco_norm(action).startswith(("look", "examine ", "measure ")) for action in admissible)
+        has_setup = any(renderer._memco_norm(action).startswith(("open ", "go to ")) for action in admissible)
         has_state_change = any(
-            renderer._gm3_norm(action).startswith(("heat ", "cool ", "activate ", "move ", "put ", "pour ", "mix "))
+            renderer._memco_norm(action).startswith(("heat ", "cool ", "activate ", "move ", "put ", "pour ", "mix "))
             for action in admissible
         )
         if recipe_task and has_read:
@@ -267,8 +267,8 @@ class ScienceWorldPromptStyle(BasePromptStyle):
         stripped = str(text or "").strip()
         if not stripped or stripped == "none.":
             return stripped
-        norm_text = renderer._gm3_norm(stripped)
-        goal_text = renderer._gm3_norm(
+        norm_text = renderer._memco_norm(stripped)
+        goal_text = renderer._memco_norm(
             f"{getattr(query, 'goal', '')} {getattr(query, 'task_family', '')} "
             f"{(getattr(query, 'belief', {}) or {}).get('sw_task', '')} "
             f"{(getattr(query, 'belief', {}) or {}).get('sw_task_name', '')}"
@@ -351,7 +351,7 @@ class ScienceWorldPromptStyle(BasePromptStyle):
             return False
         generic = {"air", "inventory", "agent", "toilet"}
         for action in admissible:
-            norm = renderer._gm3_norm(action)
+            norm = renderer._memco_norm(action)
             if not norm.startswith("focus on "):
                 continue
             action_tokens = set(re.findall(r"[a-z0-9]+", norm))
@@ -428,19 +428,19 @@ class PDDLPromptStyle(BasePromptStyle):
         visible: list[str],
         exhausted: list[str],
     ) -> str:
-        goal = renderer._gm3_clean(str(getattr(query, "goal", "") or "")).strip()
+        goal = renderer._memco_clean(str(getattr(query, "goal", "") or "")).strip()
         progress = str(getattr(query, "progress_state", "") or "unknown")
         belief = getattr(query, "belief", {}) or {}
         goal_literals = [str(item) for item in (belief.get("goal_literals") or []) if str(item).strip()]
-        current_literals = {renderer._gm3_norm(str(item)) for item in (belief.get("current_literals") or [])}
-        unsatisfied = [literal for literal in goal_literals if renderer._gm3_norm(literal) not in current_literals]
-        parts = [f"goal={renderer._gm3_shorten(goal, 120) or 'unknown'}", f"stage={progress}"]
+        current_literals = {renderer._memco_norm(str(item)) for item in (belief.get("current_literals") or [])}
+        unsatisfied = [literal for literal in goal_literals if renderer._memco_norm(literal) not in current_literals]
+        parts = [f"goal={renderer._memco_shorten(goal, 120) or 'unknown'}", f"stage={progress}"]
         if unsatisfied:
-            parts.append("unsatisfied=" + "; ".join(renderer._gm3_shorten(lit, 50) for lit in unsatisfied[:2]))
+            parts.append("unsatisfied=" + "; ".join(renderer._memco_shorten(lit, 50) for lit in unsatisfied[:2]))
         if visible:
-            parts.append("state=" + "; ".join(renderer._gm3_base(x) for x in visible[:3] if str(x).strip()))
+            parts.append("state=" + "; ".join(renderer._memco_base(x) for x in visible[:3] if str(x).strip()))
         if exhausted:
-            parts.append("tried=" + ", ".join(renderer._gm3_base(x) for x in exhausted[:3] if str(x).strip()))
+            parts.append("tried=" + ", ".join(renderer._memco_base(x) for x in exhausted[:3] if str(x).strip()))
         return "; ".join(parts)
 
     def next_priority_line(
@@ -455,25 +455,25 @@ class PDDLPromptStyle(BasePromptStyle):
         setup_action = ""
         for item in priority_items[:3]:
             text = str(item or "").strip()
-            mapped = renderer._gm3_first_admissible_action_in_text(text, admissible)
+            mapped = renderer._memco_first_admissible_action_in_text(text, admissible)
             if (
                 mapped
-                and not renderer._gm3_pddl_is_meta_action(mapped)
-                and renderer._gm3_pddl_action_advances_unsatisfied_goal(query, mapped)
+                and not renderer._memco_pddl_is_meta_action(mapped)
+                and renderer._memco_pddl_action_advances_unsatisfied_goal(query, mapped)
             ):
                 return f"execute current valid operator `{mapped}` only if it advances an unsatisfied goal literal."
             if (
                 mapped
                 and progress == "search_preconditions"
-                and not renderer._gm3_pddl_is_meta_action(mapped)
-                and renderer._gm3_pddl_action_is_safe_setup(query, mapped)
+                and not renderer._memco_pddl_is_meta_action(mapped)
+                and renderer._memco_pddl_action_is_safe_setup(query, mapped)
             ):
                 setup_action = setup_action or mapped
-        hint = renderer._gm3_pddl_current_action_hint(query, admissible)
+        hint = renderer._memco_pddl_current_action_hint(query, admissible)
         if hint:
             return f"prefer current valid operator `{hint}` because it directly achieves an unsatisfied goal literal; do not invent actions."
         if setup_action:
-            if bool(getattr(renderer, "_gm3_is_gpt4omini_model", lambda: False)()):
+            if bool(getattr(renderer, "_memco_is_gpt4omini_model", lambda: False)()):
                 return "choose a currently valid non-meta operator from the admissible list that advances unsatisfied goal literals; do not spend turns on meta-actions unless no task operator is valid."
             return f"execute memory-grounded setup operator `{setup_action}` only if it prepares a remaining goal precondition; do not invent actions."
         if admissible:
@@ -540,11 +540,11 @@ class FeverPromptStyle(BasePromptStyle):
         visible: list[str],
         exhausted: list[str],
     ) -> str:
-        goal = renderer._gm3_clean(str(getattr(query, "goal", "") or "")).removeprefix("Verify claim:").strip()
+        goal = renderer._memco_clean(str(getattr(query, "goal", "") or "")).removeprefix("Verify claim:").strip()
         progress = str(getattr(query, "progress_state", "") or "unknown")
         ctx = _fever_claim_context(query)
-        evidence = [renderer._gm3_base(x) for x in visible[:2] if str(x).strip()]
-        parts = [f"claim={renderer._gm3_shorten(goal, 110) or 'unknown'}", f"stage={progress}"]
+        evidence = [renderer._memco_base(x) for x in visible[:2] if str(x).strip()]
+        parts = [f"claim={renderer._memco_shorten(goal, 110) or 'unknown'}", f"stage={progress}"]
         parts.append(f"claim_type={ctx['claim_type']}")
         if ctx["entity"]:
             parts.append(f"primary_entity={ctx['entity']}")
@@ -557,7 +557,7 @@ class FeverPromptStyle(BasePromptStyle):
         if evidence:
             parts.append("evidence=" + "; ".join(evidence))
         if exhausted:
-            parts.append("searched=" + ", ".join(renderer._gm3_base(x) for x in exhausted[:2] if str(x).strip()))
+            parts.append("searched=" + ", ".join(renderer._memco_base(x) for x in exhausted[:2] if str(x).strip()))
         return "; ".join(parts)
 
     def next_priority_line(
@@ -669,17 +669,17 @@ class BFCLPromptStyle(BasePromptStyle):
         if ctx["apis"]:
             parts.append("apis=" + ", ".join(ctx["apis"][:4]))
         if ctx["last_action"]:
-            parts.append(f"last_action={renderer._gm3_shorten(ctx['last_action'], 70)}")
+            parts.append(f"last_action={renderer._memco_shorten(ctx['last_action'], 70)}")
         if ctx["authenticated"] is not None:
             parts.append(f"authenticated={str(ctx['authenticated']).lower()}")
         if ctx["balance"] is not None:
             parts.append(f"balance={ctx['balance']}")
         if ctx["current_turn"]:
-            parts.append(f"turn={renderer._gm3_shorten(ctx['current_turn'], 100)}")
+            parts.append(f"turn={renderer._memco_shorten(ctx['current_turn'], 100)}")
         if ctx["repeat_count"] >= 2:
             parts.append(f"repeat_count={ctx['repeat_count']}")
         if ctx["last_observation"]:
-            parts.append(f"last_output={renderer._gm3_shorten(ctx['last_observation'], 90)}")
+            parts.append(f"last_output={renderer._memco_shorten(ctx['last_observation'], 90)}")
         return "; ".join(parts)
 
     def next_priority_line(
@@ -734,7 +734,7 @@ def _fever_lookup_hint(renderer: Any, query: Any) -> str:
         cleaned = _fever_entity_text(str(hint or ""))
         if cleaned:
             return cleaned
-    goal = renderer._gm3_clean(str(getattr(query, "goal", "") or "")).removeprefix("Verify claim:").strip()
+    goal = renderer._memco_clean(str(getattr(query, "goal", "") or "")).removeprefix("Verify claim:").strip()
     if not goal:
         return ""
     goal_roles = getattr(query, "goal_roles", {}) or {}

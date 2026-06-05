@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class GM3EpisodeState:
+class MemCoEpisodeState:
     task_main: str
     task_description: str = ""
     recent_actions: list[str] = field(default_factory=list)
@@ -13,7 +13,7 @@ class GM3EpisodeState:
 
 
 @dataclass
-class GM3PromptPayload:
+class MemCoPromptPayload:
     reference_cases: list[str] = field(default_factory=list)
     execution_patterns: list[str] = field(default_factory=list)
     insights: list[str] = field(default_factory=list)

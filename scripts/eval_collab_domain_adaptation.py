@@ -23,29 +23,29 @@ from networkx.readwrite import json_graph
 os.environ.setdefault("NV_DAMAS_CONSOLE_LOG", "0")
 
 GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ("base", "local_only", "global_only", "local_plus_global")
-GM3_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
+MEMCO_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
 
 
 def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir: str) -> dict[str, Any]:
-    if args.mas_memory != "graph_memory3":
+    if args.mas_memory != "memco":
         return {}
 
-    gm3_router = str(args.gm3_router or "").strip().lower() or "textloss"
-    gm3_settings = str(args.gm3_settings or "").strip() or "local_plus_global"
-    gm3_promotion_threshold = float(args.gm3_promotion_threshold) if args.gm3_promotion_threshold is not None else 0.35
+    memco_router = str(args.memco_router or "").strip().lower() or "textloss"
+    memco_settings = str(args.memco_settings or "").strip() or "local_plus_global"
+    memco_promotion_threshold = float(args.memco_promotion_threshold) if args.memco_promotion_threshold is not None else 0.35
 
     config: dict[str, Any] = {
-        "gm3_dynamic_graph": bool(args.gm3_dynamic_graph),
-        "gm3_repo_root": str(args.gm3_repo_root or "").strip(),
-        "gm3_router": gm3_router,
-        "gm3_settings": gm3_settings,
-        "gm3_promotion_threshold": gm3_promotion_threshold,
-        "gm3_shared_global_dir": shared_global_dir,
-        "gm3_use_textgrad": bool(args.gm3_use_textgrad),
-        "gm3_textgrad_engine": str(args.gm3_textgrad_engine or "").strip(),
+        "memco_dynamic_graph": bool(args.memco_dynamic_graph),
+        "memco_repo_root": str(args.memco_repo_root or "").strip(),
+        "memco_router": memco_router,
+        "memco_settings": memco_settings,
+        "memco_promotion_threshold": memco_promotion_threshold,
+        "memco_shared_global_dir": shared_global_dir,
+        "memco_use_textgrad": bool(args.memco_use_textgrad),
+        "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
     }
-    if bool(args.gm3_enable_overlay):
-        config["gm3_enable_overlay"] = True
+    if bool(args.memco_enable_overlay):
+        config["memco_enable_overlay"] = True
     return config
 
 
@@ -697,7 +697,7 @@ def run_tasks(
             "fever_search_recovery_attempt_count": int(search_recovery_attempt_count),
             "fever_finish_after_search_error_count": int(finish_after_search_error_count),
             "fever_single_search_nei_count": int(single_search_nei_count),
-            "fever_memory_render_count": int(getattr(memory, "_gm3_last_fever_memory_render_count", 0) or 0),
+            "fever_memory_render_count": int(getattr(memory, "_memco_last_fever_memory_render_count", 0) or 0),
         }
 
     def _format_progress_line() -> str:
@@ -1719,22 +1719,22 @@ def memrl_collab_global_ready(global_dir: str, *, namespace: str = "memrl") -> b
         return False
 
 
-def rebuild_graph_memory3_global_from_locals(
+def rebuild_memco_global_from_locals(
     *,
     local_dirs: list[str],
     global_dir: str,
     promotion_threshold: float,
-    memory_namespace: str = "graph_memory3",
+    memory_namespace: str = "memco",
 ) -> None:
     """Rebuild shared graph-memory global memory from dynamic local graph artifacts."""
     try:
-        from mas.memory.mas_memory.gm3_backend.build_memory_graph import _global_to_dict
-        from mas.memory.mas_memory.gm3_backend.construction_graph import GlobalPromoter
-        from mas.memory.mas_memory.gm3_backend.graph_types import GlobalGraphMemory
-        from mas.memory.mas_memory.gm3_backend.serialization import load_local_memory
+        from mas.memory.mas_memory.memco_backend.build_memory_graph import _global_to_dict
+        from mas.memory.mas_memory.memco_backend.construction_graph import GlobalPromoter
+        from mas.memory.mas_memory.memco_backend.graph_types import GlobalGraphMemory
+        from mas.memory.mas_memory.memco_backend.serialization import load_local_memory
     except Exception as exc:
         raise RuntimeError(
-            "GraphMemory global rebuild needs vendored gm3_backend graph modules."
+            "MemCo global rebuild needs vendored memco_backend graph modules."
         ) from exc
 
     locals_loaded = []
@@ -1767,13 +1767,13 @@ def rebuild_graph_memory3_global_from_locals(
         json.dump(summary, writer, ensure_ascii=False, indent=2)
 
 
-def reset_graph_memory3_artifacts_once(memory_dirs: list[str], owner_scenes: list[str], memory_namespace: str = "graph_memory3") -> None:
+def reset_memco_artifacts_once(memory_dirs: list[str], owner_scenes: list[str], memory_namespace: str = "memco") -> None:
     """Start graph-memory from empty known artifacts without deleting run/log directories."""
     try:
-        from mas.memory.mas_memory.gm3_backend.build_memory_graph import _global_to_dict, _local_to_dict
-        from mas.memory.mas_memory.gm3_backend.graph_types import GlobalGraphMemory, LocalGraphMemory
+        from mas.memory.mas_memory.memco_backend.build_memory_graph import _global_to_dict, _local_to_dict
+        from mas.memory.mas_memory.memco_backend.graph_types import GlobalGraphMemory, LocalGraphMemory
     except Exception as exc:
-        raise RuntimeError("GraphMemory reset needs vendored gm3_backend graph modules.") from exc
+        raise RuntimeError("MemCo reset needs vendored memco_backend graph modules.") from exc
 
     for memory_dir, scene in zip(memory_dirs, owner_scenes):
         pdir = Path(memory_dir) / memory_namespace
@@ -2001,20 +2001,20 @@ def main() -> None:
         action="store_true",
         help="Append fine-grained timing JSONL under log_dir / persist_dir (NV_DAMAS_PROFILE=1 + mem_config.profile_timing).",
     )
-    parser.add_argument("--gm3_dynamic_graph", action="store_true", help="GraphMemory3: dynamically build local/global graph memory.")
-    parser.add_argument("--gm3_repo_root", type=str, default="", help="Deprecated: GraphMemory3 modules are vendored under gm3_backend.")
-    parser.add_argument("--gm3_router", type=str, default="", choices=GM3_ROUTER_CHOICES, help="GraphMemory3 prompt router.")
+    parser.add_argument("--memco_dynamic_graph", action="store_true", help="MemCo: dynamically build local/global graph memory.")
+    parser.add_argument("--memco_repo_root", type=str, default="", help="Deprecated: MemCo modules are vendored under memco_backend.")
+    parser.add_argument("--memco_router", type=str, default="", choices=MEMCO_ROUTER_CHOICES, help="MemCo prompt router.")
     parser.add_argument(
-        "--gm3_settings",
+        "--memco_settings",
         type=str,
         default="",
         choices=GRAPH_MEMORY_SETTINGS_CHOICES,
-        help="GraphMemory3 eval memory setting. Train local phase uses local_only.",
+        help="MemCo eval memory setting. Train local phase uses local_only.",
     )
-    parser.add_argument("--gm3_enable_overlay", action="store_true", help="GraphMemory3: include per-episode overlay notes.")
-    parser.add_argument("--gm3_promotion_threshold", type=float, default=None, help="GraphMemory3 global promotion threshold.")
-    parser.add_argument("--gm3_use_textgrad", action="store_true", help="GraphMemory3: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.")
-    parser.add_argument("--gm3_textgrad_engine", type=str, default="", help="GraphMemory3: TextGrad engine name, e.g. experimental:openai/qwen32b-api.")
+    parser.add_argument("--memco_enable_overlay", action="store_true", help="MemCo: include per-episode overlay notes.")
+    parser.add_argument("--memco_promotion_threshold", type=float, default=None, help="MemCo global promotion threshold.")
+    parser.add_argument("--memco_use_textgrad", action="store_true", help="MemCo: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.")
+    parser.add_argument("--memco_textgrad_engine", type=str, default="", help="MemCo: TextGrad engine name, e.g. experimental:openai/qwen32b-api.")
     parser.add_argument(
         "--mt_task_a_train_jsonl",
         type=str,
@@ -2190,9 +2190,9 @@ def main() -> None:
     local_b_dir = os.path.join(local_dir, task_b_label)
     ensure_dir(local_a_dir)
     ensure_dir(local_b_dir)
-    gm_graph_memory_names = {"graph_memory3"}
+    gm_graph_memory_names = {"memco"}
     graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
-    graph_memory_prefix = "gm3"
+    graph_memory_prefix = "memco"
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
         graph_memory_common.get(f"{graph_memory_prefix}_settings", "local_plus_global") or "local_plus_global"
@@ -2201,7 +2201,7 @@ def main() -> None:
         graph_memory_common.get(f"{graph_memory_prefix}_promotion_threshold", 0.35) or 0.35
     )
     if args.reset_memory and args.mas_memory in gm_graph_memory_names and graph_dynamic_graph:
-        reset_graph_memory3_artifacts_once(
+        reset_memco_artifacts_once(
             memory_dirs=[local_a_dir, local_b_dir, global_dir],
             owner_scenes=[task_a_label, task_b_label, "global"],
             memory_namespace=args.mas_memory,
@@ -3059,7 +3059,7 @@ def main() -> None:
             snapshot_tag=None,
         )
     elif args.mas_memory in gm_graph_memory_names and graph_dynamic_graph:
-        rebuild_graph_memory3_global_from_locals(
+        rebuild_memco_global_from_locals(
             local_dirs=[local_a_dir, local_b_dir],
             global_dir=global_dir,
             promotion_threshold=graph_promotion_threshold,

@@ -168,7 +168,7 @@ class BfclAdapter(PDDLAdapter):
                 "visible_objects": list(state.visible_objects),
                 "layout_id": self.derive_layout_id(game_name, task_config.get("bfcl_id") or entry.get("id", "")),
                 "task_config_env_name": str(task_config.get("env_name", "")),
-                "gm3_domain": self.domain_name,
+                "memco_domain": self.domain_name,
                 "last_action": last_action,
                 "last_action_repeat_count": repeat_count,
                 "involved_classes": involved,
@@ -242,7 +242,7 @@ class BfclAdapter(PDDLAdapter):
                 "status": payload.get("status", ""),
                 "final_score": float(payload.get("final_score", 0.0) or 0.0),
                 "layout_id": self.derive_layout_id(game_name, task_id, history_path),
-                "gm3_domain": self.domain_name,
+                "memco_domain": self.domain_name,
                 "task_family": self.infer_task_family(goal, game_name),
             },
         )

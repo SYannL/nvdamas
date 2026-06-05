@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from ...common import MASMessage
-from .overlay import GM3OnlineEpisodeBuilder
-from .types import GM3PromptPayload
+from .overlay import MemCoOnlineEpisodeBuilder
+from .types import MemCoPromptPayload
 
 
 def _message_to_execution_pattern(message: MASMessage) -> str:
@@ -16,13 +16,13 @@ def _message_to_execution_pattern(message: MASMessage) -> str:
     return "\n\n".join(blocks).strip()
 
 
-def build_gm3_prompt_payload(
+def build_memco_prompt_payload(
     *,
     successful_messages: list[MASMessage],
     failed_messages: list[MASMessage],
-    overlay_builder: GM3OnlineEpisodeBuilder | None,
+    overlay_builder: MemCoOnlineEpisodeBuilder | None,
     stored_insights: list[str],
-) -> GM3PromptPayload:
+) -> MemCoPromptPayload:
     execution_patterns = [
         _message_to_execution_pattern(message)
         for message in successful_messages
@@ -32,9 +32,9 @@ def build_gm3_prompt_payload(
     repair_hints: list[str] = []
     if failed_messages:
         repair_hints.append(
-            "[GM3Repair] Similar failed cases exist; avoid repeating actions that produced no progress."
+            "[MemCoRepair] Similar failed cases exist; avoid repeating actions that produced no progress."
         )
-    return GM3PromptPayload(
+    return MemCoPromptPayload(
         reference_cases=[],
         execution_patterns=execution_patterns,
         insights=list(stored_insights),
