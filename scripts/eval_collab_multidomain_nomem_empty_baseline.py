@@ -17,11 +17,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from tasks.utils import get_model_type
 
-from scripts.medmcqa.eval_collab_domain_adaptation import (
+from scripts.eval_collab_domain_adaptation import (
     build_isolated_subprocess_args,
     build_mas,
     build_task_manager,
@@ -29,7 +29,7 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     ensure_dir,
     run_tasks,
 )
-from scripts.medmcqa.eval_collab_multidomain_global import (
+from scripts.eval_collab_multidomain_global import (
     build_fever_task,
     build_scienceworld_family_task,
     compute_family_metrics,

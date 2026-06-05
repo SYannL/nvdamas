@@ -12,11 +12,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from tasks.utils import get_model_type
 
-from scripts.medmcqa.eval_collab_domain_adaptation import (
+from scripts.eval_collab_domain_adaptation import (
     CONFIG,
     GPTChat,
     EmbeddingFunc,
@@ -816,7 +816,7 @@ _ALFWORLD_MEMRL_EXAMPLE = r"""
 ALFWorld + memrl（与同 pipeline 下 graph_memory3 一样：显式子集、训练/评测 split、max_train/max_eval 等；
 memrl 不需要 --gm3_*；依赖见仓库根 requirements-memrl.txt）:
 
-  cd /path/to/nvdamasgm && python scripts/medmcqa/eval_collab_multidomain_global.py \
+  cd /path/to/nvdamasgm && python scripts/eval_collab_multidomain_global.py \
     --dataset_family alfworld \
     --alfworld_domains bathroom,bedroom,kitchen,living \
     --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
@@ -836,7 +836,7 @@ memrl 不需要 --gm3_*；依赖见仓库根 requirements-memrl.txt）:
 
 仅评测（同一 RUN_ID；需已有 global/memrl/mem_cubes；不要与 --reset_memory 同用）:
 
-  cd /path/to/nvdamasgm && python scripts/medmcqa/eval_collab_multidomain_global.py \
+  cd /path/to/nvdamasgm && python scripts/eval_collab_multidomain_global.py \
     --dataset_family alfworld \
     --alfworld_domains bathroom,bedroom,kitchen,living \
     --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
@@ -858,7 +858,7 @@ memrl 不需要 --gm3_*；依赖见仓库根 requirements-memrl.txt）:
 _BFCL_MT_FAMILY_GMEMORY_EXAMPLE = r"""
 BFCL 四族 + g-memory（默认 train/test 路径即 argparse 默认值；可先跑 scripts/gorilla/split_bfcl_mt_four_families.py）:
 
-  cd /path/to/nvdamasgm && python scripts/medmcqa/eval_collab_multidomain_global.py \
+  cd /path/to/nvdamasgm && python scripts/eval_collab_multidomain_global.py \
     --dataset_family bfcl_mt \
     --bfcl_use_family_collab_split \
     --mas_type autogen \

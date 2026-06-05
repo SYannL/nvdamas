@@ -12,7 +12,7 @@ from typing import Any
 
 os.environ.setdefault("HF_ENDPOINT", "https://huggingface.co")
 _script_dir = os.path.abspath(os.path.dirname(__file__))
-sys.path.insert(0, os.path.abspath(os.path.join(_script_dir, "../..")))
+sys.path.insert(0, os.path.abspath(os.path.join(_script_dir, "..")))
 sys.path.insert(0, _script_dir)
 
 from mas.llm import GPTChat, Message

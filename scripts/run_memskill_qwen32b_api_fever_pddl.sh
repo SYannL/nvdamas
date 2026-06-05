@@ -3,10 +3,10 @@
 # OpenAI-compatible endpoint.
 #
 # Usage:
-#   bash scripts/medmcqa/run_memskill_qwen32b_api_fever_pddl.sh
-#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/medmcqa/run_memskill_qwen32b_api_fever_pddl.sh
-#   OPENAI_API_BASE=http://127.0.0.1:8004/v1 bash scripts/medmcqa/run_memskill_qwen32b_api_fever_pddl.sh
-#   MEMSKILL_CHECKPOINT_PATH=Models/memskill/alfworld_controller.pt bash scripts/medmcqa/run_memskill_qwen32b_api_fever_pddl.sh
+#   bash scripts/run_memskill_qwen32b_api_fever_pddl.sh
+#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/run_memskill_qwen32b_api_fever_pddl.sh
+#   OPENAI_API_BASE=http://127.0.0.1:8004/v1 bash scripts/run_memskill_qwen32b_api_fever_pddl.sh
+#   MEMSKILL_CHECKPOINT_PATH=Models/memskill/alfworld_controller.pt bash scripts/run_memskill_qwen32b_api_fever_pddl.sh
 
 set -euo pipefail
 
@@ -102,7 +102,7 @@ start_job() {
   shift 2
 
   local cmd=(
-    "${PYTHON_BIN}" scripts/medmcqa/eval_collab_multidomain_global.py
+    "${PYTHON_BIN}" scripts/eval_collab_multidomain_global.py
     "$@"
     "${COMMON_ARGS[@]}"
     "${MEMSKILL_ARGS[@]}"

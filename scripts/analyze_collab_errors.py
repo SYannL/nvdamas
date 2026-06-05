@@ -1,10 +1,10 @@
-"""Analyze failed tasks from collab eval logs. Usage: python scripts/medmcqa/analyze_collab_errors.py --log_base logs/medmcqa_collab_eval/20260218_132751/autogen/memory/memgraph/unknown/eval --report_dir reports/collab/20260305_133814 --tasks_per 20"""
+"""Analyze failed tasks from collab eval logs. Usage: python scripts/analyze_collab_errors.py --log_base logs/medmcqa_collab_eval/20260218_132751/autogen/memory/memgraph/unknown/eval --report_dir reports/collab/20260305_133814 --tasks_per 20"""
 import os
 import sys
 from pathlib import Path
 from collections import Counter
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from reports.analyze_medmcqa_results import parse_log
 
 SCENARIOS = [

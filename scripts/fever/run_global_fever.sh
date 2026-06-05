@@ -75,7 +75,7 @@ MODEL_SAFE="$(printf '%s' "$MODEL" | tr '/:' '__')"
 RUN="${RUN:-fever_${MAS_MEMORY}_${MODEL_SAFE}_${TS}}"
 
 cmd=(
-    python -u scripts/medmcqa/eval_collab_multidomain_global.py
+    python -u scripts/eval_collab_multidomain_global.py
     --dataset_family fever
     --fever_domains "$FEVER_DOMAINS"
     --fever_train_jsonl "$FEVER_TRAIN_JSONL"

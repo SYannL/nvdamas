@@ -461,7 +461,7 @@ def _resolve_global_merged_json_from_logs_collab_dir(
     """
     Map logs/.../<eval_ns>/<run_id>/<mas_type>/memory/<mas_memory>/<model_type>/
     to ./.db/<model_type>/<eval_ns>/<run_id>/<mas_type>/memory/<mas_memory>/global/<mas_memory>/merged_instance_graph.json
-    (same layout as scripts/medmcqa/eval_collab_domain_adaptation.py base_dir + global + namespace).
+    (same layout as scripts/eval_collab_domain_adaptation.py base_dir + global + namespace).
     """
     p = collab_run_dir.resolve()
     parts = p.parts
@@ -527,7 +527,7 @@ def _load_rebuild_selectivemem_global_fn():  # type: ignore[no-untyped-def]
     """Load rebuild_selectivemem_global_from_locals without requiring scripts/ to be a package."""
     _ensure_repo_on_syspath()
     repo = _repo_root()
-    path = repo / "scripts" / "medmcqa" / "eval_collab_domain_adaptation.py"
+    path = repo / "scripts" / "eval_collab_domain_adaptation.py"
     if not path.is_file():
         raise FileNotFoundError(f"Cannot load rebuild helper: {path}")
     spec = importlib.util.spec_from_file_location("eval_collab_domain_adaptation_viz", path)

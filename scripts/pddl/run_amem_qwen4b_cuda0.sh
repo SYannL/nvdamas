@@ -40,7 +40,7 @@ if [ -z "${PYTHON_BIN}" ]; then
 fi
 
 CMD=(
-  "${PYTHON_BIN}" scripts/medmcqa/eval_collab_multidomain_global.py
+  "${PYTHON_BIN}" scripts/eval_collab_multidomain_global.py
   --dataset_family pddl
   --pddl_domains gripper,blockworld,barman,tyreworld
   --pddl_train_jsonl data/pddl/pddl_domain_gripper.jsonl,data/pddl/pddl_domain_blockworld.jsonl,data/pddl/pddl_domain_barman.jsonl,data/pddl/pddl_domain_tyreworld.jsonl

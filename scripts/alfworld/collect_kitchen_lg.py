@@ -31,10 +31,10 @@ from prompts import get_dataset_system_prompt, get_task_few_shots
 
 def _load_eval_helpers(repo_root: Path):
     """
-    Load helper functions from scripts/medmcqa/eval_collab_domain_adaptation.py without requiring
+    Load helper functions from scripts/eval_collab_domain_adaptation.py without requiring
     scripts/ to be a Python package.
     """
-    module_path = repo_root / "scripts" / "medmcqa" / "eval_collab_domain_adaptation.py"
+    module_path = repo_root / "scripts" / "eval_collab_domain_adaptation.py"
     spec = importlib.util.spec_from_file_location("nvdamas_eval_collab_domain_adaptation", module_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not import helpers from {module_path}")

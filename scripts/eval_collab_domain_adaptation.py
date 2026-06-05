@@ -111,7 +111,7 @@ def _print_train_progress(
         print("\r" + msg, end="", flush=True)
 
 os.environ.setdefault("HF_ENDPOINT", "https://huggingface.co")
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from mas.llm import GPTChat
 from mas.module_map import module_map

@@ -3,8 +3,8 @@
 # background processes on CUDA 0 against the local OpenAI-compatible endpoint.
 #
 # Usage:
-#   bash scripts/medmcqa/run_amem_qwen4b_cuda0_parallel.sh
-#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/medmcqa/run_amem_qwen4b_cuda0_parallel.sh
+#   bash scripts/run_amem_qwen4b_cuda0_parallel.sh
+#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/run_amem_qwen4b_cuda0_parallel.sh
 
 set -euo pipefail
 
@@ -65,7 +65,7 @@ start_job() {
   shift 2
 
   local cmd=(
-    "${PYTHON_BIN}" scripts/medmcqa/eval_collab_multidomain_global.py
+    "${PYTHON_BIN}" scripts/eval_collab_multidomain_global.py
     "$@"
     "${COMMON_ARGS[@]}"
     --run_id "${run_id}"

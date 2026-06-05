@@ -2,9 +2,9 @@
 # Launch PDDL GraphMemory3 evaluation with gpt-4o-mini.
 #
 # Usage:
-#   OPENAI_API_KEY=... bash scripts/medmcqa/run_gm3_gpt4omini_pddl.sh
-#   RUN_ID=my_run OPENAI_API_KEY=... bash scripts/medmcqa/run_gm3_gpt4omini_pddl.sh
-#   MAX_TRAIN=10 MAX_EVAL=20 OPENAI_API_KEY=... bash scripts/medmcqa/run_gm3_gpt4omini_pddl.sh
+#   OPENAI_API_KEY=... bash scripts/run_gm3_gpt4omini_pddl.sh
+#   RUN_ID=my_run OPENAI_API_KEY=... bash scripts/run_gm3_gpt4omini_pddl.sh
+#   MAX_TRAIN=10 MAX_EVAL=20 OPENAI_API_KEY=... bash scripts/run_gm3_gpt4omini_pddl.sh
 
 set -euo pipefail
 
@@ -48,7 +48,7 @@ if [ -z "${OPENAI_API_KEY}" ]; then
 fi
 
 CMD=(
-  "${PYTHON_BIN}" scripts/medmcqa/eval_collab_multidomain_global.py
+  "${PYTHON_BIN}" scripts/eval_collab_multidomain_global.py
   --dataset_family pddl
   --pddl_domains gripper,blockworld,barman,tyreworld
   --pddl_train_jsonl data/pddl/pddl_domain_gripper.jsonl,data/pddl/pddl_domain_blockworld.jsonl,data/pddl/pddl_domain_barman.jsonl,data/pddl/pddl_domain_tyreworld.jsonl

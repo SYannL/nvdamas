@@ -3,7 +3,7 @@
 This repository contains the evaluation code for running a shared memory-enabled multi-agent system across multiple domains and benchmarks. The main reviewer-facing entry point is:
 
 ```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py
+python scripts/eval_collab_multidomain_global.py
 ```
 
 The script follows the same high-level protocol for every benchmark: train local memory on each source domain, merge local memories into a shared global memory, and evaluate each target split with local plus global retrieval.
@@ -29,7 +29,7 @@ All benchmarks use the same multidomain protocol. The script first builds a loca
 The core command shape is:
 
 ```bash
-python scripts/medmcqa/eval_collab_multidomain_global.py \
+python scripts/eval_collab_multidomain_global.py \
   -dataset_family alfworld \
   --alfworld_domains bathroom,bedroom,kitchen,living \
   --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \

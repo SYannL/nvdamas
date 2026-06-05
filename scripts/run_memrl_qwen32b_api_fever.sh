@@ -2,9 +2,9 @@
 # Launch FEVER MemRL evaluation against a local qwen32b-api OpenAI-compatible endpoint.
 #
 # Usage:
-#   bash scripts/medmcqa/run_memrl_qwen32b_api_fever.sh
-#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/medmcqa/run_memrl_qwen32b_api_fever.sh
-#   OPENAI_API_BASE=http://127.0.0.1:8000/v1 bash scripts/medmcqa/run_memrl_qwen32b_api_fever.sh
+#   bash scripts/run_memrl_qwen32b_api_fever.sh
+#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/run_memrl_qwen32b_api_fever.sh
+#   OPENAI_API_BASE=http://127.0.0.1:8000/v1 bash scripts/run_memrl_qwen32b_api_fever.sh
 
 set -euo pipefail
 
@@ -54,7 +54,7 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 CMD=(
-  "${PYTHON_BIN}" scripts/medmcqa/eval_collab_multidomain_global.py
+  "${PYTHON_BIN}" scripts/eval_collab_multidomain_global.py
   --dataset_family fever
   --fever_domains A_film_tv,B_music
   --fever_train_jsonl data/fever/fever_ab_train_A_v3.jsonl,data/fever/fever_ab_train_B_v3.jsonl

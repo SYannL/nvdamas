@@ -11,7 +11,7 @@ if [ -f ".env" ]; then
     export $(grep -v '^#' ".env" | xargs)
 fi
 
-python scripts/medmcqa/eval_collab_domain_adaptation.py \
+python scripts/eval_collab_domain_adaptation.py \
     --dataset_family alfworld \
     --alfworld_group_a kitchen_statechange \
     --alfworld_group_b home_search \
