@@ -8,13 +8,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .graph_memory2 import GraphMemory2MASMemory
-from .gm2_backend import rank_messages_for_query
+from ._graph_memory3_base import GraphMemory3Base
+from .gm3_backend import rank_messages_for_query
 from .gm3_backend.prompt_styles import prompt_style_for_query
 
 
 @dataclass
-class GraphMemory3MASMemory(GraphMemory2MASMemory):
+class GraphMemory3MASMemory(GraphMemory3Base):
     """GraphMemory3: prompt-only local/global graph routing with text-loss pruning.
 
     GM3 reuses the shared graph construction/persistence backend, but keeps its
@@ -27,7 +27,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
     - dataset styles render ALFWorld/PDDL/FEVER memory without cross-task wording.
 
     The class is prompt-only by default. It does not override concrete actions
-    through the GM2 action hook, so the non-memory nvdamas workflow remains
+    through the GM3 action hook, so the non-memory nvdamas workflow remains
     unchanged.
     """
 
@@ -681,7 +681,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
         setting = str(self._graph_config_value("settings", "local_only") or "local_only")
         if query is None:
             note = self._external_error or "GraphMemory3 query unavailable for this task state."
-            self._gm2_debug_append(
+            self._gm3_debug_append(
                 "gm3_retrieve_unavailable",
                 step_index=step_index,
                 payload={"note": note, "setting": setting},
@@ -732,7 +732,7 @@ class GraphMemory3MASMemory(GraphMemory2MASMemory):
             query_task=str(kargs.get("query_task") or ""),
         )
 
-        self._gm2_debug_append(
+        self._gm3_debug_append(
             "gm3_retrieve",
             step_index=step_index,
             payload={

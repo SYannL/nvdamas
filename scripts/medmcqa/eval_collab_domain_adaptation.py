@@ -22,101 +22,29 @@ from networkx.readwrite import json_graph
 # Keep terminal output clean: we only want progress prints (and success rate).
 os.environ.setdefault("NV_DAMAS_CONSOLE_LOG", "0")
 
-GM2_RETRIEVAL_MODE_CHOICES: tuple[str, ...] = (
-    "lightweight",
-    "query",
-    "phasee_compat",
-    "phasee_policy",
-    "phasee_action",
-    "hybrid_policy",
-    "hybrid_repair",
-    "lightweight_repair",
-    "graph_policy",
-    "graph_policy_rerank",
-    "graph_policy_feedback",
-    "graph_policy_candidate",
-    "graph_policy_quality",
-)
 GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ("base", "local_only", "global_only", "local_plus_global")
 GM3_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
 
 
-def _warn_legacy_graph_arg(memory_type: str, legacy_flag: str, new_flag: str, value: object) -> None:
-    print(
-        f"[config] {memory_type} received legacy {legacy_flag}={value!r}; prefer {new_flag}.",
-        flush=True,
-    )
-
-
 def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir: str) -> dict[str, Any]:
-    if args.mas_memory == "graph_memory2":
-        config: dict[str, Any] = {
-            "gm2_dynamic_graph": bool(args.gm2_dynamic_graph),
-            "gm2_repo_root": str(args.gm2_repo_root or "").strip(),
-            "gm2_retrieval_mode": str(args.gm2_retrieval_mode or "lightweight").strip(),
-            "gm2_settings": str(args.gm2_settings or "local_plus_global").strip(),
-            "gm2_promotion_threshold": float(args.gm2_promotion_threshold),
-            "gm2_shared_global_dir": shared_global_dir,
-        }
-        if args.gm2_enable_overlay:
-            config["gm2_enable_overlay"] = True
-        return config
-
     if args.mas_memory != "graph_memory3":
         return {}
 
-    gm3_dynamic_graph = bool(args.gm3_dynamic_graph)
-    if not gm3_dynamic_graph and bool(args.gm2_dynamic_graph):
-        gm3_dynamic_graph = True
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_dynamic_graph", "--gm3_dynamic_graph", True)
+    gm3_router = str(args.gm3_router or "").strip().lower() or "textloss"
+    gm3_settings = str(args.gm3_settings or "").strip() or "local_plus_global"
+    gm3_promotion_threshold = float(args.gm3_promotion_threshold) if args.gm3_promotion_threshold is not None else 0.35
 
-    gm3_repo_root = str(args.gm3_repo_root or "").strip()
-    if not gm3_repo_root and str(args.gm2_repo_root or "").strip():
-        gm3_repo_root = str(args.gm2_repo_root).strip()
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_repo_root", "--gm3_repo_root", gm3_repo_root)
-
-    gm3_router = str(args.gm3_router or "").strip().lower()
-    legacy_mode = str(args.gm2_retrieval_mode or "lightweight").strip().lower()
-    if not gm3_router and legacy_mode != "lightweight":
-        gm3_router = "textloss"
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_retrieval_mode", "--gm3_router", legacy_mode)
-    gm3_router = gm3_router or "textloss"
-
-    gm3_settings = str(args.gm3_settings or "").strip()
-    legacy_settings = str(args.gm2_settings or "local_plus_global").strip()
-    if not gm3_settings and legacy_settings != "local_plus_global":
-        gm3_settings = legacy_settings
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_settings", "--gm3_settings", legacy_settings)
-    gm3_settings = gm3_settings or "local_plus_global"
-
-    gm3_enable_overlay = bool(args.gm3_enable_overlay)
-    if not gm3_enable_overlay and bool(args.gm2_enable_overlay):
-        gm3_enable_overlay = True
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_enable_overlay", "--gm3_enable_overlay", True)
-
-    gm3_promotion_threshold = args.gm3_promotion_threshold
-    if gm3_promotion_threshold is None and float(args.gm2_promotion_threshold) != 0.35:
-        gm3_promotion_threshold = float(args.gm2_promotion_threshold)
-        _warn_legacy_graph_arg(
-            args.mas_memory,
-            "--gm2_promotion_threshold",
-            "--gm3_promotion_threshold",
-            gm3_promotion_threshold,
-        )
-    if gm3_promotion_threshold is None:
-        gm3_promotion_threshold = 0.35
-
-    config = {
-        "gm3_dynamic_graph": gm3_dynamic_graph,
-        "gm3_repo_root": gm3_repo_root,
+    config: dict[str, Any] = {
+        "gm3_dynamic_graph": bool(args.gm3_dynamic_graph),
+        "gm3_repo_root": str(args.gm3_repo_root or "").strip(),
         "gm3_router": gm3_router,
         "gm3_settings": gm3_settings,
-        "gm3_promotion_threshold": float(gm3_promotion_threshold),
+        "gm3_promotion_threshold": gm3_promotion_threshold,
         "gm3_shared_global_dir": shared_global_dir,
         "gm3_use_textgrad": bool(args.gm3_use_textgrad),
         "gm3_textgrad_engine": str(args.gm3_textgrad_engine or "").strip(),
     }
-    if gm3_enable_overlay:
+    if bool(args.gm3_enable_overlay):
         config["gm3_enable_overlay"] = True
     return config
 
@@ -1791,23 +1719,22 @@ def memrl_collab_global_ready(global_dir: str, *, namespace: str = "memrl") -> b
         return False
 
 
-def rebuild_graph_memory2_global_from_locals(
+def rebuild_graph_memory3_global_from_locals(
     *,
     local_dirs: list[str],
     global_dir: str,
     promotion_threshold: float,
-    gm2_repo_root: str = "",
-    memory_namespace: str = "graph_memory2",
+    memory_namespace: str = "graph_memory3",
 ) -> None:
-    """Rebuild shared GM2/GM3 global memory from dynamic local graph artifacts."""
+    """Rebuild shared graph-memory global memory from dynamic local graph artifacts."""
     try:
-        from mas.memory.mas_memory.gm2_backend.build_memory_graph import _global_to_dict
-        from mas.memory.mas_memory.gm2_backend.construction_graph import GlobalPromoter
-        from mas.memory.mas_memory.gm2_backend.graph_types import GlobalGraphMemory
-        from mas.memory.mas_memory.gm2_backend.serialization import load_local_memory
+        from mas.memory.mas_memory.gm3_backend.build_memory_graph import _global_to_dict
+        from mas.memory.mas_memory.gm3_backend.construction_graph import GlobalPromoter
+        from mas.memory.mas_memory.gm3_backend.graph_types import GlobalGraphMemory
+        from mas.memory.mas_memory.gm3_backend.serialization import load_local_memory
     except Exception as exc:
         raise RuntimeError(
-            "GraphMemory2 global rebuild needs vendored gm2_backend graph modules."
+            "GraphMemory global rebuild needs vendored gm3_backend graph modules."
         ) from exc
 
     locals_loaded = []
@@ -1840,13 +1767,13 @@ def rebuild_graph_memory2_global_from_locals(
         json.dump(summary, writer, ensure_ascii=False, indent=2)
 
 
-def reset_graph_memory2_artifacts_once(memory_dirs: list[str], owner_scenes: list[str], memory_namespace: str = "graph_memory2") -> None:
-    """Start GM2/GM3 from empty known artifacts without deleting run/log directories."""
+def reset_graph_memory3_artifacts_once(memory_dirs: list[str], owner_scenes: list[str], memory_namespace: str = "graph_memory3") -> None:
+    """Start graph-memory from empty known artifacts without deleting run/log directories."""
     try:
-        from mas.memory.mas_memory.gm2_backend.build_memory_graph import _global_to_dict, _local_to_dict
-        from mas.memory.mas_memory.gm2_backend.graph_types import GlobalGraphMemory, LocalGraphMemory
+        from mas.memory.mas_memory.gm3_backend.build_memory_graph import _global_to_dict, _local_to_dict
+        from mas.memory.mas_memory.gm3_backend.graph_types import GlobalGraphMemory, LocalGraphMemory
     except Exception as exc:
-        raise RuntimeError("GraphMemory2 reset needs vendored gm2_backend graph modules.") from exc
+        raise RuntimeError("GraphMemory reset needs vendored gm3_backend graph modules.") from exc
 
     for memory_dir, scene in zip(memory_dirs, owner_scenes):
         pdir = Path(memory_dir) / memory_namespace
@@ -2074,26 +2001,8 @@ def main() -> None:
         action="store_true",
         help="Append fine-grained timing JSONL under log_dir / persist_dir (NV_DAMAS_PROFILE=1 + mem_config.profile_timing).",
     )
-    parser.add_argument("--gm2_dynamic_graph", action="store_true", help="GraphMemory2: dynamically build local/global graph memory.")
-    parser.add_argument("--gm2_repo_root", type=str, default="", help="Deprecated: GraphMemory2 modules are vendored under gm2_backend.")
-    parser.add_argument(
-        "--gm2_retrieval_mode",
-        type=str,
-        default="lightweight",
-        choices=GM2_RETRIEVAL_MODE_CHOICES,
-        help="GraphMemory2 retrieval mode.",
-    )
-    parser.add_argument(
-        "--gm2_settings",
-        type=str,
-        default="local_plus_global",
-        choices=GRAPH_MEMORY_SETTINGS_CHOICES,
-        help="GraphMemory2 eval memory setting. Train local phase uses local_only.",
-    )
-    parser.add_argument("--gm2_enable_overlay", action="store_true", help="GraphMemory2: include per-episode overlay notes.")
-    parser.add_argument("--gm2_promotion_threshold", type=float, default=0.35, help="GraphMemory2 global promotion threshold.")
     parser.add_argument("--gm3_dynamic_graph", action="store_true", help="GraphMemory3: dynamically build local/global graph memory.")
-    parser.add_argument("--gm3_repo_root", type=str, default="", help="Deprecated: GraphMemory3 modules are vendored under gm2_backend.")
+    parser.add_argument("--gm3_repo_root", type=str, default="", help="Deprecated: GraphMemory3 modules are vendored under gm3_backend.")
     parser.add_argument("--gm3_router", type=str, default="", choices=GM3_ROUTER_CHOICES, help="GraphMemory3 prompt router.")
     parser.add_argument(
         "--gm3_settings",
@@ -2281,9 +2190,9 @@ def main() -> None:
     local_b_dir = os.path.join(local_dir, task_b_label)
     ensure_dir(local_a_dir)
     ensure_dir(local_b_dir)
-    gm_graph_memory_names = {"graph_memory2", "graph_memory3"}
+    gm_graph_memory_names = {"graph_memory3"}
     graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
-    graph_memory_prefix = "gm3" if args.mas_memory == "graph_memory3" else "gm2"
+    graph_memory_prefix = "gm3"
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
         graph_memory_common.get(f"{graph_memory_prefix}_settings", "local_plus_global") or "local_plus_global"
@@ -2291,9 +2200,8 @@ def main() -> None:
     graph_promotion_threshold = float(
         graph_memory_common.get(f"{graph_memory_prefix}_promotion_threshold", 0.35) or 0.35
     )
-    graph_repo_root = str(graph_memory_common.get(f"{graph_memory_prefix}_repo_root", "") or "").strip()
     if args.reset_memory and args.mas_memory in gm_graph_memory_names and graph_dynamic_graph:
-        reset_graph_memory2_artifacts_once(
+        reset_graph_memory3_artifacts_once(
             memory_dirs=[local_a_dir, local_b_dir, global_dir],
             owner_scenes=[task_a_label, task_b_label, "global"],
             memory_namespace=args.mas_memory,
@@ -3151,11 +3059,10 @@ def main() -> None:
             snapshot_tag=None,
         )
     elif args.mas_memory in gm_graph_memory_names and graph_dynamic_graph:
-        rebuild_graph_memory2_global_from_locals(
+        rebuild_graph_memory3_global_from_locals(
             local_dirs=[local_a_dir, local_b_dir],
             global_dir=global_dir,
             promotion_threshold=graph_promotion_threshold,
-            gm2_repo_root=graph_repo_root,
             memory_namespace=args.mas_memory,
         )
     elif args.mas_memory == "empty":

@@ -12,7 +12,6 @@ from .memory import (
     GMemory,
     GMemoryGraphMASMemory,
     SelectiveMemMASMemory,
-    GraphMemory2MASMemory,
     GraphMemory3MASMemory,
     MemRLMASMemory,
     MemSkillMASMemory,
@@ -34,16 +33,13 @@ def module_map(
         'chatdev': ChatDevMASMemory,
         'generative': GenerativeMASMemory,
         'metagpt': MetaGPTMASMemory,
-        # A-Mem experiments use the G-Memory implementation with an amem namespace.
-        'amem': GMemory,
+        'amem': AMemMASMemory,
         'g-memory': GMemory,
         'gmemgraph': GMemoryGraphMASMemory,
         'selectivemem': SelectiveMemMASMemory,
-        'graph_memory2': GraphMemory2MASMemory,
         'graph_memory3': GraphMemory3MASMemory,
         'memrl': MemRLMASMemory,
         'memskill': MemSkillMASMemory,
-        'amem': AMemMASMemory,
     }
 
     if reasoning not in reasoning_map:

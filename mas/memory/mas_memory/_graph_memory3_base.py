@@ -11,16 +11,16 @@ from typing import Any
 
 from .memory_base import MASMemoryBase
 from ..common import MASMessage
-from .gm2_backend import (
-    GM2OnlineEpisodeBuilder,
-    build_gm2_prompt_payload,
+from .gm3_backend import (
+    GM3OnlineEpisodeBuilder,
+    build_gm3_prompt_payload,
     rank_messages_for_query,
 )
 
 
 @dataclass
-class GraphMemory2MASMemory(MASMemoryBase):
-    """Minimal GM2 backend integrated into the current MAS memory lifecycle.
+class GraphMemory3Base(MASMemoryBase):
+    """Minimal GM3 backend integrated into the current MAS memory lifecycle.
 
     Phase 1 goals:
     - dynamic per-episode overlay via move_memory_state()
@@ -29,7 +29,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
     """
 
     committed_messages: list[MASMessage] = field(default_factory=list, init=False)
-    episode_builder: GM2OnlineEpisodeBuilder | None = field(default=None, init=False)
+    episode_builder: GM3OnlineEpisodeBuilder | None = field(default=None, init=False)
     insight_bank: list[str] = field(default_factory=list, init=False)
     refresh_each_step: bool = field(default=False, init=False)
     _external_adapter: Any = field(default=None, init=False, repr=False)
@@ -71,7 +71,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.namespace = self.namespace or "graph_memory2"
+        self.namespace = self.namespace or "graph_memory3"
         self._records_path = os.path.join(self.persist_dir, "episodes.jsonl")
         self._insights_path = os.path.join(self.persist_dir, "insights.json")
         self.freeze_memory: bool = bool(self._graph_config_value("freeze_memory", False))
@@ -112,7 +112,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
     def init_task_context(self, task_main: str, task_description: str = None) -> MASMessage:
         message = super().init_task_context(task_main, task_description)
-        self.episode_builder = GM2OnlineEpisodeBuilder.from_task(task_main, task_description or "")
+        self.episode_builder = GM3OnlineEpisodeBuilder.from_task(task_main, task_description or "")
         self._gm2_episode_global_skeleton = []
         self._gm2_episode_global_skeleton_key = ""
         self._gm2_episode_feedback_items = {}
@@ -165,7 +165,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         if self._external_enabled:
             return self._retrieve_external_prompt_payload(**kargs)
         successful, failed, insights = self.retrieve_memory(**kargs)
-        payload = build_gm2_prompt_payload(
+        payload = build_gm3_prompt_payload(
             successful_messages=successful,
             failed_messages=failed,
             overlay_builder=self.episode_builder if self.enable_overlay else None,
@@ -185,18 +185,17 @@ class GraphMemory2MASMemory(MASMemoryBase):
             return
 
         try:
-            from .gm2_backend.alfworld_adapter import ALFWorldAdapter
-            from .gm2_backend.bfcl_mt_adapter import BfclAdapter
-            from .gm2_backend.fever_adapter import FeverAdapter
-            from .gm2_backend.pddl_2_adapter import PDDL2Adapter
-            from .gm2_backend.pddl_adapter import PDDLAdapter
-            from .gm2_backend.scienceworld_adapter import ScienceWorldAdapter
-            from .gm2_backend.build_memory_graph import _global_to_dict, _local_to_dict
-            from .gm2_backend.construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
-            from .gm2_backend.graph_types import CandidateType, GlobalGraphMemory, LocalGraphMemory, MemoryQuery
-            from .gm2_backend.phasee_retrieval import PhaseECompatRetriever
-            from .gm2_backend.retrieval_graph import QueryBasedRetriever
-            from .gm2_backend.serialization import (
+            from .gm3_backend.alfworld_adapter import ALFWorldAdapter
+            from .gm3_backend.bfcl_mt_adapter import BfclAdapter
+            from .gm3_backend.fever_adapter import FeverAdapter
+            from .gm3_backend.pddl_2_adapter import PDDL2Adapter
+            from .gm3_backend.pddl_adapter import PDDLAdapter
+            from .gm3_backend.scienceworld_adapter import ScienceWorldAdapter
+            from .gm3_backend.build_memory_graph import _global_to_dict, _local_to_dict
+            from .gm3_backend.construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
+            from .gm3_backend.graph_types import CandidateType, GlobalGraphMemory, LocalGraphMemory, MemoryQuery
+            from .gm3_backend.retrieval_graph import QueryBasedRetriever
+            from .gm3_backend.serialization import (
                 empty_global,
                 empty_local,
                 load_global_memory,
@@ -204,7 +203,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             )
         except Exception as exc:
             self._external_error = (
-                "failed to import vendored gm2_backend graph modules. "
+                "failed to import vendored gm3_backend graph modules. "
                 f"{type(exc).__name__}: {exc}"
             )
             return
@@ -218,10 +217,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 self._save_gm2_feedback_stats()
             else:
                 self._gm2_feedback_stats = self._load_gm2_feedback_stats()
-        if mode == "phasee_compat":
-            self._external_retriever = PhaseECompatRetriever(local_top_k=4, global_top_k=3)
-        else:
-            self._external_retriever = QueryBasedRetriever(top_k=5)
+        self._external_retriever = QueryBasedRetriever(top_k=5)
 
         self._external_adapters = {
             "alfworld": ALFWorldAdapter(),
@@ -243,7 +239,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         self._external_global_to_dict = _global_to_dict
         self._external_load_global_memory = load_global_memory
         self._external_artifact_dir = Path(self.persist_dir)
-        self._gm2_debug_trace_path = Path(self.persist_dir) / "gm2_debug_trace.jsonl"
+        self._gm2_debug_trace_path = Path(self.persist_dir) / "gm3_debug_trace.jsonl"
         self._dynamic_graph_enabled = dynamic_graph
         shared_global_dir = str(self._graph_config_value("shared_global_dir", "") or "").strip()
         if shared_global_dir:
@@ -264,9 +260,9 @@ class GraphMemory2MASMemory(MASMemoryBase):
             for candidate in (path, *path.parents):
                 if candidate.name == self.namespace:
                     add(candidate)
-                    # Full nvdamas runs store GM2 artifacts as:
-                    #   .../memory/graph_memory2/local/<scene>/graph_memory2/local_<scene>.json
-                    #   .../memory/graph_memory2/global/graph_memory2/global_memory.json
+                    # Full nvdamas runs store GM3 artifacts as:
+                    #   .../memory/graph_memory3/local/<scene>/graph_memory3/local_<scene>.json
+                    #   .../memory/graph_memory3/global/graph_memory3/global_memory.json
                     if candidate.parent.name in {"local", "global"}:
                         add(candidate.parent.parent)
             return roots
@@ -339,7 +335,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         self.refresh_each_step = True
 
     def _gm2_local_artifact_scene(self, path: Path) -> str:
-        """Return the scene owned by a local GM2 artifact directory.
+        """Return the scene owned by a local graph-memory artifact directory.
 
         Full collab runs store per-scene memory under:
             .../<memory_name>/local/<scene>/<memory_name>/
@@ -366,7 +362,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
             except Exception:
                 pass
         try:
-            from .gm2_backend.graph_types import GlobalGraphMemory
+            from .gm3_backend.graph_types import GlobalGraphMemory
 
             self._external_global_memory = GlobalGraphMemory()
         except Exception:
@@ -617,7 +613,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         trajectory_payload = None
         if setting not in {"base", "global_only"}:
             successful, failed, insights = self.retrieve_memory(**kargs)
-            trajectory_payload = build_gm2_prompt_payload(
+            trajectory_payload = build_gm3_prompt_payload(
                 successful_messages=successful,
                 failed_messages=failed,
                 overlay_builder=None,
@@ -659,22 +655,15 @@ class GraphMemory2MASMemory(MASMemoryBase):
 
         bundle = self._external_retriever.retrieve(query, local_memory, global_memory)
         state = (query.dynamic_context or {})
-        if self._external_retrieval_mode == "phasee_action":
-            support_text = self._render_action_grounded_memory_evidence(
-                query=query,
-                bundle=bundle,
-                env_ref=kargs.get("env_ref"),
-            ).strip()
-        elif self._external_retrieval_mode == "lightweight":
+        if self._external_retrieval_mode == "lightweight":
             support_text = self._render_graph_aware_lightweight_evidence(
                 query=query,
                 bundle=bundle,
                 env_ref=kargs.get("env_ref"),
             ).strip()
-        elif self._external_retrieval_mode in {"phasee_policy", "graph_policy_quality"}:
-            # These modes render the original PhaseE-style state policy and
-            # static memory evidence together below. Keeping support_text empty
-            # avoids duplicating routed evidence in the final prompt.
+        elif self._external_retrieval_mode == "graph_policy_quality":
+            # graph_policy_quality renders memory evidence inside _phasee_policy_prompt_payload.
+            # Keeping support_text empty avoids duplicating routed evidence in the final prompt.
             support_text = ""
         elif self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_feedback", "graph_policy_candidate"}:
             support_text = self._render_graph_policy_evidence(
@@ -793,183 +782,53 @@ class GraphMemory2MASMemory(MASMemoryBase):
         return payload
 
     def _phasee_policy_prompt_payload(self, *, query: Any, bundle: Any, env_ref: Any) -> dict[str, list[str]]:
-        """Render PhaseE state policy as prompt-only guidance.
+        """Render graph_policy_quality memory evidence as prompt-only guidance.
 
-        This intentionally does not repair, rerank, or override actions. The
-        regular AutoGen workflow remains responsible for solver calls and
-        env.step().
+        Only graph_policy_quality is handled here (memory evidence without a
+        state-policy overlay). All other phasee modes return empty results.
         """
-        if self._external_retrieval_mode not in {
-            "phasee_compat",
-            "phasee_policy",
-            "phasee_action",
-            "graph_policy_quality",
-            "hybrid_policy",
-            "hybrid_repair",
-        } or env_ref is None:
-            return {"planner_notes": [], "action_constraints": [], "repair_hints": []}
-        admissible = [str(cmd) for cmd in (getattr(env_ref, "last_admissible_commands", []) or []) if str(cmd).strip()]
-        if not admissible:
+        if self._external_retrieval_mode != "graph_policy_quality" or env_ref is None:
             return {"planner_notes": [], "action_constraints": [], "repair_hints": []}
         try:
-            from .gm2_backend.graph_types import Domain, StateSummary
-            from .gm2_backend.phasee_state_policy import (
-                derive_state_policy,
-                fuse_state_memory,
-                render_state_critical_rules,
-            )
-
             context = query.dynamic_context or {}
-            observation = ""
-            history = list(getattr(env_ref, "current_history", []) or [])
-            if history:
-                observation = str(history[-1].get("Observation") or "")
-            if not observation:
-                observation = str(getattr(env_ref, "initial_observation", "") or "")
-            current_state = StateSummary(
-                domain=Domain.ALFWORLD,
-                scene_id=str(query.scene_id or "alfworld:unknown"),
-                location=query.location,
+            memory_support = bundle.to_planner_text(
+                max_items=4,
+                current_location=str(query.location or ""),
+                exhausted_locations=tuple(context.get("exhausted_locations", ()) or ()),
                 visible_objects=tuple(context.get("visible_objects", ()) or ()),
                 held_objects=tuple(context.get("held_objects", ()) or ()),
-                searched_locations=tuple(context.get("searched_locations", ()) or ()),
-                workflow_stage=query.current_stage,
-                raw_observation=observation,
-            )
-            steps = []
-            for row in history:
-                action_text = str(row.get("Action") or "").strip()
-                if not action_text:
-                    continue
-                obs = str(row.get("Observation") or "")
-                failure_label = "no_effect" if "Nothing happens" in obs else None
-                steps.append(
-                    SimpleNamespace(
-                        action=self._external_adapter.canonicalize_action(action_text),
-                        feedback=SimpleNamespace(failure_label=failure_label),
-                    )
+                task_family=str(query.task_family or ""),
+            ).strip()
+            self._record_phasee_quality_feedback_items(bundle)
+            sections: list[str] = []
+            if memory_support:
+                sections.append(
+                    "### GM3 STATIC MEMORY EVIDENCE\n"
+                    "Use this as supplementary graph memory evidence, not as a direct command. "
+                    "Prefer evidence that matches the current goal roles, held objects, visible objects, "
+                    "and admissible actions.\n"
+                    + memory_support
                 )
-            session = SimpleNamespace(
-                adapter=self._external_adapter,
-                current_state=current_state,
-                _steps=steps,
+            sections.append(
+                "### GM3 POLICY ROUTING\n"
+                "Use local graph evidence for current-state grounding. Use global evidence only as "
+                "abstract task workflow. Ignore scene-specific locations unless they are visible or "
+                "admissible now. Failed-memory evidence is cautionary, not an instruction to repeat it."
             )
-            recent_actions = list(
-                getattr(self.episode_builder.state, "recent_actions", [])
-                if self.episode_builder
-                else []
-            )
-            policy = derive_state_policy(
-                query=query,
-                session=session,
-                admissible_actions=admissible,
-                recent_actions=recent_actions[-5:],
-            )
-            fused = fuse_state_memory(
-                state_policy=policy,
-                bundle=bundle,
-                admissible_actions=admissible,
-                session=session,
-            )
-            rules_text = render_state_critical_rules(query, policy, fused).strip()
             planner_notes: list[str] = []
-            action_constraints: list[str] = []
-            repair_hints: list[str] = []
-            suggested = [str(item) for item in (fused.get("suggested_actions", []) or []) if str(item).strip()]
-            blocked = [str(item) for item in (fused.get("blocked_actions", []) or []) if str(item).strip()]
-            warnings = [str(item) for item in (fused.get("warnings", []) or []) if str(item).strip()]
-            if self._external_retrieval_mode in {"phasee_policy", "graph_policy_quality"}:
-                memory_support = bundle.to_planner_text(
-                    max_items=4,
-                    current_location=str(query.location or ""),
-                    exhausted_locations=tuple(context.get("exhausted_locations", ()) or ()),
-                    visible_objects=tuple(context.get("visible_objects", ()) or ()),
-                    held_objects=tuple(context.get("held_objects", ()) or ()),
-                    task_family=str(query.task_family or ""),
-                ).strip()
-                if self._external_retrieval_mode == "graph_policy_quality":
-                    self._record_phasee_quality_feedback_items(bundle)
-
-                sections: list[str] = []
-                if rules_text:
-                    sections.append(
-                        "### GM2 STATE AND QUERY CONSTRAINTS\n"
-                        "These constraints are derived from the current state, admissible actions, "
-                        "and GraphMemory2 policy fusion. Current observation remains authoritative.\n"
-                        + rules_text
-                    )
-                if memory_support:
-                    sections.append(
-                        "### GM2 STATIC MEMORY EVIDENCE\n"
-                        "Use this as supplementary GraphMemory2 evidence, not as a direct command. "
-                        "Prefer evidence that matches the current goal roles, held objects, visible objects, "
-                        "and admissible actions.\n"
-                        + memory_support
-                    )
-                if self._external_retrieval_mode == "graph_policy_quality":
-                    sections.append(
-                        "### GM2 POLICY ROUTING\n"
-                        "Use local graph evidence for current-state grounding. Use global evidence only as "
-                        "abstract task workflow. Ignore scene-specific locations unless they are visible or "
-                        "admissible now. Failed-memory evidence is cautionary, not an instruction to repeat it."
-                    )
-                if sections:
-                    title = (
-                        "### GM2 GRAPHPOLICY QUALITY VIEW"
-                        if self._external_retrieval_mode == "graph_policy_quality"
-                        else "### GM2 PHASEE POLICY VIEW"
-                    )
-                    planner_notes.append(
-                        title
-                        + "\nPrompt-only GraphMemory2 policy view aligned with the original PhaseE "
-                        "state-policy/memory-fusion prompt. It does not replace the nvdamas AutoGen workflow.\n"
-                        + "\n\n".join(sections)
-                    )
-                return {
-                    "planner_notes": planner_notes,
-                    "action_constraints": [],
-                    "repair_hints": [],
-                }
-            if self._external_retrieval_mode in {"phasee_action", "hybrid_policy", "hybrid_repair"}:
-                soft_lines = self._soft_phasee_policy_lines(
-                    query=query,
-                    rules_text=rules_text,
-                    suggested=suggested,
-                    warnings=warnings,
-                    include_suggestions=self._external_retrieval_mode != "phasee_action",
+            if sections:
+                planner_notes.append(
+                    "### GM3 GRAPHPOLICY QUALITY VIEW"
+                    "\nPrompt-only graph memory policy view. It does not replace the nvdamas AutoGen workflow.\n"
+                    + "\n\n".join(sections)
                 )
-                if soft_lines:
-                    planner_notes.append(
-                        "### GM2 SOFT PHASEE HINTS\n"
-                        "These are lightweight state hints. Treat them as weaker than the current observation "
-                        "and the exact admissible action list.\n"
-                        + "\n".join(soft_lines)
-                    )
-            else:
-                if rules_text:
-                    planner_notes.append(
-                        "### GM2 PHASEE STATE POLICY\n"
-                        "Use these state-derived constraints as prompt guidance only. "
-                        "Do not ignore the current observation or admissible actions.\n"
-                        + rules_text
-                    )
-                if suggested:
-                    action_constraints.append(
-                        "GM2 PhaseE suggested admissible actions: " + " | ".join(suggested[:5])
-                    )
-                if blocked:
-                    action_constraints.append(
-                        "GM2 PhaseE blocked/risky actions for this state: " + " | ".join(blocked[:5])
-                    )
-                if warnings:
-                    repair_hints.append("GM2 PhaseE warnings: " + " | ".join(warnings[:5]))
             return {
                 "planner_notes": planner_notes,
-                "action_constraints": action_constraints,
-                "repair_hints": repair_hints,
+                "action_constraints": [],
+                "repair_hints": [],
             }
         except Exception as exc:
-            self._external_error = f"phaseE prompt policy skipped: {type(exc).__name__}: {exc}"
+            self._external_error = f"graph_policy_quality prompt payload skipped: {type(exc).__name__}: {exc}"
             return {"planner_notes": [], "action_constraints": [], "repair_hints": []}
 
     def repair_action(
@@ -984,11 +843,9 @@ class GraphMemory2MASMemory(MASMemoryBase):
         """Optionally repair invalid ALFWorld actions before env.step().
 
         This is intentionally enabled only for explicit action/repair modes.
-        Existing lightweight / phasee_compat / phasee_policy / hybrid_policy
-        runs remain prompt-only.
+        Existing lightweight / hybrid_policy runs remain prompt-only.
         """
         action_modes = {
-            "phasee_action",
             "hybrid_repair",
             "lightweight_repair",
             "graph_policy",
@@ -1068,36 +925,6 @@ class GraphMemory2MASMemory(MASMemoryBase):
                 processed_admissible or processed_action,
                 "concrete_action_preserved",
             )
-
-        if processed_admissible and self._external_retrieval_mode == "phasee_action":
-            self._external_error = "last repair_action=already_admissible"
-            return processed_admissible
-
-        if self._external_retrieval_mode == "phasee_action":
-            # In the nvdamas workflow the solver is still responsible for the
-            # next action. Keep this hook deterministic: repair only formatting
-            # / extraction issues, never choose a new action from policy scores.
-            proposed_action = self._extract_admissible_action(
-                raw_response=str(raw_response or ""),
-                processed_action=processed_action,
-                admissible_actions=admissible,
-            )
-            if proposed_action is None:
-                proposed_action = self._deterministic_delivery_repair(
-                    processed_action=processed_action,
-                    env_ref=env_ref,
-                    task_config=task_config or {},
-                    step_index=step_index,
-                    admissible_actions=admissible,
-                )
-            if proposed_action:
-                self._external_error = (
-                    "last phasee_action=deterministic_repair; "
-                    f"selected={proposed_action}"
-                )
-                return proposed_action
-            self._external_error = "last phasee_action=no_deterministic_repair"
-            return processed_action
 
         if self._external_retrieval_mode == "lightweight_repair":
             # Lightweight repair is deliberately narrow. It never builds a
@@ -1232,100 +1059,20 @@ class GraphMemory2MASMemory(MASMemoryBase):
         )
         bundle = self._external_retriever.retrieve(query, local_memory, global_memory)
 
-        try:
-            from .gm2_backend.graph_types import Domain, StateSummary
-            from .gm2_backend.phasee_state_policy import (
-                derive_state_policy,
-                fuse_state_memory,
-                safe_extract_or_repair,
-            )
-
-            context = query.dynamic_context or {}
-            history = list(getattr(env_ref, "current_history", []) or [])
-            observation = ""
-            if history:
-                observation = str(history[-1].get("Observation") or "")
-            if not observation:
-                observation = str(getattr(env_ref, "initial_observation", "") or "")
-            current_state = StateSummary(
-                domain=Domain.ALFWORLD,
-                scene_id=str(query.scene_id or "alfworld:unknown"),
-                location=query.location,
-                visible_objects=tuple(context.get("visible_objects", ()) or ()),
-                held_objects=tuple(context.get("held_objects", ()) or ()),
-                searched_locations=tuple(context.get("searched_locations", ()) or ()),
-                workflow_stage=query.current_stage,
-                raw_observation=observation,
-            )
-            steps = []
-            for row in history:
-                action_text = str(row.get("Action") or "").strip()
-                if not action_text:
-                    continue
-                obs = str(row.get("Observation") or "")
-                failure_label = "no_effect" if "Nothing happens" in obs else None
-                steps.append(
-                    SimpleNamespace(
-                        action=self._external_adapter.canonicalize_action(action_text),
-                        feedback=SimpleNamespace(failure_label=failure_label),
-                    )
-                )
-            session = SimpleNamespace(
-                adapter=self._external_adapter,
-                current_state=current_state,
-                _steps=steps,
-            )
-            recent_actions = list(
-                getattr(self.episode_builder.state, "recent_actions", [])
-                if self.episode_builder
-                else []
-            )
-            policy = derive_state_policy(
-                query=query,
-                session=session,
-                admissible_actions=admissible,
-                recent_actions=recent_actions[-5:],
-            )
-            fused = fuse_state_memory(
-                state_policy=policy,
-                bundle=bundle,
-                admissible_actions=admissible,
-                session=session,
-            )
-            force_action = fused.get("force_action")
-            blocked_actions = set(fused.get("blocked_actions", []) or [])
-            if (
-                processed_admissible
-                and processed_admissible not in blocked_actions
-                and (not force_action or force_action == processed_admissible)
-            ):
-                self._external_error = "last hybrid_repair=already_admissible"
-                return processed_admissible
-
-            def _parser(text: str, commands: list[str]) -> str | None:
-                return self._extract_admissible_action(
-                    raw_response=text,
-                    processed_action=processed_action,
-                    admissible_actions=commands,
-                )
-
-            # Keep legacy repair modes conservative: repair invalid outputs, but
-            # avoid using estimated blocked actions to override already-valid
-            # solver choices.
-            fused["blocked_actions"] = []
-            repaired, repair_type, parsed = safe_extract_or_repair(
-                raw_response=str(raw_response or ""),
-                admissible_actions=admissible,
-                state_policy=policy,
-                fused_support=fused,
-                session=session,
-                parser=_parser,
-            )
-            self._external_error = f"last hybrid_repair={repair_type}; parsed={parsed or ''}"
-            return repaired or processed_action
-        except Exception as exc:
-            self._external_error = f"hybrid repair skipped: {type(exc).__name__}: {exc}"
-            return processed_action
+        # hybrid_repair falls back to deterministic extraction only.
+        if processed_admissible:
+            self._external_error = "last hybrid_repair=already_admissible"
+            return processed_admissible
+        proposed_action = self._extract_admissible_action(
+            raw_response=str(raw_response or ""),
+            processed_action=processed_action,
+            admissible_actions=admissible,
+        )
+        if proposed_action:
+            self._external_error = f"last hybrid_repair=deterministic_repair; selected={proposed_action}"
+            return proposed_action
+        self._external_error = "last hybrid_repair=no_deterministic_repair"
+        return processed_action
 
     def _gm2_graph_policy_rerank_freeform_search(
         self,
@@ -1681,8 +1428,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         take/process/deliver a visibly similar non-target object (for example
         mug while the task asks for cup), either replace it with an admissible
         same-location target action or turn it into a harmless thought. This
-        is deterministic guardrail logic and only affects graph_memory2's
-        graph_policy mode.
+        is deterministic guardrail logic and only affects graph_policy mode.
         """
         query = self._build_external_query(
             env_ref=env_ref,
@@ -5675,7 +5421,7 @@ class GraphMemory2MASMemory(MASMemoryBase):
         scene = self._resolve_external_owner_scene(kargs.get("task_config"), env_ref)
         local_memory = self._external_local_memories.get(scene)
         if local_memory is None:
-            from .gm2_backend.graph_types import LocalGraphMemory
+            from .gm3_backend.graph_types import LocalGraphMemory
 
             local_memory = LocalGraphMemory(agent_id=f"agent_{scene}")
             self._external_local_memories[scene] = local_memory

@@ -27,30 +27,14 @@ from scripts.medmcqa.eval_collab_domain_adaptation import (
     compute_metrics,
     ensure_dir,
     module_map,
-    rebuild_graph_memory2_global_from_locals,
+    rebuild_graph_memory3_global_from_locals,
     rebuild_selectivemem_global_from_locals,
-    reset_graph_memory2_artifacts_once,
+    reset_graph_memory3_artifacts_once,
     memrl_collab_global_ready,
     run_tasks,
 )
 
-# GraphMemory3 reuses GM2 persistence / shared global layout; treat like GM2 in this script.
-_GM_GRAPH_MEMORY = frozenset({"graph_memory2", "graph_memory3"})
-GM2_RETRIEVAL_MODE_CHOICES: tuple[str, ...] = (
-    "lightweight",
-    "query",
-    "phasee_compat",
-    "phasee_policy",
-    "phasee_action",
-    "hybrid_policy",
-    "hybrid_repair",
-    "lightweight_repair",
-    "graph_policy",
-    "graph_policy_rerank",
-    "graph_policy_feedback",
-    "graph_policy_candidate",
-    "graph_policy_quality",
-)
+_GM_GRAPH_MEMORY = frozenset({"graph_memory3"})
 GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ("base", "local_only", "global_only", "local_plus_global")
 GM3_ROUTER_CHOICES: tuple[str, ...] = ("textloss",)
 
@@ -272,82 +256,25 @@ def build_bfcl_mt_task(row: dict, answers_by_id: dict[str, dict], memory_domain:
     }
 
 
-def _warn_legacy_graph_arg(memory_type: str, legacy_flag: str, new_flag: str, value: object) -> None:
-    print(
-        f"[config] {memory_type} received legacy {legacy_flag}={value!r}; prefer {new_flag}.",
-        flush=True,
-    )
-
-
 def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir: str) -> dict[str, Any]:
-    if args.mas_memory == "graph_memory2":
-        config: dict[str, Any] = {
-            "gm2_dynamic_graph": bool(args.gm2_dynamic_graph),
-            "gm2_repo_root": str(args.gm2_repo_root or "").strip(),
-            "gm2_retrieval_mode": str(args.gm2_retrieval_mode or "graph_policy").strip(),
-            "gm2_settings": str(args.gm2_settings or "local_plus_global").strip(),
-            "gm2_promotion_threshold": float(args.gm2_promotion_threshold),
-            "gm2_shared_global_dir": shared_global_dir,
-        }
-        if bool(args.gm2_enable_overlay):
-            config["gm2_enable_overlay"] = True
-        return config
-
     if args.mas_memory != "graph_memory3":
         return {}
 
-    gm3_dynamic_graph = bool(args.gm3_dynamic_graph)
-    if not gm3_dynamic_graph and bool(args.gm2_dynamic_graph):
-        gm3_dynamic_graph = True
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_dynamic_graph", "--gm3_dynamic_graph", True)
+    gm3_router = str(args.gm3_router or "").strip().lower() or "textloss"
+    gm3_settings = str(args.gm3_settings or "").strip() or "local_plus_global"
+    gm3_promotion_threshold = float(args.gm3_promotion_threshold) if args.gm3_promotion_threshold is not None else 0.35
 
-    gm3_repo_root = str(args.gm3_repo_root or "").strip()
-    if not gm3_repo_root and str(args.gm2_repo_root or "").strip():
-        gm3_repo_root = str(args.gm2_repo_root).strip()
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_repo_root", "--gm3_repo_root", gm3_repo_root)
-
-    gm3_router = str(args.gm3_router or "").strip().lower()
-    legacy_mode = str(args.gm2_retrieval_mode or "graph_policy").strip().lower()
-    if not gm3_router and legacy_mode != "graph_policy":
-        gm3_router = "textloss"
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_retrieval_mode", "--gm3_router", legacy_mode)
-    gm3_router = gm3_router or "textloss"
-
-    gm3_settings = str(args.gm3_settings or "").strip()
-    legacy_settings = str(args.gm2_settings or "local_plus_global").strip()
-    if not gm3_settings and legacy_settings != "local_plus_global":
-        gm3_settings = legacy_settings
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_settings", "--gm3_settings", legacy_settings)
-    gm3_settings = gm3_settings or "local_plus_global"
-
-    gm3_enable_overlay = bool(args.gm3_enable_overlay)
-    if not gm3_enable_overlay and bool(args.gm2_enable_overlay):
-        gm3_enable_overlay = True
-        _warn_legacy_graph_arg(args.mas_memory, "--gm2_enable_overlay", "--gm3_enable_overlay", True)
-
-    gm3_promotion_threshold = args.gm3_promotion_threshold
-    if gm3_promotion_threshold is None and float(args.gm2_promotion_threshold) != 0.35:
-        gm3_promotion_threshold = float(args.gm2_promotion_threshold)
-        _warn_legacy_graph_arg(
-            args.mas_memory,
-            "--gm2_promotion_threshold",
-            "--gm3_promotion_threshold",
-            gm3_promotion_threshold,
-        )
-    if gm3_promotion_threshold is None:
-        gm3_promotion_threshold = 0.35
-
-    config = {
-        "gm3_dynamic_graph": gm3_dynamic_graph,
-        "gm3_repo_root": gm3_repo_root,
+    config: dict[str, Any] = {
+        "gm3_dynamic_graph": bool(args.gm3_dynamic_graph),
+        "gm3_repo_root": str(args.gm3_repo_root or "").strip(),
         "gm3_router": gm3_router,
         "gm3_settings": gm3_settings,
-        "gm3_promotion_threshold": float(gm3_promotion_threshold),
+        "gm3_promotion_threshold": gm3_promotion_threshold,
         "gm3_shared_global_dir": shared_global_dir,
         "gm3_use_textgrad": bool(args.gm3_use_textgrad),
         "gm3_textgrad_engine": str(args.gm3_textgrad_engine or "").strip(),
     }
-    if gm3_enable_overlay:
+    if bool(args.gm3_enable_overlay):
         config["gm3_enable_overlay"] = True
     return config
 
@@ -887,7 +814,7 @@ def _print_multidomain_run_summary(
 
 _ALFWORLD_MEMRL_EXAMPLE = r"""
 ALFWorld + memrl（与同 pipeline 下 graph_memory3 一样：显式子集、训练/评测 split、max_train/max_eval 等；
-memrl 不需要 --gm2_* / --gm3_*；依赖见仓库根 requirements-memrl.txt）:
+memrl 不需要 --gm3_*；依赖见仓库根 requirements-memrl.txt）:
 
   cd /path/to/nvdamasgm && python scripts/medmcqa/eval_collab_multidomain_global.py \
     --dataset_family alfworld \
@@ -1169,10 +1096,10 @@ def main() -> None:
     parser.add_argument(
         "--mas_memory",
         type=str,
-        default="graph_memory2",
+        default="graph_memory3",
         help=(
-            "记忆类型：graph_memory2 / graph_memory3 / amem / g-memory / selectivemem / memrl / empty 等。"
-            "memrl 走与 g-memory 相同的多域 global 合并（add_memory_from_peer），无需 gm2/gm3 开关。"
+            "记忆类型：graph_memory3 / amem / g-memory / selectivemem / memrl / empty 等。"
+            "memrl 走与 g-memory 相同的多域 global 合并（add_memory_from_peer），无需 gm3 开关。"
         ),
     )
     parser.add_argument("--reasoning", type=str, default="io")
@@ -1193,22 +1120,6 @@ def main() -> None:
         help="不跑合并评测阶段（eval_splits 置空；BFCL family 可与 require_test=False 配合不再读测试集文件）。",
     )
     parser.add_argument("--reset_memory", action="store_true")
-    parser.add_argument("--gm2_dynamic_graph", action="store_true")
-    parser.add_argument("--gm2_repo_root", type=str, default="")
-    parser.add_argument(
-        "--gm2_retrieval_mode",
-        type=str,
-        default="graph_policy",
-        choices=GM2_RETRIEVAL_MODE_CHOICES,
-    )
-    parser.add_argument(
-        "--gm2_settings",
-        type=str,
-        default="local_plus_global",
-        choices=GRAPH_MEMORY_SETTINGS_CHOICES,
-    )
-    parser.add_argument("--gm2_enable_overlay", action="store_true")
-    parser.add_argument("--gm2_promotion_threshold", type=float, default=0.35)
     parser.add_argument("--gm3_dynamic_graph", action="store_true")
     parser.add_argument("--gm3_repo_root", type=str, default="")
     parser.add_argument(
@@ -1699,7 +1610,7 @@ def main() -> None:
 
     graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
     memskill_common = _resolve_memskill_common(args)
-    graph_memory_prefix = "gm3" if args.mas_memory == "graph_memory3" else "gm2"
+    graph_memory_prefix = "gm3"
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
         graph_memory_common.get(f"{graph_memory_prefix}_settings", "local_plus_global") or "local_plus_global"
@@ -1707,7 +1618,6 @@ def main() -> None:
     graph_promotion_threshold = float(
         graph_memory_common.get(f"{graph_memory_prefix}_promotion_threshold", 0.35) or 0.35
     )
-    graph_repo_root = str(graph_memory_common.get(f"{graph_memory_prefix}_repo_root", "") or "").strip()
 
     def apply_gm_graph_scene_config(
         manager,
@@ -1728,7 +1638,7 @@ def main() -> None:
 
     local_dirs: list[str] = []
     if args.reset_memory and args.mas_memory in _GM_GRAPH_MEMORY and graph_dynamic_graph:
-        reset_graph_memory2_artifacts_once(
+        reset_graph_memory3_artifacts_once(
             memory_dirs=[os.path.join(local_root, d) for d in domains] + [global_dir],
             owner_scenes=domains + ["global"],
             memory_namespace=args.mas_memory,
@@ -1835,11 +1745,10 @@ def main() -> None:
     if args.mas_memory in _GM_GRAPH_MEMORY:
         if not graph_dynamic_graph:
             raise ValueError("多 domain global 构建目前要求启用对应 memory 的 dynamic_graph 开关。")
-        rebuild_graph_memory2_global_from_locals(
+        rebuild_graph_memory3_global_from_locals(
             local_dirs=local_dirs,
             global_dir=global_dir,
             promotion_threshold=graph_promotion_threshold,
-            gm2_repo_root=graph_repo_root,
             memory_namespace=args.mas_memory,
         )
     elif args.mas_memory == "selectivemem":
