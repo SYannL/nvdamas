@@ -45,3 +45,5 @@ pids/
 # Reviewer package: keep only the root README visible to Git.
 *.md
 !README.md
+scripts/launch_qwen4b_api.sh
+scripts/stop_qwen4b_api.sh

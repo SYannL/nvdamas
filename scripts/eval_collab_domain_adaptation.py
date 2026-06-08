@@ -778,7 +778,7 @@ def run_tasks(
                         stdout=stdout_fh,
                         stderr=stderr_fh,
                         timeout=300,
-                        cwd=os.path.dirname(os.path.dirname(os.path.dirname(script_path))),
+                        cwd=os.path.dirname(os.path.dirname(script_path)),
                     )
                 sub_wall_s = time.perf_counter() - t_sub0
                 if timing_profile_enabled(global_config=task_manager.mem_config):
@@ -2073,7 +2073,7 @@ def main() -> None:
     if args.dataset_family == "alfworld" and args.tool_mode != "search":
         raise ValueError("ALFWorld collaborative evaluation only supports --tool_mode search.")
 
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[1]
     model_type: str = get_model_type(args.model)
     run_id = args.run_id or time.strftime("%Y%m%d_%H%M%S")
     eval_namespace = f"{args.dataset_family}_collab_eval"

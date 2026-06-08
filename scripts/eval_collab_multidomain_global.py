@@ -1172,7 +1172,7 @@ def main() -> None:
         if not args.bfcl_use_family_collab_split and not (0.0 < float(args.bfcl_train_ratio) < 1.0):
             raise ValueError("--bfcl_train_ratio 必须在 0 与 1 之间（不含端点），例如 0.8。")
 
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[1]
     bfcl_runtime: dict[str, Any] = {}
     if args.dataset_family == "alfworld":
         subset_dir = (repo_root / args.alfworld_subset_dir).resolve()
