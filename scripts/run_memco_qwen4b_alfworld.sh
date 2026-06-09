@@ -55,6 +55,7 @@ BATCH_SIZE="${BATCH_SIZE:-5}"
 ALFWORLD_DOMAINS="${ALFWORLD_DOMAINS:-bathroom,bedroom,kitchen,living}"
 ALFWORLD_SUBSET_DIR="${ALFWORLD_SUBSET_DIR:-data/alfworld/collab_subsets/v3_s}"
 ALFWORLD_EVAL_SPLIT="${ALFWORLD_EVAL_SPLIT:-valid_seen,valid_unseen}"
+ALFWORLD_GAME_ROOT="${ALFWORLD_GAME_ROOT:-/bigdata/siyan/projects/nvdamas/data/alfworld/alfworld_official_042/json_2.1.1}"
 MEMCO_ROUTER="${MEMCO_ROUTER:-textloss}"
 MEMCO_SETTINGS="${MEMCO_SETTINGS:-local_plus_global}"
 MEMCO_PROMOTION_THRESHOLD="${MEMCO_PROMOTION_THRESHOLD:-0.35}"
@@ -71,6 +72,7 @@ CMD=(
   --alfworld_domains "${ALFWORLD_DOMAINS}"
   --alfworld_subset_dir "${ALFWORLD_SUBSET_DIR}"
   --alfworld_eval_split "${ALFWORLD_EVAL_SPLIT}"
+  --alfworld_game_root "${ALFWORLD_GAME_ROOT}"
   --mas_type autogen
   --mas_memory memco
   --reasoning io

@@ -102,7 +102,7 @@ fi
 
 if [ -n "$TOOL_MODE" ]; then
     cmd+=(--tool_mode "$TOOL_MODE")
-elif [ "$MAS_MEMORY" = "amem" ] || [ "$MAS_MEMORY" = "memrl" ]; then
+elif [ "$MAS_MEMORY" = "amem" ] || [ "$MAS_MEMORY" = "memrl" ] || [ "$MAS_MEMORY" = "memco" ]; then
     cmd+=(--tool_mode search)
 fi
 
