@@ -325,7 +325,7 @@ class AlfworldEnv(BaseEnv):
     def has_exportable_history(self) -> bool:
         return bool(self.gamefile and self.current_history)
 
-    def export_gm2_history(
+    def export_memco_history(
         self,
         output_dir: str,
         *,

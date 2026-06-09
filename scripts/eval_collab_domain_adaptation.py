@@ -3246,9 +3246,9 @@ def main() -> None:
     ) -> dict[str, float]:
         log_eval = os.path.join(log_base, "eval", tag)
         manager = build_manager(task_name, memory_dir, log_eval, tasks_override)
-        gm2_eval_scene = task_a_label if task_a_label in memory_dir.replace("\\", "/") else task_b_label
+        memco_eval_scene = task_a_label if task_a_label in memory_dir.replace("\\", "/") else task_b_label
         graph_eval_settings = graph_settings_value if use_global_insights else "local_only"
-        apply_graph_scene_config(manager, gm2_eval_scene, settings=graph_eval_settings, freeze=True)
+        apply_graph_scene_config(manager, memco_eval_scene, settings=graph_eval_settings, freeze=True)
         if args.dataset_family == "alfworld" and args.mas_memory == "selectivemem":
             mem_norm = memory_dir.replace("\\", "/")
             if task_a_label in mem_norm:

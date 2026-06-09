@@ -399,6 +399,7 @@ def build_fever_task(row: dict) -> dict:
         "task": claim,
         "answer": label,
         "env_name": "fever",
+        "memco_domain": "fever",
     }
     domain = str(row.get("ab_domain", "")).strip()
     if domain:
@@ -576,6 +577,29 @@ def merge_eval_split(
     domains: list[str],
     split_name: str,
 ) -> tuple[str, list[dict], dict[str, Any]]:
+    premerged_src = subset_dir / f"merged__{split_name}.json"
+    domain_sources = [subset_dir / f"{domain}__{split_name}.json" for domain in domains]
+    if not all(src.exists() for src in domain_sources) and premerged_src.exists():
+        with premerged_src.open("r", encoding="utf-8") as reader:
+            data = json.load(reader)
+        if not isinstance(data, list):
+            raise ValueError(f"merged eval 文件格式错误（应为 list）: {premerged_src}")
+        rows = dedupe_tasks(copy.deepcopy(data))
+        merged_dir.mkdir(parents=True, exist_ok=True)
+        out_path = merged_dir / f"merged__{split_name}.json"
+        if out_path.resolve() != premerged_src.resolve():
+            with out_path.open("w", encoding="utf-8") as writer:
+                json.dump(rows, writer, ensure_ascii=False, indent=2)
+        meta = {
+            "split": split_name,
+            "output_file": str(out_path),
+            "num_tasks_raw": len(data),
+            "num_tasks_dedup": len(rows),
+            "source_files": [str(premerged_src)],
+            "source_mode": "premerged",
+        }
+        return str(out_path), rows, meta
+
     merged_rows: list[dict] = []
     source_files: list[str] = []
     for domain in domains:
@@ -595,6 +619,7 @@ def merge_eval_split(
         "num_tasks_raw": len(merged_rows),
         "num_tasks_dedup": len(deduped),
         "source_files": source_files,
+        "source_mode": "per_domain",
     }
     return str(out_path), deduped, meta
 
@@ -1099,7 +1124,7 @@ def main() -> None:
         default="memco",
         help=(
             "记忆类型：memco / amem / g-memory / selectivemem / memrl / empty 等。"
-            "memrl 走与 g-memory 相同的多域 global 合并（add_memory_from_peer），无需 gm3 开关。"
+            "memrl 走与 g-memory 相同的多域 global 合并（add_memory_from_peer），无需 memco 开关。"
         ),
     )
     parser.add_argument("--reasoning", type=str, default="io")
@@ -1834,7 +1859,7 @@ def main() -> None:
             )
         eval_mem = build_mas(manager, args.reasoning, args.mas_memory, args.model)
         if args.mas_memory not in _GM_GRAPH_MEMORY:
-            # Non-GM2 memories use local memory as base and explicitly attach global retriever.
+            # Non-MemCo memories use local memory as base and explicitly attach global retriever.
             _reasoning_cls, global_mem_cls = module_map(args.reasoning, args.mas_memory)
             global_retriever = global_mem_cls(
                 namespace=args.mas_memory,

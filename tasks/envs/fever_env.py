@@ -15,7 +15,7 @@ class FeverEnv(BaseEnv):
     ) -> None:
         
         self.env_config = env_config
-        self.gm3_domain = "fever"
+        self.memco_domain = "fever"
         cache_path = os.environ.get(
             "FEVER_WIKI_CACHE",
             os.path.join(os.getcwd(), ".cache", "fever_wiki_cache.json"),
@@ -69,7 +69,7 @@ class FeverEnv(BaseEnv):
 
         if self._parse_action_type(action) == 'thought':
             observation = 'OK.'
-            self._append_gm3_history(
+            self._append_memco_history(
                 action=action,
                 observation=observation,
                 reward=0,
@@ -88,7 +88,7 @@ class FeverEnv(BaseEnv):
             if self.success_fn(argument):
                 observation = 'Answer is CORRECT'
                 self.reward = 1
-                self._append_gm3_history(
+                self._append_memco_history(
                     action=action,
                     observation=observation,
                     reward=1,
@@ -100,7 +100,7 @@ class FeverEnv(BaseEnv):
 
             else: 
                 observation = f'Answer is INCORRECT'
-                self._append_gm3_history(
+                self._append_memco_history(
                     action=action,
                     observation=observation,
                     reward=0,
@@ -132,7 +132,7 @@ class FeverEnv(BaseEnv):
             processed_reward = -1
         else:
             processed_reward = 0
-        self._append_gm3_history(
+        self._append_memco_history(
             action=action,
             observation=observation,
             reward=processed_reward,
@@ -360,7 +360,7 @@ class FeverEnv(BaseEnv):
         words = [w for w in re.findall(r"[A-Za-z0-9]+", text) if len(w) > 2]
         return words[0] if words else ""
 
-    def _append_gm3_history(
+    def _append_memco_history(
         self,
         *,
         action: str,
@@ -390,7 +390,7 @@ class FeverEnv(BaseEnv):
     def has_exportable_history(self) -> bool:
         return bool(getattr(self, "current_history", None))
 
-    def export_gm2_history(
+    def export_memco_history(
         self,
         output_dir: str,
         *,
@@ -418,7 +418,7 @@ class FeverEnv(BaseEnv):
             "final_score": final_score,
             "history": list(self.current_history),
             "model_id": model_id,
-            "gm3_domain": self.gm3_domain,
+            "memco_domain": self.memco_domain,
             "task_family": f"fever:{domain}",
             "task_config": dict(getattr(self, "config", {}) or {}),
         }
@@ -430,8 +430,6 @@ class FeverEnv(BaseEnv):
         with open(out_path, "w", encoding="utf-8") as writer:
             json.dump(payload, writer, ensure_ascii=False, indent=2)
         return out_path
-    
-
 
 @dataclass
 class FeverRecorder(BaseRecorder):

@@ -2,14 +2,14 @@
 # Launch PDDL MemCo evaluation.
 #
 # Usage:
-#   bash scripts/run_gm3_gpt4omini_pddl.sh                          # qwen4b default
-#   MODEL=gpt-4o-mini OPENAI_API_KEY=... bash scripts/run_gm3_gpt4omini_pddl.sh
-#   RUN_ID=my_run bash scripts/run_gm3_gpt4omini_pddl.sh
-#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/run_gm3_gpt4omini_pddl.sh
+#   bash scripts/run_memco_gpt4omini_pddl.sh                          # qwen4b default
+#   MODEL=gpt-4o-mini OPENAI_API_KEY=... bash scripts/run_memco_gpt4omini_pddl.sh
+#   RUN_ID=my_run bash scripts/run_memco_gpt4omini_pddl.sh
+#   MAX_TRAIN=10 MAX_EVAL=20 bash scripts/run_memco_gpt4omini_pddl.sh
 
 set -euo pipefail
 
-SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -d "/workspace/nvdamas" ]; then
   cd /workspace/nvdamas
 else

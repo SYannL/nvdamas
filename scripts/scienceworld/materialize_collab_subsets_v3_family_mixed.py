@@ -3,7 +3,7 @@
 
 This script intentionally does not reuse v2_room.  It launches the bundled
 ScienceWorld simulator, enumerates the original task variations, and writes the
-multidomain files used by the GM3 collab pipeline:
+multidomain files used by the MemCo collab pipeline:
 
   - {domain}__train.json: source task family variations from the original train fold
   - {domain}__test.json: target task family variations from the original test fold
@@ -196,7 +196,7 @@ def _annotate(row: RuntimeRow, *, domain: str, role: str, rank: int, split: str)
         "env_name": "scienceworld",
         "task_type": "scienceworld",
         "dataset_family": "scienceworld",
-        "gm3_domain": "scienceworld",
+        "memco_domain": "scienceworld",
         "scienceworld_domain": domain,
         "scienceworld_family": domain,
         "scienceworld_role": role,

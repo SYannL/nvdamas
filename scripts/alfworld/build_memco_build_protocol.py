@@ -91,13 +91,13 @@ def build_protocol(train_subset_jsons: list[Path], history_dir: Path) -> dict[st
         "metadata": {
             "history_dir": str(history_dir.resolve()),
             "train_subset_jsons": [str(path.resolve()) for path in train_subset_jsons],
-            "protocol_kind": "gm2_build_only",
+            "protocol_kind": "memco_build_only",
         },
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build a gm2 memory-build protocol from current-project train subsets and exported history_*.json files.")
+    parser = argparse.ArgumentParser(description="Build a memco memory-build protocol from current-project train subsets and exported history_*.json files.")
     parser.add_argument(
         "--train-subset-json",
         nargs="+",
@@ -107,7 +107,7 @@ def main() -> None:
     parser.add_argument(
         "--history-dir",
         required=True,
-        help="Directory containing exported gm2-compatible history_*.json files.",
+        help="Directory containing exported memco-compatible history_*.json files.",
     )
     parser.add_argument(
         "--output",

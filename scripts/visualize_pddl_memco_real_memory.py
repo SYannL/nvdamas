@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render real GraphMemory3 local/global snapshots for a PDDL run.
+"""Render real MemCo local/global snapshots for a PDDL run.
 
 The output is intentionally compact: the persisted local graphs are large, so
 the local domain figures show true counts plus the highest-support procedural
@@ -147,12 +147,12 @@ def workflow_endpoints(rule: dict[str, Any]) -> tuple[str, str]:
 
 
 def load_domain(base: Path, domain: str) -> dict[str, Any]:
-    p = base / "local" / domain / "graph_memory3" / f"local_{domain}.json"
+    p = base / "local" / domain / "memco" / f"local_{domain}.json"
     return load_json(p)
 
 
 def episode_counts(base: Path, domain: str) -> tuple[int, int, int]:
-    path = base / "local" / domain / "graph_memory3" / "episodes.jsonl"
+    path = base / "local" / domain / "memco" / "episodes.jsonl"
     total = success = failure = 0
     with path.open("r", encoding="utf-8") as handle:
         for line in handle:
@@ -428,7 +428,7 @@ def write_full_domain_network_svg(base: Path, out_dir: Path, domain: str) -> Non
         out.append("</g>")
 
     out.extend(["</g>", "</svg>"])
-    svg_path = out_dir / f"pddl_gm3_full_local_{domain}.svg"
+    svg_path = out_dir / f"pddl_memco_full_local_{domain}.svg"
     svg_path.write_text("\n".join(out), encoding="utf-8")
 
 
@@ -503,7 +503,7 @@ def write_full_domain(base: Path, out_dir: Path, domain: str, *, full_png: bool 
         )
 
     lines.append("}")
-    dot_path = out_dir / f"pddl_gm3_full_local_{domain}.dot"
+    dot_path = out_dir / f"pddl_memco_full_local_{domain}.dot"
     dot_path.write_text("\n".join(lines), encoding="utf-8")
     write_full_domain_network_svg(base, out_dir, domain)
     if full_png:
@@ -562,9 +562,9 @@ def _svg_text_lines(lines: list[str], x: int, y: int, *, size: int = 13, fill: s
 
 def write_sample_construction_retrieval(base: Path, out_dir: Path) -> None:
     """A small real-data teaching diagram from gripper-0."""
-    history_path = base / "local" / "gripper" / "graph_memory3" / "dynamic_histories" / "history_gripper_0_success.json"
-    local_path = base / "local" / "gripper" / "graph_memory3" / "local_gripper.json"
-    global_path = base / "global" / "graph_memory3" / "global_memory.json"
+    history_path = base / "local" / "gripper" / "memco" / "dynamic_histories" / "history_gripper_0_success.json"
+    local_path = base / "local" / "gripper" / "memco" / "local_gripper.json"
+    global_path = base / "global" / "memco" / "global_memory.json"
     payload = load_json(history_path)
     local_data = load_json(local_path)
     global_data = load_json(global_path)
@@ -584,7 +584,7 @@ def write_sample_construction_retrieval(base: Path, out_dir: Path) -> None:
         ".box { fill: white; stroke-width: 1.5; }",
         "</style>",
         '<rect x="0" y="0" width="100%" height="100%" fill="white"/>',
-        '<text class="title" x="30" y="42">Real GM3 Example: how one gripper episode becomes graph memory and retrieval hints</text>',
+        '<text class="title" x="30" y="42">Real MemCo Example: how one gripper episode becomes graph memory and retrieval hints</text>',
         '<text x="30" y="70" font-size="14">Source: dynamic_histories/history_gripper_0_success.json + local_gripper.json + global_memory.json</text>',
     ]
 
@@ -706,7 +706,7 @@ def write_sample_construction_retrieval(base: Path, out_dir: Path) -> None:
 
     # Injected prompt explanation.
     prompt_lines = [
-        "GM3 does not inject the whole graph. It retrieves ranked SupportItems from the graph memory.",
+        "MemCo does not inject the whole graph. It retrieves ranked SupportItems from the graph memory.",
         "For this query, the useful evidence says:",
         "",
         "Local memory: current PDDL state/action grounding: valid operator `drop ball1 roomb right`",
@@ -721,12 +721,12 @@ def write_sample_construction_retrieval(base: Path, out_dir: Path) -> None:
     out.extend(_svg_text_lines(prompt_lines, 55, 705, size=15))
     out.append("</svg>")
 
-    (out_dir / "pddl_gm3_real_sample_construction_retrieval.svg").write_text("\n".join(out), encoding="utf-8")
+    (out_dir / "pddl_memco_real_sample_construction_retrieval.svg").write_text("\n".join(out), encoding="utf-8")
 
 
 def write_build_query_flow(base: Path, out_dir: Path) -> None:
     """Render a full build_query -> MemoryQuery flow using a real audit query."""
-    trace_path = base / "local" / "barman" / "graph_memory3" / "gm3_debug_trace.jsonl"
+    trace_path = base / "local" / "barman" / "memco" / "memco_debug_trace.jsonl"
     event = None
     with trace_path.open("r", encoding="utf-8") as handle:
         for idx, line in enumerate(handle):
@@ -794,8 +794,8 @@ def write_build_query_flow(base: Path, out_dir: Path) -> None:
     svg += svg_text(["PDDL2Adapter.build_query(): how the MemoryQuery is produced"], 30, 42, size=25, weight="700")
     svg += svg_text(
         [
-            "Real audit query from local/barman/graph_memory3/gm3_debug_trace.jsonl line 98 "
-            "| event=retrieve | step=2 | values marked as omitted are present in code/full object but not saved by _gm2_debug_query_snapshot()"
+            "Real audit query from local/barman/memco/memco_debug_trace.jsonl line 98 "
+            "| event=retrieve | step=2 | values marked as omitted are present in code/full object but not saved by _memco_core_debug_query_snapshot()"
         ],
         30,
         72,
@@ -891,7 +891,7 @@ def write_build_query_flow(base: Path, out_dir: Path) -> None:
         ("counts", f"required={query.get('required_count')}, placed={query.get('placed_relevant_count')}, remaining={query.get('remaining_relevant_count')}"),
         ("admissible_actions", "tuple(CanonicalAction(...)); exists in full object, omitted in debug snapshot"),
         ("belief", "goal_literals + current_literals + unsatisfied_goal_literals; exists in full object, omitted in debug snapshot"),
-        ("dynamic_context", "visible_objects + unsatisfied_goal_literals + layout_id + gm3_domain"),
+        ("dynamic_context", "visible_objects + unsatisfied_goal_literals + layout_id + memco_domain"),
     ]
     svg += kv(mq_rows, 650, 545, key_w=160, width=76)
 
@@ -948,7 +948,7 @@ def write_build_query_flow(base: Path, out_dir: Path) -> None:
         [
             "build_query output: MemoryQuery",
             "retrieve output: SupportBundle",
-            "prompt output: GM3 MEMORY DECISION SUMMARY",
+            "prompt output: MemCo MEMORY DECISION SUMMARY",
             "",
             "Important distinction:",
             "MemoryQuery is not retrieved memory.",
@@ -964,11 +964,11 @@ def write_build_query_flow(base: Path, out_dir: Path) -> None:
         svg.append(f'<line x1="{x1}" y1="1100" x2="{x2}" y2="1100" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>')
 
     svg.append("</svg>")
-    svg_path = out_dir / "pddl_gm3_build_query_memoryquery_flow.svg"
+    svg_path = out_dir / "pddl_memco_build_query_memoryquery_flow.svg"
     svg_path.write_text("\n".join(svg), encoding="utf-8")
 
 def write_overview(base: Path, out_dir: Path) -> None:
-    global_data = load_json(base / "global" / "graph_memory3" / "global_memory.json")
+    global_data = load_json(base / "global" / "memco" / "global_memory.json")
     summaries = {domain: domain_summary(base, domain) for domain in DOMAINS}
     global_rule_sources = Counter(
         scene for rule in global_data.get("rules", []) for scene in rule.get("source_scenes", [])
@@ -992,10 +992,10 @@ def write_overview(base: Path, out_dir: Path) -> None:
         + html_table(
             "1. Run / episode sources",
             [
-                ("run id", "pddl_gm3_claude_haiku45_20260514_144924"),
+                ("run id", "pddl_memco_claude_haiku45_20260514_144924"),
                 ("stored episodes", f"{total_eps} ({total_success} labeled success)"),
                 ("domains", ", ".join(DOMAINS)),
-                ("memory type", "graph_memory3"),
+                ("memory type", "memco"),
             ],
             "blue",
         )
@@ -1053,13 +1053,13 @@ def write_overview(base: Path, out_dir: Path) -> None:
             "}",
         ]
     )
-    dot_path = out_dir / "pddl_gm3_real_overview.dot"
+    dot_path = out_dir / "pddl_memco_real_overview.dot"
     dot_path.write_text("\n".join(lines), encoding="utf-8")
     render_with_dot(dot_path)
 
 
 def write_global(base: Path, out_dir: Path) -> None:
-    global_data = load_json(base / "global" / "graph_memory3" / "global_memory.json")
+    global_data = load_json(base / "global" / "memco" / "global_memory.json")
     lines = [
         "digraph G {",
         '  graph [rankdir=LR, bgcolor="white", pad="0.2", nodesep="0.35", ranksep="0.65"];',
@@ -1114,7 +1114,7 @@ def write_global(base: Path, out_dir: Path) -> None:
             lines.append(f"  {rnode} -> global;")
 
     lines.append("}")
-    dot_path = out_dir / "pddl_gm3_real_global.dot"
+    dot_path = out_dir / "pddl_memco_real_global.dot"
     dot_path.write_text("\n".join(lines), encoding="utf-8")
     render_with_dot(dot_path)
 
@@ -1202,7 +1202,7 @@ def write_domain(base: Path, out_dir: Path, domain: str) -> None:
         lines.append("  candidates -> artifacts [style=dotted, color=\"#777777\"];")
 
     lines.append("}")
-    dot_path = out_dir / f"pddl_gm3_real_local_{domain}.dot"
+    dot_path = out_dir / f"pddl_memco_real_local_{domain}.dot"
     dot_path.write_text("\n".join(lines), encoding="utf-8")
     render_with_dot(dot_path)
 
@@ -1227,7 +1227,7 @@ def main() -> None:
         write_domain(args.base, args.out_dir, domain)
         write_full_domain(args.base, args.out_dir, domain, full_png=args.full_png)
 
-    print(f"Wrote GraphMemory3 visualizations to {args.out_dir}")
+    print(f"Wrote MemCo visualizations to {args.out_dir}")
 
 
 if __name__ == "__main__":

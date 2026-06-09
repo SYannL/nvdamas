@@ -78,7 +78,7 @@ class PDDLEnv(BaseEnv):
         max_trials: int = 50
     ):     
         self.env_config = env_config
-        self.gm3_domain = "pddl"
+        self.memco_domain = "pddl"
         self.max_trials = max_trials
         self.last_obs = None
         self.config: dict[str, Any] = {}
@@ -157,7 +157,7 @@ class PDDLEnv(BaseEnv):
             self.infos["history"] = self.history
             self.infos["steps"] = self.steps
             self.infos["state"] = self.states[-1]
-            self._append_gm3_history(action=action, observation=obs, reward=-1, valid=False)
+            self._append_memco_history(action=action, observation=obs, reward=-1, valid=False)
             return 'Ok. But you should not think too much!', -1, self.done
 
         if "check" in action.lower():
@@ -269,7 +269,7 @@ class PDDLEnv(BaseEnv):
         self.infos["history"] = self.history
         self.infos["steps"] = self.steps
         self.infos["state"] = self.states[-1]
-        self._append_gm3_history(action=action, observation=obs, reward=1 if self.done else 0, valid=True)
+        self._append_memco_history(action=action, observation=obs, reward=1 if self.done else 0, valid=True)
         
     def _update_info(self, action, info, *, valid: bool = True):
         self.history.append(("action", action))
@@ -285,9 +285,9 @@ class PDDLEnv(BaseEnv):
         self.infos["state"] = self.states[-1]
         self.current_literals_text = [self._literal_to_text(literal) for literal in self.last_obs.literals]
         self.last_admissible_commands = self._get_action_space()
-        self._append_gm3_history(action=action, observation=info, reward=self.reward, valid=valid)
+        self._append_memco_history(action=action, observation=info, reward=self.reward, valid=valid)
 
-    def _append_gm3_history(self, *, action: str, observation: str, reward: float, valid: bool) -> None:
+    def _append_memco_history(self, *, action: str, observation: str, reward: float, valid: bool) -> None:
         self.current_history.append(
             {
                 "Step": int(self.steps),
@@ -307,7 +307,7 @@ class PDDLEnv(BaseEnv):
     def has_exportable_history(self) -> bool:
         return bool(getattr(self, "current_history", None))
 
-    def export_gm2_history(
+    def export_memco_history(
         self,
         output_dir: str,
         *,
@@ -332,7 +332,7 @@ class PDDLEnv(BaseEnv):
             "final_score": final_score,
             "history": list(self.current_history),
             "model_id": model_id,
-            "gm3_domain": self.gm3_domain,
+            "memco_domain": self.memco_domain,
             "task_family": f"pddl:{getattr(self, 'game_name', 'unknown')}",
             "task_config": dict(getattr(self, "config", {}) or {}),
         }
@@ -440,7 +440,7 @@ class PDDL2Env(PDDLEnv):
 
     def __init__(self, env_config: dict[str, Any], max_trials: int = 50):
         super().__init__(env_config, max_trials=max_trials)
-        self.gm3_domain = "pddl_2"
+        self.memco_domain = "pddl_2"
 
     def _update(self, action, obs, reward, done, infos):
         for k, v in infos.items():
@@ -469,7 +469,7 @@ class PDDL2Env(PDDLEnv):
         self.infos["history"] = self.history
         self.infos["steps"] = self.steps
         self.infos["state"] = self.states[-1]
-        self._append_gm3_history(action=action, observation=obs, reward=1 if self.won else 0, valid=True)
+        self._append_memco_history(action=action, observation=obs, reward=1 if self.won else 0, valid=True)
 
     def _update_info(self, action, info, *, valid: bool = True):
         self.history.append(("action", action))
@@ -485,9 +485,9 @@ class PDDL2Env(PDDLEnv):
         self.infos["state"] = self.states[-1]
         self.current_literals_text = [self._literal_to_text(literal) for literal in self.last_obs.literals]
         self.last_admissible_commands = self._get_action_space()
-        self._append_gm3_history(action=action, observation=info, reward=0.0, valid=valid)
+        self._append_memco_history(action=action, observation=info, reward=0.0, valid=valid)
 
-    def export_gm2_history(
+    def export_memco_history(
         self,
         output_dir: str,
         *,
@@ -513,7 +513,7 @@ class PDDL2Env(PDDLEnv):
             "final_done": final_done,
             "history": list(self.current_history),
             "model_id": model_id,
-            "gm3_domain": self.gm3_domain,
+            "memco_domain": self.memco_domain,
             "task_family": f"pddl_2:{getattr(self, 'game_name', 'unknown')}",
             "task_config": dict(getattr(self, "config", {}) or {}),
         }

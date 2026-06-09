@@ -18,7 +18,7 @@ class MemCoMASMemory(MemCoBase):
     """MemCo: prompt-only local/global graph routing with text-loss pruning.
 
     MemCo reuses the shared graph construction/persistence backend, but keeps its
-    prompt routing and dataset-facing language independent from GraphMemory2:
+    prompt routing and dataset-facing language independent from the old graph-memory names:
 
     - local graph grounds current state and admissible actions;
     - global graph contributes transferable workflow/phase knowledge;
@@ -188,11 +188,11 @@ class MemCoMASMemory(MemCoBase):
             self._memco_runtime_blocked_actions.add(self._memco_norm(action_norm))
         self._memco_debug_append(
             "env_feedback",
-            step_index=int(getattr(self, "_gm2_debug_env_step", 0) or 0),
+            step_index=int(getattr(self, "_memco_core_debug_env_step", 0) or 0),
             payload={
                 "action": str(action or ""),
                 "reward": kargs.get("reward"),
-                "observation": self._gm2_debug_text(str(observation or ""), limit=1200),
+                "observation": self._memco_core_debug_text(str(observation or ""), limit=1200),
             },
         )
 
@@ -301,12 +301,12 @@ class MemCoMASMemory(MemCoBase):
             "action_hook_observe",
             step_index=step_index,
             payload={
-                "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                "raw_response": self._memco_core_debug_text(str(raw_response or ""), limit=1200),
                 "processed_action": str(processed_action or ""),
                 "final_action": str(final_action or ""),
                 "changed": str(final_action or "") != str(processed_action or ""),
                 "reason": reason,
-                "scienceworld_profile": self._gm2_debug_jsonable(profile),
+                "scienceworld_profile": self._memco_core_debug_jsonable(profile),
                 "last_score": last_score,
                 "best_score": best_score,
                 "blocked_actions": sorted(blocked_actions)[:20],
@@ -510,7 +510,7 @@ class MemCoMASMemory(MemCoBase):
                 "action_hook_observe",
                 step_index=step_index,
                 payload={
-                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "raw_response": self._memco_core_debug_text(str(raw_response or ""), limit=1200),
                     "processed_action": str(processed_action or ""),
                     "final_action": str(processed_action or ""),
                     "changed": False,
@@ -524,7 +524,7 @@ class MemCoMASMemory(MemCoBase):
                 "action_hook_observe",
                 step_index=step_index,
                 payload={
-                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "raw_response": self._memco_core_debug_text(str(raw_response or ""), limit=1200),
                     "processed_action": str(processed_action or ""),
                     "final_action": str(processed_action or ""),
                     "changed": False,
@@ -547,12 +547,12 @@ class MemCoMASMemory(MemCoBase):
                 "action_hook_observe",
                 step_index=step_index,
                 payload={
-                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "raw_response": self._memco_core_debug_text(str(raw_response or ""), limit=1200),
                     "processed_action": str(processed_action or ""),
                     "final_action": str(selected_action or ""),
                     "changed": str(selected_action or "") != str(processed_action or ""),
                     "reason": reason,
-                    "search_bias_queue": self._gm2_debug_jsonable(self._memco_search_bias_queue[:6]),
+                    "search_bias_queue": self._memco_core_debug_jsonable(self._memco_search_bias_queue[:6]),
                     "blocked_actions": sorted(blocked_actions)[:10],
                     "admissible_sample": admissible[:20],
                 },
@@ -663,7 +663,7 @@ class MemCoMASMemory(MemCoBase):
             "action_hook_observe",
             step_index=step_index,
             payload={
-                "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                "raw_response": self._memco_core_debug_text(str(raw_response or ""), limit=1200),
                 "processed_action": str(processed_action or ""),
                 "final_action": str(final_action or ""),
                 "changed": False,
@@ -677,7 +677,7 @@ class MemCoMASMemory(MemCoBase):
 
         query = self._build_external_query(**kargs)
         step_index = int(kargs.get("step_index", 0) or 0)
-        self._gm2_debug_last_step = step_index
+        self._memco_core_debug_last_step = step_index
         setting = str(self._graph_config_value("settings", "local_only") or "local_only")
         if query is None:
             note = self._external_error or "MemCo query unavailable for this task state."
@@ -736,20 +736,20 @@ class MemCoMASMemory(MemCoBase):
             "memco_retrieve",
             step_index=step_index,
             payload={
-                "query": self._gm2_debug_query_snapshot(query),
+                "query": self._memco_core_debug_query_snapshot(query),
                 "setting": setting,
                 "owner_scene": owner_scene,
-                "local_memory_counts": self._gm2_debug_memory_counts(local_memory),
-                "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
-                "bundle": self._gm2_debug_bundle_snapshot(bundle),
+                "local_memory_counts": self._memco_core_debug_memory_counts(local_memory),
+                "global_memory_counts": self._memco_core_debug_memory_counts(global_memory),
+                "bundle": self._memco_core_debug_bundle_snapshot(bundle),
                 "memco_textloss": route.get("debug", {}),
                 "rendered_prompt_sections": {
                     "planner_notes": [
-                        self._gm2_debug_text(item, limit=3000)
+                        self._memco_core_debug_text(item, limit=3000)
                         for item in planner_notes[:3]
                     ],
                     "execution_patterns": [
-                        self._gm2_debug_text(item, limit=3000)
+                        self._memco_core_debug_text(item, limit=3000)
                         for item in execution_patterns[:1]
                     ],
                     "counts": {
@@ -763,14 +763,14 @@ class MemCoMASMemory(MemCoBase):
             "retrieve",
             step_index=step_index,
             payload={
-                "query": self._gm2_debug_query_snapshot(query),
+                "query": self._memco_core_debug_query_snapshot(query),
                 "setting": setting,
                 "owner_scene": owner_scene,
-                "local_memory_counts": self._gm2_debug_memory_counts(local_memory),
-                "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
-                "bundle": self._gm2_debug_bundle_snapshot(bundle),
+                "local_memory_counts": self._memco_core_debug_memory_counts(local_memory),
+                "global_memory_counts": self._memco_core_debug_memory_counts(global_memory),
+                "bundle": self._memco_core_debug_bundle_snapshot(bundle),
                 "memco_textloss": route.get("debug", {}),
-                "rendered_prompt": self._gm2_debug_text(
+                "rendered_prompt": self._memco_core_debug_text(
                     "\n\n".join(execution_patterns + planner_notes),
                     limit=5000,
                 ),
@@ -1213,7 +1213,7 @@ class MemCoMASMemory(MemCoBase):
         selected = routed["selected"]
         selected = self._memco_filter_fever_selected_sections(query=query, selected=selected)
         selected = self._memco_filter_pddl_selected_sections(query=query, selected=selected, admissible=admissible)
-        routed["selected_after_fever_gate"] = self._gm2_debug_jsonable(selected)
+        routed["selected_after_fever_gate"] = self._memco_core_debug_jsonable(selected)
         if fever_health:
             fever_health["memory_render_count"] = int(sum(len(section.get("items", []) or []) for section in selected))
             self._memco_last_fever_memory_render_count = int(fever_health["memory_render_count"])
@@ -1309,7 +1309,7 @@ class MemCoMASMemory(MemCoBase):
                 admissible=admissible,
             )
         self._memco_search_bias_queue = self._memco_search_bias_candidates(source_evidence_table, limit=4)
-        routed["search_bias_queue"] = self._gm2_debug_jsonable(self._memco_search_bias_queue[:6])
+        routed["search_bias_queue"] = self._memco_core_debug_jsonable(self._memco_search_bias_queue[:6])
 
         should_emit, emit_reason = self._memco_should_emit_summary(
             query=query,
@@ -1439,7 +1439,7 @@ class MemCoMASMemory(MemCoBase):
             {
                 "searched_count": len(searched),
                 "lookup_count": len(looked_up),
-                "last_action": self._gm2_debug_text(last_action, limit=160),
+                "last_action": self._memco_core_debug_text(last_action, limit=160),
                 "search_failed": search_failed,
                 "lookup_failed": lookup_failed,
                 "last_search_primary_only": last_search_primary_only,
@@ -3432,7 +3432,7 @@ class MemCoMASMemory(MemCoBase):
         admissible: list[str],
         blocked_actions: set[str] | None = None,
     ) -> list[dict[str, Any]]:
-        if not self._gm2_is_two_object_second_search(query):
+        if not self._memco_core_is_two_object_second_search(query):
             return []
         goal_roles = getattr(query, "goal_roles", {}) or {}
         target = self._memco_base(str(goal_roles.get("object", "") or ""))
@@ -4198,9 +4198,9 @@ class MemCoMASMemory(MemCoBase):
             path.parent.mkdir(parents=True, exist_ok=True)
             record = {
                 "event": event,
-                "task": str(getattr(self, "_gm2_debug_current_task", "") or ""),
+                "task": str(getattr(self, "_memco_core_debug_current_task", "") or ""),
                 "step": int(step_index or 0),
-                "payload": self._gm2_debug_jsonable(payload or {}),
+                "payload": self._memco_core_debug_jsonable(payload or {}),
             }
             with path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
@@ -4235,7 +4235,7 @@ class MemCoMASMemory(MemCoBase):
             "max_iters": int(getattr(self, "_memco_textgrad_max_iters", 0) or 0),
             "max_calls_per_episode": int(getattr(self, "_memco_textgrad_max_calls_per_episode", 0) or 0),
             "pass_threshold": float(getattr(self, "_memco_textgrad_pass_threshold", 0.82) or 0.82),
-            "draft_prompt": self._gm2_debug_text(draft, limit=2400),
+            "draft_prompt": self._memco_core_debug_text(draft, limit=2400),
             "iterations": [],
         }
         def finish(prompt: str, reason: str | None = None) -> dict[str, Any]:
@@ -4281,7 +4281,7 @@ class MemCoMASMemory(MemCoBase):
             return finish(draft, gate_reason)
         cached_prompt = str(self._memco_textgrad_prompt_cache.get(route_key, "") or "").strip()
         if cached_prompt:
-            debug["cached_prompt"] = self._gm2_debug_text(cached_prompt, limit=2200)
+            debug["cached_prompt"] = self._memco_core_debug_text(cached_prompt, limit=2200)
             return finish(cached_prompt, "cached_route_key_prompt")
         max_calls = int(getattr(self, "_memco_textgrad_max_calls_per_episode", 0) or 0)
         if max_calls > 0 and self._memco_textgrad_calls_this_episode >= max_calls:
@@ -4303,14 +4303,14 @@ class MemCoMASMemory(MemCoBase):
             held=held,
             exhausted=exhausted,
         )
-        debug["context"] = self._gm2_debug_text(context, limit=3600)
+        debug["context"] = self._memco_core_debug_text(context, limit=3600)
         self._memco_debug_append(
             "textgrad_prompt_optimization_enter",
             step_index=step_index,
             payload={
                 "route_key": route_key,
                 "route_key_hits": route_hits,
-                "draft_prompt": self._gm2_debug_text(draft, limit=1800),
+                "draft_prompt": self._memco_core_debug_text(draft, limit=1800),
             },
         )
         try:
@@ -4374,8 +4374,8 @@ class MemCoMASMemory(MemCoBase):
                 debug["iterations"].append(
                     {
                         "iteration": iteration,
-                        "prompt": self._gm2_debug_text(current, limit=2200),
-                        "judge_raw": self._gm2_debug_text(judge_text, limit=1800),
+                        "prompt": self._memco_core_debug_text(current, limit=2200),
+                        "judge_raw": self._memco_core_debug_text(judge_text, limit=1800),
                         "judge": parsed,
                     }
                 )
@@ -4405,7 +4405,7 @@ class MemCoMASMemory(MemCoBase):
             self._memco_textgrad_prompt_cache[route_key] = final_prompt
             debug["final_reason"] = final_reason
             debug["best_score"] = best_score
-            debug["final_prompt"] = self._gm2_debug_text(final_prompt, limit=2400)
+            debug["final_prompt"] = self._memco_core_debug_text(final_prompt, limit=2400)
             self._memco_debug_append(
                 "textgrad_prompt_optimization",
                 step_index=step_index,

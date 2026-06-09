@@ -86,7 +86,7 @@ class BfclMtEnv(BaseEnv):
     def __init__(self, env_config: dict[str, Any], max_trials: int = 120) -> None:
         self.env_config = env_config
         self.max_trials = int(max_trials)
-        self.gm3_domain = "bfcl_mt"
+        self.memco_domain = "bfcl_mt"
         self.config: dict[str, Any] = {}
         self.reward: float = 0.0
         self.steps: int = 0
@@ -342,7 +342,7 @@ class BfclMtEnv(BaseEnv):
     def has_exportable_history(self) -> bool:
         return bool(self.current_history)
 
-    def export_gm2_history(
+    def export_memco_history(
         self,
         output_dir: str,
         *,
@@ -368,7 +368,7 @@ class BfclMtEnv(BaseEnv):
             "final_score": final_score,
             "history": list(self.current_history),
             "model_id": model_id,
-            "gm3_domain": self.gm3_domain,
+            "memco_domain": self.memco_domain,
             "task_family": f"bfcl_mt:{domain}",
             "task_config": dict(self.config),
         }

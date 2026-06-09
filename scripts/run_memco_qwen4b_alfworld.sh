@@ -98,6 +98,7 @@ echo "[alfworld] RUN_ID=${RUN_ID}"
 echo "[alfworld] LOG=${LOG_FILE}"
 echo "[alfworld] OPENAI_API_BASE=${OPENAI_API_BASE}"
 echo "[alfworld] MODEL=${MODEL}"
+echo "[alfworld] SUBSET=${ALFWORLD_SUBSET_DIR}"
 echo "[alfworld] ${CMD[*]}"
 
 nohup "${CMD[@]}" >"${LOG_FILE}" 2>&1 &

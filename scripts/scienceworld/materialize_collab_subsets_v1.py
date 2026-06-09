@@ -168,7 +168,7 @@ def to_row(c: Candidate, *, subset_group: str, split_name: str, selection_rank: 
         "sw_scene_room": c.initial_room,
         "sw_task_desc": c.task_desc,
         "env_name": "scienceworld",
-        "gm3_domain": "scienceworld",
+        "memco_domain": "scienceworld",
         # Keep split annotation for audit (pipeline uses file name).
         "collab_split": split_name,
     }

@@ -286,7 +286,7 @@ class ScienceWorldEnv(BaseEnv):
     def has_exportable_history(self) -> bool:
         return bool(getattr(self, "current_history", None))
 
-    def export_gm2_history(
+    def export_memco_history(
         self,
         output_dir: str,
         *,
@@ -318,7 +318,7 @@ class ScienceWorldEnv(BaseEnv):
             "had_positive_progress": bool(getattr(self, "has_positive_progress", False)),
             "history": list(self.current_history),
             "model_id": model_id,
-            "gm3_domain": "scienceworld",
+            "memco_domain": "scienceworld",
             "task_config": dict(getattr(self, "_task_config", {}) or {}),
         }
         os.makedirs(os.path.abspath(output_dir), exist_ok=True)

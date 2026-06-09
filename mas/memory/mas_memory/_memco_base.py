@@ -53,20 +53,20 @@ class MemCoBase(MASMemoryBase):
     _dynamic_graph_enabled: bool = field(default=False, init=False)
     _external_enabled: bool = field(default=False, init=False)
     _external_error: str = field(default="", init=False)
-    _gm2_episode_global_skeleton: list[str] = field(default_factory=list, init=False, repr=False)
-    _gm2_episode_global_skeleton_key: str = field(default="", init=False, repr=False)
-    _gm2_feedback_path: Path | None = field(default=None, init=False, repr=False)
-    _gm2_feedback_stats: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
-    _gm2_episode_feedback_items: dict[str, dict[str, Any]] = field(default_factory=dict, init=False, repr=False)
-    _gm2_quality_last_action_candidates: list[str] = field(default_factory=list, init=False, repr=False)
-    _gm2_quality_source_prior_candidates: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
-    _gm2_graph_policy_source_key: str = field(default="", init=False, repr=False)
-    _gm2_graph_policy_source_queue: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
-    _gm2_graph_policy_next_source_action: str = field(default="", init=False, repr=False)
-    _gm2_debug_trace_path: Path | None = field(default=None, init=False, repr=False)
-    _gm2_debug_current_task: str = field(default="", init=False, repr=False)
-    _gm2_debug_last_step: int = field(default=0, init=False, repr=False)
-    _gm2_debug_env_step: int = field(default=0, init=False, repr=False)
+    _memco_core_episode_global_skeleton: list[str] = field(default_factory=list, init=False, repr=False)
+    _memco_core_episode_global_skeleton_key: str = field(default="", init=False, repr=False)
+    _memco_core_feedback_path: Path | None = field(default=None, init=False, repr=False)
+    _memco_core_feedback_stats: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
+    _memco_core_episode_feedback_items: dict[str, dict[str, Any]] = field(default_factory=dict, init=False, repr=False)
+    _memco_core_quality_last_action_candidates: list[str] = field(default_factory=list, init=False, repr=False)
+    _memco_core_quality_source_prior_candidates: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
+    _memco_core_graph_policy_source_key: str = field(default="", init=False, repr=False)
+    _memco_core_graph_policy_source_queue: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
+    _memco_core_graph_policy_next_source_action: str = field(default="", init=False, repr=False)
+    _memco_core_debug_trace_path: Path | None = field(default=None, init=False, repr=False)
+    _memco_core_debug_current_task: str = field(default="", init=False, repr=False)
+    _memco_core_debug_last_step: int = field(default=0, init=False, repr=False)
+    _memco_core_debug_env_step: int = field(default=0, init=False, repr=False)
     _graph_config_warnings: set[str] = field(default_factory=set, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -87,7 +87,7 @@ class MemCoBase(MASMemoryBase):
         self._init_external_graph_memory()
 
     def _graph_config_prefix(self) -> str:
-        return "memco" if str(self.namespace or "") == "memco" else "gm2"
+        return "memco"
 
     def _warn_legacy_graph_config(self, legacy_key: str, new_key: str) -> None:
         if legacy_key in self._graph_config_warnings:
@@ -108,29 +108,29 @@ class MemCoBase(MASMemoryBase):
     def init_task_context(self, task_main: str, task_description: str = None) -> MASMessage:
         message = super().init_task_context(task_main, task_description)
         self.episode_builder = MemCoOnlineEpisodeBuilder.from_task(task_main, task_description or "")
-        self._gm2_episode_global_skeleton = []
-        self._gm2_episode_global_skeleton_key = ""
-        self._gm2_episode_feedback_items = {}
-        self._gm2_quality_last_action_candidates = []
-        self._gm2_graph_policy_source_key = ""
-        self._gm2_graph_policy_source_queue = []
-        self._gm2_graph_policy_next_source_action = ""
-        self._gm2_quality_source_prior_candidates = []
-        self._gm2_debug_current_task = str(task_main or "")
-        self._gm2_debug_last_step = 0
-        self._gm2_debug_env_step = 0
+        self._memco_core_episode_global_skeleton = []
+        self._memco_core_episode_global_skeleton_key = ""
+        self._memco_core_episode_feedback_items = {}
+        self._memco_core_quality_last_action_candidates = []
+        self._memco_core_graph_policy_source_key = ""
+        self._memco_core_graph_policy_source_queue = []
+        self._memco_core_graph_policy_next_source_action = ""
+        self._memco_core_quality_source_prior_candidates = []
+        self._memco_core_debug_current_task = str(task_main or "")
+        self._memco_core_debug_last_step = 0
+        self._memco_core_debug_env_step = 0
         return message
 
     def move_memory_state(self, action: str, observation: str, **kargs) -> None:
         super().move_memory_state(action, observation, **kargs)
-        self._gm2_debug_env_step += 1
-        self._gm2_debug_append(
+        self._memco_core_debug_env_step += 1
+        self._memco_core_debug_append(
             "env_feedback",
-            step_index=self._gm2_debug_env_step,
+            step_index=self._memco_core_debug_env_step,
             payload={
                 "action": str(action or ""),
                 "reward": kargs.get("reward"),
-                "observation": self._gm2_debug_text(str(observation or ""), limit=1200),
+                "observation": self._memco_core_debug_text(str(observation or ""), limit=1200),
             },
         )
         if self.enable_overlay and self.episode_builder is not None:
@@ -174,7 +174,7 @@ class MemCoBase(MASMemoryBase):
         if not memory_dir and not dynamic_graph:
             return
         memory_path = Path(memory_dir).expanduser() if memory_dir else Path(self.persist_dir)
-        local_artifact_scene = self._gm2_local_artifact_scene(memory_path)
+        local_artifact_scene = self._memco_core_local_artifact_scene(memory_path)
         if memory_dir and not memory_path.exists():
             self._external_error = f"external {self._graph_config_prefix()}_memory_dir not found: {memory_path}"
             return
@@ -205,13 +205,13 @@ class MemCoBase(MASMemoryBase):
 
         mode = str(self._graph_config_value("retrieval_mode", "lightweight") or "lightweight")
         self._external_retrieval_mode = mode
-        self._gm2_feedback_path = Path(self.persist_dir) / "feedback_stats.json"
+        self._memco_core_feedback_path = Path(self.persist_dir) / "feedback_stats.json"
         if mode in {"graph_policy_feedback", "graph_policy_quality"}:
             if self.reset_memory:
-                self._gm2_feedback_stats = {"version": 1, "items": {}}
-                self._save_gm2_feedback_stats()
+                self._memco_core_feedback_stats = {"version": 1, "items": {}}
+                self._save_memco_core_feedback_stats()
             else:
-                self._gm2_feedback_stats = self._load_gm2_feedback_stats()
+                self._memco_core_feedback_stats = self._load_memco_core_feedback_stats()
         self._external_retriever = QueryBasedRetriever(top_k=5)
 
         self._external_adapters = {
@@ -234,7 +234,7 @@ class MemCoBase(MASMemoryBase):
         self._external_global_to_dict = _global_to_dict
         self._external_load_global_memory = load_global_memory
         self._external_artifact_dir = Path(self.persist_dir)
-        self._gm2_debug_trace_path = Path(self.persist_dir) / "memco_debug_trace.jsonl"
+        self._memco_core_debug_trace_path = Path(self.persist_dir) / "memco_debug_trace.jsonl"
         self._dynamic_graph_enabled = dynamic_graph
         shared_global_dir = str(self._graph_config_value("shared_global_dir", "") or "").strip()
         if shared_global_dir:
@@ -329,7 +329,7 @@ class MemCoBase(MASMemoryBase):
         self._external_enabled = True
         self.refresh_each_step = True
 
-    def _gm2_local_artifact_scene(self, path: Path) -> str:
+    def _memco_core_local_artifact_scene(self, path: Path) -> str:
         """Return the scene owned by a local graph-memory artifact directory.
 
         Full collab runs store per-scene memory under:
@@ -401,10 +401,10 @@ class MemCoBase(MASMemoryBase):
             deduped.append(key)
         return deduped
 
-    def _gm2_debug_enabled(self) -> bool:
+    def _memco_core_debug_enabled(self) -> bool:
         return bool(
             self._external_enabled
-            and self._gm2_debug_trace_path is not None
+            and self._memco_core_debug_trace_path is not None
             and self._external_retrieval_mode
             in {
                 "graph_policy",
@@ -415,15 +415,15 @@ class MemCoBase(MASMemoryBase):
             }
         )
 
-    def _gm2_debug_text(self, text: str, *, limit: int = 800) -> str:
+    def _memco_core_debug_text(self, text: str, *, limit: int = 800) -> str:
         value = str(text or "")
         if limit <= 0 or len(value) <= limit:
             return value
         return value[:limit] + f"...[truncated {len(value) - limit}]"
 
-    def _gm2_debug_jsonable(self, value: Any, *, depth: int = 0) -> Any:
+    def _memco_core_debug_jsonable(self, value: Any, *, depth: int = 0) -> Any:
         if depth > 4:
-            return self._gm2_debug_text(str(value), limit=300)
+            return self._memco_core_debug_text(str(value), limit=300)
         if value is None or isinstance(value, (str, int, float, bool)):
             return value
         if isinstance(value, dict):
@@ -432,17 +432,17 @@ class MemCoBase(MASMemoryBase):
                 if idx >= 40:
                     out["..."] = f"{len(value) - idx} more"
                     break
-                out[str(key)] = self._gm2_debug_jsonable(item, depth=depth + 1)
+                out[str(key)] = self._memco_core_debug_jsonable(item, depth=depth + 1)
             return out
         if isinstance(value, (list, tuple, set)):
             seq = list(value)
-            out = [self._gm2_debug_jsonable(item, depth=depth + 1) for item in seq[:40]]
+            out = [self._memco_core_debug_jsonable(item, depth=depth + 1) for item in seq[:40]]
             if len(seq) > 40:
                 out.append(f"... {len(seq) - 40} more")
             return out
-        return self._gm2_debug_text(str(value), limit=500)
+        return self._memco_core_debug_text(str(value), limit=500)
 
-    def _gm2_debug_query_snapshot(self, query: Any) -> dict[str, Any]:
+    def _memco_core_debug_query_snapshot(self, query: Any) -> dict[str, Any]:
         if query is None:
             return {}
         return {
@@ -457,11 +457,11 @@ class MemCoBase(MASMemoryBase):
             "held_relevant_count": getattr(query, "held_relevant_count", None),
             "placed_relevant_count": getattr(query, "placed_relevant_count", None),
             "remaining_relevant_count": getattr(query, "remaining_relevant_count", None),
-            "goal_roles": self._gm2_debug_jsonable(getattr(query, "goal_roles", {}) or {}),
-            "dynamic_context": self._gm2_debug_jsonable(getattr(query, "dynamic_context", {}) or {}),
+            "goal_roles": self._memco_core_debug_jsonable(getattr(query, "goal_roles", {}) or {}),
+            "dynamic_context": self._memco_core_debug_jsonable(getattr(query, "dynamic_context", {}) or {}),
         }
 
-    def _gm2_debug_item_snapshot(self, item: Any) -> dict[str, Any]:
+    def _memco_core_debug_item_snapshot(self, item: Any) -> dict[str, Any]:
         dynamic = getattr(item, "dynamic", {}) or {}
         if not isinstance(dynamic, dict):
             dynamic = {"value": str(dynamic)}
@@ -506,60 +506,60 @@ class MemCoBase(MASMemoryBase):
             "state_relevance": float(getattr(item, "state_relevance", 0.0) or 0.0),
             "positive": int(getattr(item, "positive", 0) or 0),
             "negative": int(getattr(item, "negative", 0) or 0),
-            "summary": self._gm2_debug_text(str(getattr(item, "summary", "") or ""), limit=700),
+            "summary": self._memco_core_debug_text(str(getattr(item, "summary", "") or ""), limit=700),
             "action_patterns": action_patterns[:5],
-            "dynamic": self._gm2_debug_jsonable(compact_dynamic),
+            "dynamic": self._memco_core_debug_jsonable(compact_dynamic),
         }
 
-    def _gm2_debug_items(self, bundle: Any, field_name: str, *, limit: int = 8) -> list[dict[str, Any]]:
+    def _memco_core_debug_items(self, bundle: Any, field_name: str, *, limit: int = 8) -> list[dict[str, Any]]:
         return [
-            self._gm2_debug_item_snapshot(item)
+            self._memco_core_debug_item_snapshot(item)
             for item in list(getattr(bundle, field_name, []) or [])[:limit]
         ]
 
-    def _gm2_debug_bundle_snapshot(self, bundle: Any) -> dict[str, Any]:
+    def _memco_core_debug_bundle_snapshot(self, bundle: Any) -> dict[str, Any]:
         if bundle is None:
             return {}
         return {
-            "routing_weights": self._gm2_debug_jsonable(getattr(bundle, "routing_weights", {}) or {}),
-            "routing_decisions": self._gm2_debug_jsonable(getattr(bundle, "routing_decisions", {}) or {}),
+            "routing_weights": self._memco_core_debug_jsonable(getattr(bundle, "routing_weights", {}) or {}),
+            "routing_decisions": self._memco_core_debug_jsonable(getattr(bundle, "routing_decisions", {}) or {}),
             "local": {
-                "local_items": self._gm2_debug_items(bundle, "local_items"),
-                "fact_items": self._gm2_debug_items(bundle, "fact_items"),
-                "relation_items": self._gm2_debug_items(bundle, "relation_items"),
-                "local_graph_contribution": self._gm2_debug_items(bundle, "local_graph_contribution"),
-                "local_promoted_contribution": self._gm2_debug_items(bundle, "local_promoted_contribution"),
-                "plan_items": self._gm2_debug_items(bundle, "plan_items"),
+                "local_items": self._memco_core_debug_items(bundle, "local_items"),
+                "fact_items": self._memco_core_debug_items(bundle, "fact_items"),
+                "relation_items": self._memco_core_debug_items(bundle, "relation_items"),
+                "local_graph_contribution": self._memco_core_debug_items(bundle, "local_graph_contribution"),
+                "local_promoted_contribution": self._memco_core_debug_items(bundle, "local_promoted_contribution"),
+                "plan_items": self._memco_core_debug_items(bundle, "plan_items"),
                 "workflow_items": [
                     item
-                    for item in self._gm2_debug_items(bundle, "workflow_items")
+                    for item in self._memco_core_debug_items(bundle, "workflow_items")
                     if not str(item.get("source", "")).startswith("global")
                 ],
             },
             "global": {
-                "global_items": self._gm2_debug_items(bundle, "global_items"),
-                "global_task_plan_items": self._gm2_debug_items(bundle, "global_task_plan_items"),
-                "global_promoted_contribution": self._gm2_debug_items(bundle, "global_promoted_contribution"),
+                "global_items": self._memco_core_debug_items(bundle, "global_items"),
+                "global_task_plan_items": self._memco_core_debug_items(bundle, "global_task_plan_items"),
+                "global_promoted_contribution": self._memco_core_debug_items(bundle, "global_promoted_contribution"),
                 "workflow_items": [
                     item
-                    for item in self._gm2_debug_items(bundle, "workflow_items")
+                    for item in self._memco_core_debug_items(bundle, "workflow_items")
                     if str(item.get("source", "")).startswith("global")
                 ],
                 "precondition_items": [
                     item
-                    for item in self._gm2_debug_items(bundle, "precondition_items")
+                    for item in self._memco_core_debug_items(bundle, "precondition_items")
                     if str(item.get("source", "")).startswith("global")
                 ],
             },
             "policy_outputs": {
-                "suggested_actions": self._gm2_debug_jsonable(getattr(bundle, "suggested_actions", []) or []),
-                "blocked_actions": self._gm2_debug_jsonable(getattr(bundle, "blocked_actions", []) or []),
-                "warnings": self._gm2_debug_jsonable(getattr(bundle, "warnings", []) or []),
-                "workflow_hints": self._gm2_debug_jsonable(getattr(bundle, "workflow_hints", []) or []),
+                "suggested_actions": self._memco_core_debug_jsonable(getattr(bundle, "suggested_actions", []) or []),
+                "blocked_actions": self._memco_core_debug_jsonable(getattr(bundle, "blocked_actions", []) or []),
+                "warnings": self._memco_core_debug_jsonable(getattr(bundle, "warnings", []) or []),
+                "workflow_hints": self._memco_core_debug_jsonable(getattr(bundle, "workflow_hints", []) or []),
             },
         }
 
-    def _gm2_debug_memory_counts(self, memory: Any) -> dict[str, int]:
+    def _memco_core_debug_memory_counts(self, memory: Any) -> dict[str, int]:
         if memory is None:
             return {}
         return {
@@ -571,27 +571,27 @@ class MemCoBase(MASMemoryBase):
             "edges": len(getattr(memory, "edges_by_signature", {}) or {}),
         }
 
-    def _gm2_debug_append(
+    def _memco_core_debug_append(
         self,
         event: str,
         *,
         step_index: int = 0,
         payload: dict[str, Any] | None = None,
     ) -> None:
-        if not self._gm2_debug_enabled():
+        if not self._memco_core_debug_enabled():
             return
         try:
-            path = self._gm2_debug_trace_path
+            path = self._memco_core_debug_trace_path
             if path is None:
                 return
             path.parent.mkdir(parents=True, exist_ok=True)
             record = {
                 "event": str(event),
                 "step_index": int(step_index or 0),
-                "task": self._gm2_debug_current_task,
+                "task": self._memco_core_debug_current_task,
                 "retrieval_mode": self._external_retrieval_mode,
                 "freeze_memory": bool(getattr(self, "freeze_memory", False)),
-                "payload": self._gm2_debug_jsonable(payload or {}),
+                "payload": self._memco_core_debug_jsonable(payload or {}),
             }
             with path.open("a", encoding="utf-8") as writer:
                 writer.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -603,7 +603,7 @@ class MemCoBase(MASMemoryBase):
             return {"reference_cases": [], "execution_patterns": [], "insights": []}
         query = self._build_external_query(**kargs)
         step_index = int(kargs.get("step_index", 0) or 0)
-        self._gm2_debug_last_step = step_index
+        self._memco_core_debug_last_step = step_index
         setting = str(self._graph_config_value("settings", "local_only") or "local_only")
         trajectory_payload = None
         if setting not in {"base", "global_only"}:
@@ -615,8 +615,8 @@ class MemCoBase(MASMemoryBase):
                 stored_insights=insights,
             )
         if query is None:
-            note = self._external_error or "external GraphMemory2 query unavailable for this task state."
-            self._gm2_debug_append(
+            note = self._external_error or "external MemCo query unavailable for this task state."
+            self._memco_core_debug_append(
                 "retrieve_unavailable",
                 step_index=step_index,
                 payload={"note": note, "setting": setting},
@@ -625,7 +625,7 @@ class MemCoBase(MASMemoryBase):
                 "reference_cases": [],
                 "execution_patterns": list(trajectory_payload.execution_patterns) if trajectory_payload else [],
                 "insights": list(trajectory_payload.insights) if trajectory_payload else [],
-                "planner_notes": [f"[GM2External] {note}"],
+                "planner_notes": [f"[MemCoExternal] {note}"],
                 "action_constraints": [],
                 "repair_hints": list(trajectory_payload.repair_hints) if trajectory_payload else [],
             }
@@ -639,7 +639,7 @@ class MemCoBase(MASMemoryBase):
         if setting not in {"base", "local_only"}:
             self._refresh_shared_global_memory()
         suppress_global_for_second_search = (
-            self._gm2_is_two_object_second_search(query)
+            self._memco_core_is_two_object_second_search(query)
             and self._external_retrieval_mode not in {"graph_policy", "graph_policy_rerank", "graph_policy_quality"}
         )
         global_memory = (
@@ -685,8 +685,8 @@ class MemCoBase(MASMemoryBase):
         planner_notes: list[str] = []
         if support_text:
             planner_notes.append(
-                "### GM2 MEMORY EVIDENCE\n"
-                "Treat this as supplementary evidence from the original GraphMemory2 retriever. "
+                "### MemCo MEMORY EVIDENCE\n"
+                "Treat this as supplementary evidence from the MemCo retriever. "
                 "Current observation and admissible actions have priority.\n"
                 + support_text
             )
@@ -697,20 +697,20 @@ class MemCoBase(MASMemoryBase):
         insights = list(trajectory_payload.insights) if trajectory_payload else []
         repair_hints = (list(trajectory_payload.repair_hints) if trajectory_payload else []) + list(repair_hints)
         if not execution_patterns and not insights and not planner_notes and not action_constraints and not repair_hints:
-            self._gm2_debug_append(
+            self._memco_core_debug_append(
                 "retrieve",
                 step_index=step_index,
                 payload={
-                    "query": self._gm2_debug_query_snapshot(query),
+                    "query": self._memco_core_debug_query_snapshot(query),
                     "setting": setting,
                     "owner_scene": owner_scene,
-                    "local_memory_counts": self._gm2_debug_memory_counts(local_memory),
-                    "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
-                    "bundle": self._gm2_debug_bundle_snapshot(bundle),
+                    "local_memory_counts": self._memco_core_debug_memory_counts(local_memory),
+                    "global_memory_counts": self._memco_core_debug_memory_counts(global_memory),
+                    "bundle": self._memco_core_debug_bundle_snapshot(bundle),
                     "rendered_prompt_sections": {},
-                    "source_priority_candidates": self._gm2_debug_jsonable(self._gm2_quality_source_prior_candidates),
-                    "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
-                    "next_source_action": self._gm2_graph_policy_next_source_action,
+                    "source_priority_candidates": self._memco_core_debug_jsonable(self._memco_core_quality_source_prior_candidates),
+                    "source_priority_queue": self._memco_core_debug_jsonable(self._memco_core_graph_policy_source_queue),
+                    "next_source_action": self._memco_core_graph_policy_next_source_action,
                 },
             )
             return {
@@ -729,36 +729,36 @@ class MemCoBase(MASMemoryBase):
             "action_constraints": action_constraints,
             "repair_hints": repair_hints,
         }
-        self._gm2_debug_append(
+        self._memco_core_debug_append(
             "retrieve",
             step_index=step_index,
             payload={
-                "query": self._gm2_debug_query_snapshot(query),
+                "query": self._memco_core_debug_query_snapshot(query),
                 "setting": setting,
                 "owner_scene": owner_scene,
-                "local_memory_counts": self._gm2_debug_memory_counts(local_memory),
-                "global_memory_counts": self._gm2_debug_memory_counts(global_memory),
-                "bundle": self._gm2_debug_bundle_snapshot(bundle),
+                "local_memory_counts": self._memco_core_debug_memory_counts(local_memory),
+                "global_memory_counts": self._memco_core_debug_memory_counts(global_memory),
+                "bundle": self._memco_core_debug_bundle_snapshot(bundle),
                 "rendered_prompt_sections": {
-                    "support_text": self._gm2_debug_text(support_text, limit=3000),
+                    "support_text": self._memco_core_debug_text(support_text, limit=3000),
                     "planner_notes": [
-                        self._gm2_debug_text(item, limit=2500)
+                        self._memco_core_debug_text(item, limit=2500)
                         for item in planner_notes[:5]
                     ],
                     "action_constraints": [
-                        self._gm2_debug_text(item, limit=1000)
+                        self._memco_core_debug_text(item, limit=1000)
                         for item in action_constraints[:8]
                     ],
                     "repair_hints": [
-                        self._gm2_debug_text(item, limit=1000)
+                        self._memco_core_debug_text(item, limit=1000)
                         for item in repair_hints[:8]
                     ],
                     "execution_patterns": [
-                        self._gm2_debug_text(item, limit=1000)
+                        self._memco_core_debug_text(item, limit=1000)
                         for item in execution_patterns[:5]
                     ],
                     "insights": [
-                        self._gm2_debug_text(item, limit=1000)
+                        self._memco_core_debug_text(item, limit=1000)
                         for item in insights[:5]
                     ],
                     "counts": {
@@ -769,9 +769,9 @@ class MemCoBase(MASMemoryBase):
                         "insights": len(insights),
                     },
                 },
-                "source_priority_candidates": self._gm2_debug_jsonable(self._gm2_quality_source_prior_candidates),
-                "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
-                "next_source_action": self._gm2_graph_policy_next_source_action,
+                "source_priority_candidates": self._memco_core_debug_jsonable(self._memco_core_quality_source_prior_candidates),
+                "source_priority_queue": self._memco_core_debug_jsonable(self._memco_core_graph_policy_source_queue),
+                "next_source_action": self._memco_core_graph_policy_next_source_action,
             },
         )
         return payload
@@ -859,19 +859,19 @@ class MemCoBase(MASMemoryBase):
         processed_admissible = normalized_admissible.get(normalized_processed)
 
         def _debug_return(selected_action: str, reason: str) -> str:
-            self._gm2_debug_append(
+            self._memco_core_debug_append(
                 "repair_action",
                 step_index=step_index,
                 payload={
                     "reason": reason,
-                    "raw_response": self._gm2_debug_text(str(raw_response or ""), limit=1200),
+                    "raw_response": self._memco_core_debug_text(str(raw_response or ""), limit=1200),
                     "processed_action": str(processed_action or ""),
                     "processed_admissible": bool(processed_admissible),
                     "final_action": str(selected_action or ""),
                     "admissible_sample": admissible[:30],
-                    "next_source_action": self._gm2_graph_policy_next_source_action,
-                    "source_priority_queue": self._gm2_debug_jsonable(self._gm2_graph_policy_source_queue),
-                    "last_action_candidates": self._gm2_debug_jsonable(self._gm2_quality_last_action_candidates),
+                    "next_source_action": self._memco_core_graph_policy_next_source_action,
+                    "source_priority_queue": self._memco_core_debug_jsonable(self._memco_core_graph_policy_source_queue),
+                    "last_action_candidates": self._memco_core_debug_jsonable(self._memco_core_quality_last_action_candidates),
                 },
             )
             return selected_action
@@ -957,7 +957,7 @@ class MemCoBase(MASMemoryBase):
                 self._external_error = f"last {self._external_retrieval_mode}=already_admissible"
                 return _debug_return(processed_admissible, "already_admissible")
             if self._external_retrieval_mode == "graph_policy":
-                phase_action = self._gm2_graph_policy_phase_fallback_action(
+                phase_action = self._memco_core_graph_policy_phase_fallback_action(
                     env_ref=env_ref,
                     task_config=task_config or {},
                     step_index=step_index,
@@ -972,7 +972,7 @@ class MemCoBase(MASMemoryBase):
             freeform_text = self._normalize_search_text_for_projection(
                 " ".join(str(part or "") for part in (raw_response, processed_action))
             )
-            queued_search = self._gm2_graph_policy_queued_search_from_text(
+            queued_search = self._memco_core_graph_policy_queued_search_from_text(
                 raw_response=str(raw_response or ""),
                 processed_action=processed_action,
                 admissible_actions=admissible,
@@ -983,13 +983,13 @@ class MemCoBase(MASMemoryBase):
                     f"selected={queued_search}"
                 )
                 return _debug_return(queued_search, "queued_search_from_text")
-            safe_search_intent = self._gm2_extract_safe_search_intent(
+            safe_search_intent = self._memco_core_extract_safe_search_intent(
                 raw_response=str(raw_response or ""),
                 processed_action=processed_action,
                 admissible_actions=admissible,
             )
             if self._external_retrieval_mode == "graph_policy_rerank":
-                reranked_search = self._gm2_graph_policy_rerank_freeform_search(
+                reranked_search = self._memco_core_graph_policy_rerank_freeform_search(
                     raw_response=str(raw_response or ""),
                     processed_action=processed_action,
                     explicit_search_action=safe_search_intent,
@@ -1007,12 +1007,12 @@ class MemCoBase(MASMemoryBase):
                     f"selected={safe_search_intent}"
                 )
                 return _debug_return(safe_search_intent, "explicit_search_intent")
-            if self._gm2_has_explicit_search_target_text(freeform_text):
+            if self._memco_core_has_explicit_search_target_text(freeform_text):
                 self._external_error = (
                     f"last {self._external_retrieval_mode}=explicit_search_unmatched_no_memory_override"
                 )
                 return _debug_return(processed_action, "explicit_search_unmatched_no_memory_override")
-            direct_scene_source = self._gm2_graph_policy_direct_scene_source_action(
+            direct_scene_source = self._memco_core_graph_policy_direct_scene_source_action(
                 processed_action=processed_action,
                 admissible_actions=admissible,
                 env_ref=env_ref,
@@ -1049,7 +1049,7 @@ class MemCoBase(MASMemoryBase):
         )
         global_memory = (
             self._external_empty_global()
-            if setting in {"base", "local_only"} or self._gm2_is_two_object_second_search(query)
+            if setting in {"base", "local_only"} or self._memco_core_is_two_object_second_search(query)
             else self._external_global_memory
         )
         bundle = self._external_retriever.retrieve(query, local_memory, global_memory)
@@ -1069,7 +1069,7 @@ class MemCoBase(MASMemoryBase):
         self._external_error = "last hybrid_repair=no_deterministic_repair"
         return processed_action
 
-    def _gm2_graph_policy_rerank_freeform_search(
+    def _memco_core_graph_policy_rerank_freeform_search(
         self,
         *,
         raw_response: str,
@@ -1085,7 +1085,7 @@ class MemCoBase(MASMemoryBase):
         to a different source type than the current explicit search intent.
         Concrete solver actions are preserved before this helper is reached.
         """
-        queued = str(self._gm2_graph_policy_next_source_action or "").strip()
+        queued = str(self._memco_core_graph_policy_next_source_action or "").strip()
         if not queued:
             return None
         normalized = {self._normalize_action_text(cmd): cmd for cmd in admissible_actions}
@@ -1101,11 +1101,11 @@ class MemCoBase(MASMemoryBase):
         if any(marker in text for marker in ("take ", "clean ", "heat ", "cool ", "move ", "put ")):
             return None
 
-        queued_base = self._gm2_search_action_base(queued_admissible)
+        queued_base = self._memco_core_search_action_base(queued_admissible)
         if not queued_base:
             return None
 
-        explicit_base = self._gm2_search_action_base(explicit_search_action or "")
+        explicit_base = self._memco_core_search_action_base(explicit_search_action or "")
         if explicit_base and explicit_base == queued_base:
             return None
 
@@ -1114,7 +1114,7 @@ class MemCoBase(MASMemoryBase):
         # failure pattern in living unseen: drawer/shelf/cabinet sequences keep
         # consuming the 30-step budget after local evidence has gone stale.
         if explicit_base:
-            stalled_bases = self._gm2_episode_searched_source_bases()
+            stalled_bases = self._memco_core_episode_searched_source_bases()
             if explicit_base in stalled_bases:
                 return queued_admissible
             if explicit_base in {"cabinet", "drawer", "shelf"} and any(
@@ -1127,7 +1127,7 @@ class MemCoBase(MASMemoryBase):
         # bind a concrete target; using the queued graph action is safe here.
         return queued_admissible
 
-    def _gm2_search_action_base(self, action: str) -> str:
+    def _memco_core_search_action_base(self, action: str) -> str:
         text = self._normalize_search_text_for_projection(str(action or ""))
         for prefix in ("go to ", "open ", "examine "):
             if text.startswith(prefix):
@@ -1135,7 +1135,7 @@ class MemCoBase(MASMemoryBase):
                 return re.sub(r"\s+\d+$", "", target).strip()
         return ""
 
-    def _gm2_episode_searched_source_bases(self) -> set[str]:
+    def _memco_core_episode_searched_source_bases(self) -> set[str]:
         bases: set[str] = set()
         builder = self.episode_builder
         if builder is None:
@@ -1207,7 +1207,7 @@ class MemCoBase(MASMemoryBase):
 
         The nvdamas solver often emits `think:` turns such as "I will start by
         checking drawer 3" even when the intended environment action is
-        currently admissible. Original GraphMemory2 avoids this by parsing and
+        currently admissible. MemCo avoids this by parsing and
         repairing against the admissible list. Keep that behavior conservative:
         only return a command when the raw text explicitly points to the same
         object/location as an admissible command.
@@ -1372,7 +1372,7 @@ class MemCoBase(MASMemoryBase):
         )
         if not destination_reached:
             return None
-        if self._gm2_process_requirement_pending(query=query, env_ref=env_ref):
+        if self._memco_core_process_requirement_pending(query=query, env_ref=env_ref):
             return None
 
         held_objects = [
@@ -1478,7 +1478,7 @@ class MemCoBase(MASMemoryBase):
 
         return f"think: I should not use {obj_base} because the target object is {target}; continue searching for an exact {target}."
 
-    def _gm2_graph_policy_direct_scene_source_action(
+    def _memco_core_graph_policy_direct_scene_source_action(
         self,
         *,
         processed_action: str,
@@ -1519,9 +1519,9 @@ class MemCoBase(MASMemoryBase):
                 return None
 
         goal_roles = getattr(query, "goal_roles", {}) or {}
-        target_object = self._gm2_base_token(str(goal_roles.get("object", "") or ""))
-        destination = self._gm2_base_token(str(goal_roles.get("destination", "") or ""))
-        tool = self._gm2_base_token(str(goal_roles.get("tool", "") or ""))
+        target_object = self._memco_core_base_token(str(goal_roles.get("object", "") or ""))
+        destination = self._memco_core_base_token(str(goal_roles.get("destination", "") or ""))
+        tool = self._memco_core_base_token(str(goal_roles.get("tool", "") or ""))
         task_family = str(getattr(query, "task_family", "") or "").lower()
         if not target_object:
             return None
@@ -1603,7 +1603,7 @@ class MemCoBase(MASMemoryBase):
             if not goal_signature.startswith(f"{target_object}->"):
                 continue
             source_instance = norm_entity(str(payload.get("source_instance", "") or ""))
-            source_base = self._gm2_base_token(str(payload.get("source_base", "") or source_instance))
+            source_base = self._memco_core_base_token(str(payload.get("source_base", "") or source_instance))
             if not source_base or not source_instance:
                 continue
             if source_base in {destination, tool}:
@@ -1639,7 +1639,7 @@ class MemCoBase(MASMemoryBase):
             return None
         return selected
 
-    def _gm2_extract_safe_search_intent(
+    def _memco_core_extract_safe_search_intent(
         self,
         *,
         raw_response: str,
@@ -1696,7 +1696,7 @@ class MemCoBase(MASMemoryBase):
         normalized = re.sub(r"\s+", " ", normalized).strip()
         return normalized
 
-    def _gm2_has_explicit_search_target_text(self, normalized_text: str) -> bool:
+    def _memco_core_has_explicit_search_target_text(self, normalized_text: str) -> bool:
         text = str(normalized_text or "")
         if not text or "think" not in text:
             return False
@@ -1709,22 +1709,22 @@ class MemCoBase(MASMemoryBase):
             )
         )
 
-    def _gm2_graph_policy_queued_search_from_text(
+    def _memco_core_graph_policy_queued_search_from_text(
         self,
         *,
         raw_response: str,
         processed_action: str,
         admissible_actions: list[str],
     ) -> str | None:
-        """Prefer GM2's queued source action over a free-form search thought."""
-        queued = str(self._gm2_graph_policy_next_source_action or "").strip()
+        """Prefer MemCo's queued source action over a free-form search thought."""
+        queued = str(self._memco_core_graph_policy_next_source_action or "").strip()
         if not queued:
             return None
         normalized = {self._normalize_action_text(cmd): cmd for cmd in admissible_actions}
         queued_admissible = normalized.get(self._normalize_action_text(queued))
         if not queued_admissible:
             return None
-        queue_head = (self._gm2_graph_policy_source_queue or [{}])[0]
+        queue_head = (self._memco_core_graph_policy_source_queue or [{}])[0]
         try:
             queue_score = float(queue_head.get("score", 0.0) or 0.0)
         except Exception:
@@ -1764,7 +1764,7 @@ class MemCoBase(MASMemoryBase):
             return None
         return queued_admissible
 
-    def _gm2_graph_policy_phase_fallback_action(
+    def _memco_core_graph_policy_phase_fallback_action(
         self,
         *,
         env_ref: Any,
@@ -1789,20 +1789,20 @@ class MemCoBase(MASMemoryBase):
             return None
 
         goal_roles = getattr(query, "goal_roles", {}) or {}
-        target = self._gm2_base_token(str(goal_roles.get("object", "") or ""))
-        destination = self._gm2_base_token(str(goal_roles.get("destination", "") or ""))
-        tool = self._gm2_base_token(str(goal_roles.get("tool", "") or ""))
-        current_location = self._gm2_base_token(str(getattr(query, "location", "") or ""))
-        process_pending = self._gm2_process_requirement_pending(query=query, env_ref=env_ref)
+        target = self._memco_core_base_token(str(goal_roles.get("object", "") or ""))
+        destination = self._memco_core_base_token(str(goal_roles.get("destination", "") or ""))
+        tool = self._memco_core_base_token(str(goal_roles.get("tool", "") or ""))
+        current_location = self._memco_core_base_token(str(getattr(query, "location", "") or ""))
+        process_pending = self._memco_core_process_requirement_pending(query=query, env_ref=env_ref)
 
         def _norm(value: str) -> str:
             return self._normalize_action_text(value).replace("_", " ")
 
         def _mentions_target(command_norm: str) -> bool:
-            if target and target in self._gm2_base_token(command_norm):
+            if target and target in self._memco_core_base_token(command_norm):
                 return True
             held = (getattr(query, "dynamic_context", {}) or {}).get("held_objects", []) or []
-            return any(self._gm2_base_token(str(item)) in self._gm2_base_token(command_norm) for item in held)
+            return any(self._memco_core_base_token(str(item)) in self._memco_core_base_token(command_norm) for item in held)
 
         if process_pending:
             for command in admissible_actions:
@@ -1814,18 +1814,18 @@ class MemCoBase(MASMemoryBase):
             if tool and tool not in current_location:
                 for command in admissible_actions:
                     command_norm = _norm(command)
-                    if command_norm.startswith("go to ") and tool in self._gm2_base_token(command_norm):
+                    if command_norm.startswith("go to ") and tool in self._memco_core_base_token(command_norm):
                         return command
             return None
 
         if destination and destination not in current_location:
             for command in admissible_actions:
                 command_norm = _norm(command)
-                if command_norm.startswith("go to ") and destination in self._gm2_base_token(command_norm):
+                if command_norm.startswith("go to ") and destination in self._memco_core_base_token(command_norm):
                     return command
         return None
 
-    def _gm2_process_requirement_pending(self, *, query: Any, env_ref: Any) -> bool:
+    def _memco_core_process_requirement_pending(self, *, query: Any, env_ref: Any) -> bool:
         """Return True when heat/cool/clean must still happen before delivery."""
         task_family = str(getattr(query, "task_family", "") or "").lower()
         required = ""
@@ -1839,20 +1839,20 @@ class MemCoBase(MASMemoryBase):
             return False
 
         goal_roles = getattr(query, "goal_roles", {}) or {}
-        target_object = self._gm2_base_token(str(goal_roles.get("object", "") or ""))
+        target_object = self._memco_core_base_token(str(goal_roles.get("object", "") or ""))
         for row in list(getattr(env_ref, "current_history", []) or []):
             action = self._normalize_action_text(str(row.get("Action", "") or "")).replace("_", " ")
             if not action.startswith(required + " "):
                 continue
-            if not target_object or target_object in self._gm2_base_token(action):
+            if not target_object or target_object in self._memco_core_base_token(action):
                 observation = str(row.get("Observation", "") or "")
                 if "nothing happens" not in observation.lower():
                     return False
         return True
 
     @staticmethod
-    def _gm2_is_two_object_second_search(query: Any) -> bool:
-        """Whether GM2 is in the post-first-delivery search for a second target."""
+    def _memco_core_is_two_object_second_search(query: Any) -> bool:
+        """Whether MemCo is in the post-first-delivery search for a second target."""
         try:
             required = int(getattr(query, "required_count", 0) or 0)
             placed = int(getattr(query, "placed_relevant_count", 0) or 0)
@@ -1876,7 +1876,7 @@ class MemCoBase(MASMemoryBase):
 
         The default SupportBundle text is intentionally compact, but it tends to
         flatten graph structure into generic hints. This renderer keeps the
-        nvdamas workflow unchanged while exposing the parts that make GM2 useful:
+        nvdamas workflow unchanged while exposing the parts that make MemCo useful:
         matched local state, successful local continuations, local cautions, and
         transferable global rules.
         """
@@ -2006,7 +2006,7 @@ class MemCoBase(MASMemoryBase):
         admissible_norm = {_norm(cmd) for cmd in admissible}
         goal_roles = getattr(query, "goal_roles", {}) or {}
         target_object = _norm(str(goal_roles.get("object", "") or ""))
-        two_object_second_search = self._gm2_is_two_object_second_search(query)
+        two_object_second_search = self._memco_core_is_two_object_second_search(query)
         goal_bits = [
             f"object={goal_roles.get('object')}" if goal_roles.get("object") else "",
             f"destination={goal_roles.get('destination')}" if goal_roles.get("destination") else "",
@@ -2240,7 +2240,7 @@ class MemCoBase(MASMemoryBase):
             _route_weight("closure", "global"),
         ) >= 0.35 else 1
 
-        enable_search_priority = bool(self.global_config.get("gm2_enable_search_priority", False))
+        enable_search_priority = bool(self.global_config.get("memco_enable_search_priority", False))
         search_priority = (
             _search_priority_items(local_state_sources + local_success_sources, limit=2)
             if enable_search_priority
@@ -2351,7 +2351,7 @@ class MemCoBase(MASMemoryBase):
         local_memory: Any = None,
         global_memory: Any = None,
     ) -> str:
-        """Render GM2 graph_policy through the graph bundle's routed support.
+        """Render MemCo graph_policy through the graph bundle's routed support.
 
         Graph policy has two different time scales:
         - an episode-level global task skeleton, retrieved from promoted global
@@ -2502,7 +2502,7 @@ class MemCoBase(MASMemoryBase):
 
         def _rank_key(item: Any) -> tuple[float, float, float, float]:
             return (
-                self._gm2_feedback_adjustment(item) if self._gm2_feedback_enabled() else 0.0,
+                self._memco_core_feedback_adjustment(item) if self._memco_core_feedback_enabled() else 0.0,
                 float(getattr(item, "task_relevance", 0.0) or 0.0),
                 float(getattr(item, "goal_relevance", 0.0) or 0.0),
                 float(getattr(item, "score", 0.0) or 0.0),
@@ -2518,25 +2518,25 @@ class MemCoBase(MASMemoryBase):
             selected: list[str] = []
             for item in ranked:
                 text = _clean(str(getattr(item, "summary", "") or ""))
-                if self._gm2_feedback_item_state(item) == "quarantined":
+                if self._memco_core_feedback_item_state(item) == "quarantined":
                     continue
                 if not _is_usable_global_skeleton(text):
                     continue
                 if text not in selected:
                     selected.append(text)
-                    self._gm2_record_feedback_item(item, slot="global_skeleton", rendered_text=text)
+                    self._memco_core_record_feedback_item(item, slot="global_skeleton", rendered_text=text)
                 if len(selected) >= 2:
                     break
             return selected
 
         key = _skeleton_key()
-        if key and key != self._gm2_episode_global_skeleton_key:
-            self._gm2_episode_global_skeleton_key = key
-            self._gm2_episode_global_skeleton = []
+        if key and key != self._memco_core_episode_global_skeleton_key:
+            self._memco_core_episode_global_skeleton_key = key
+            self._memco_core_episode_global_skeleton = []
         current_skeleton = _select_global_skeleton() if _allow_persistent_global() else []
         if current_skeleton:
-            self._gm2_episode_global_skeleton = current_skeleton
-        persistent_skeleton = list(self._gm2_episode_global_skeleton) if _allow_persistent_global() else []
+            self._memco_core_episode_global_skeleton = current_skeleton
+        persistent_skeleton = list(self._memco_core_episode_global_skeleton) if _allow_persistent_global() else []
 
         goal_roles = getattr(query, "goal_roles", {}) or {}
 
@@ -2607,7 +2607,7 @@ class MemCoBase(MASMemoryBase):
         sourcebase_ranking_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_candidate"}
         searched_source_rerank_enabled = self._external_retrieval_mode in {"graph_policy", "graph_policy_rerank", "graph_policy_candidate"}
         if quality_enabled:
-            self._gm2_quality_last_action_candidates = []
+            self._memco_core_quality_last_action_candidates = []
         admissible = [
             str(cmd).strip()
             for cmd in (getattr(env_ref, "last_admissible_commands", []) or [])
@@ -2733,7 +2733,7 @@ class MemCoBase(MASMemoryBase):
             if role:
                 return role
             base = _source_base_from_item(item, text)
-            return self._gm2_location_role(base) if base else ""
+            return self._memco_core_location_role(base) if base else ""
 
         def _goal_signature_matches_object(item: Any) -> bool:
             target_object = _base_location(str(goal_roles.get("object", "") or ""))
@@ -2904,7 +2904,7 @@ class MemCoBase(MASMemoryBase):
             """
             if not _is_goal_destination_source(base, instance):
                 return 0.0
-            role = self._gm2_location_role(_base_location(base or instance))
+            role = self._memco_core_location_role(_base_location(base or instance))
             return 0.12 if role == "support_surface" else 0.22
 
         def _is_processing_tool_source(base: str, instance: str = "") -> bool:
@@ -3141,15 +3141,15 @@ class MemCoBase(MASMemoryBase):
 
         def _reset_source_queue_if_needed() -> None:
             queue_key = _source_queue_key()
-            if queue_key and queue_key != self._gm2_graph_policy_source_key:
-                self._gm2_graph_policy_source_key = queue_key
-                self._gm2_graph_policy_source_queue = []
-                self._gm2_graph_policy_next_source_action = ""
+            if queue_key and queue_key != self._memco_core_graph_policy_source_key:
+                self._memco_core_graph_policy_source_key = queue_key
+                self._memco_core_graph_policy_source_queue = []
+                self._memco_core_graph_policy_next_source_action = ""
 
         def _merge_source_queue(candidates: list[dict[str, Any]], *, limit: int = 8) -> list[dict[str, Any]]:
             _reset_source_queue_if_needed()
             merged: dict[str, dict[str, Any]] = {}
-            for entry in self._gm2_graph_policy_source_queue:
+            for entry in self._memco_core_graph_policy_source_queue:
                 active = _source_queue_active(entry)
                 if not active:
                     continue
@@ -3175,8 +3175,8 @@ class MemCoBase(MASMemoryBase):
             )
             queue_candidates = _gate_source_queue_candidates(queue_candidates)
             queue = queue_candidates[:limit]
-            self._gm2_graph_policy_source_queue = queue
-            self._gm2_graph_policy_next_source_action = str(queue[0].get("action", "") or "") if queue else ""
+            self._memco_core_graph_policy_source_queue = queue
+            self._memco_core_graph_policy_next_source_action = str(queue[0].get("action", "") or "") if queue else ""
             return queue
 
         def _source_base_stats(items: list[Any]) -> dict[str, dict[str, float]]:
@@ -3487,21 +3487,21 @@ class MemCoBase(MASMemoryBase):
 
         def _select_quality_source_priors(items: list[Any], *, limit: int = 2) -> list[str]:
             if not quality_enabled:
-                self._gm2_graph_policy_source_queue = []
-                self._gm2_graph_policy_next_source_action = ""
+                self._memco_core_graph_policy_source_queue = []
+                self._memco_core_graph_policy_next_source_action = ""
                 return []
             if getattr(query, "held_relevant_count", 0) > 0:
-                self._gm2_graph_policy_source_queue = []
-                self._gm2_graph_policy_next_source_action = ""
+                self._memco_core_graph_policy_source_queue = []
+                self._memco_core_graph_policy_next_source_action = ""
                 return []
             progress = str(getattr(query, "progress_state", "") or "")
             if progress and not progress.startswith("search") and progress not in {"locate_target", "inspect_container"}:
-                self._gm2_graph_policy_source_queue = []
-                self._gm2_graph_policy_next_source_action = ""
+                self._memco_core_graph_policy_source_queue = []
+                self._memco_core_graph_policy_next_source_action = ""
                 return []
             if bool(getattr(query, "goal_object_matches_visible", False)):
-                self._gm2_graph_policy_source_queue = []
-                self._gm2_graph_policy_next_source_action = ""
+                self._memco_core_graph_policy_source_queue = []
+                self._memco_core_graph_policy_next_source_action = ""
                 return []
 
             base_stats = _source_base_stats(items)
@@ -3515,7 +3515,7 @@ class MemCoBase(MASMemoryBase):
                 if not text or (not _is_positive_local_source_hint(item, text) and not is_source_type_prior):
                     if not (sourcebase_ranking_enabled and _target_take_source_from_item(item)):
                         continue
-                if self._gm2_feedback_item_state(item) == "quarantined":
+                if self._memco_core_feedback_item_state(item) == "quarantined":
                     continue
                 graph_policy_global_backoff = (
                     self._external_retrieval_mode == "graph_policy"
@@ -3648,7 +3648,7 @@ class MemCoBase(MASMemoryBase):
                             "advance through unvisited instances of this source_base before broad cabinet/drawer sweeps "
                             f"unless contradicted ({candidate['strength']})"
                         )
-                        self._gm2_record_feedback_item(item, slot="quality_source_prior", rendered_text=rendered)
+                        self._memco_core_record_feedback_item(item, slot="quality_source_prior", rendered_text=rendered)
             if sourcebase_ranking_enabled:
                 for candidate in _previous_target_source_candidates():
                     sig = str(candidate.get("signature", "") or "")
@@ -3712,14 +3712,14 @@ class MemCoBase(MASMemoryBase):
                 key=lambda entry: float(entry.get("score", 0.0) or 0.0),
                 reverse=True,
             )
-            self._gm2_quality_source_prior_candidates = [dict(entry) for entry in selected_candidates[:6]]
+            self._memco_core_quality_source_prior_candidates = [dict(entry) for entry in selected_candidates[:6]]
             queue = _merge_source_queue(selected_candidates)
             if not queue:
-                self._gm2_quality_last_action_candidates = []
+                self._memco_core_quality_last_action_candidates = []
                 return []
             next_entry = queue[0]
             alternates = queue[1:limit]
-            self._gm2_quality_last_action_candidates = [
+            self._memco_core_quality_last_action_candidates = [
                 str(entry.get("action", "") or "")
                 for entry in queue[:limit]
                 if str(entry.get("action", "") or "").strip()
@@ -3852,7 +3852,7 @@ class MemCoBase(MASMemoryBase):
                         count = int(value)
                     except Exception:
                         count = 1
-                    source_role = self._gm2_location_role(base)
+                    source_role = self._memco_core_location_role(base)
                     grouped[(source_role, base)] = grouped.get((source_role, base), 0) + max(1, count)
                 ranked_failed = sorted(grouped.items(), key=lambda item: item[1], reverse=True)
                 for (source_role, source_base), count in ranked_failed[:2]:
@@ -4056,7 +4056,7 @@ class MemCoBase(MASMemoryBase):
                 text = _item_text(item)
                 if not text:
                     continue
-                if self._gm2_feedback_item_state(item) == "quarantined":
+                if self._memco_core_feedback_item_state(item) == "quarantined":
                     continue
                 if want_failure:
                     if not _looks_failed(item, text):
@@ -4108,7 +4108,7 @@ class MemCoBase(MASMemoryBase):
                     continue
                 selected.append(rendered)
                 slot = "quality_failure_avoid" if want_failure else "quality_success_route"
-                self._gm2_record_feedback_item(item, slot=slot, rendered_text=rendered)
+                self._memco_core_record_feedback_item(item, slot=slot, rendered_text=rendered)
                 if len(selected) >= limit:
                     break
             return selected
@@ -4190,7 +4190,7 @@ class MemCoBase(MASMemoryBase):
                 text = _format_item(item)
                 if not text:
                     continue
-                if self._gm2_feedback_item_state(item) == "quarantined":
+                if self._memco_core_feedback_item_state(item) == "quarantined":
                     suppressed += 1
                     continue
                 if not allow_failure and _is_failure_like(item, text):
@@ -4210,7 +4210,7 @@ class MemCoBase(MASMemoryBase):
                     continue
                 if text not in selected:
                     selected.append(text)
-                    self._gm2_record_feedback_item(item, slot="graph_policy", rendered_text=text)
+                    self._memco_core_record_feedback_item(item, slot="graph_policy", rendered_text=text)
                 if len(selected) >= limit:
                     break
             return selected, suppressed
@@ -4367,7 +4367,7 @@ class MemCoBase(MASMemoryBase):
         quality_slot_constraints = _select_quality_slot_constraints(quality_source_priors)
         quality_slot_binding = _quality_slot_binding_line()
         global_source_type_priors, local_source_type_priors = _summarize_source_type_priors(
-            getattr(self, "_gm2_quality_source_prior_candidates", []) or []
+            getattr(self, "_memco_core_quality_source_prior_candidates", []) or []
         )
 
         if persistent_skeleton:
@@ -4457,7 +4457,7 @@ class MemCoBase(MASMemoryBase):
                 lines.append(
                     "Routing note: step-level global transfer is weak or absent, but the episode-level global task plan remains active."
                 )
-        if self._gm2_is_two_object_second_search(query):
+        if self._memco_core_is_two_object_second_search(query):
             lines.append(
                 "Two-object stage: one target has already been delivered. Continue searching for another target instance; do not return to the destination until holding it."
             )
@@ -4522,7 +4522,7 @@ class MemCoBase(MASMemoryBase):
         return "\n".join(lines)
 
     def _render_action_grounded_memory_evidence(self, *, query: Any, bundle: Any, env_ref: Any) -> str:
-        """Render a small, action-grounded GM2 view for repair-only action mode.
+        """Render a small, action-grounded MemCo view for repair-only action mode.
 
         This keeps the memory bank large but exposes only a few pieces that are
         tied to the current admissible action set. Global memory is treated as a
@@ -4740,7 +4740,7 @@ class MemCoBase(MASMemoryBase):
             )
         )
 
-    def _gm2_quality_action_override(self, *, processed_action: str, admissible_actions: list[str]) -> str | None:
+    def _memco_core_quality_action_override(self, *, processed_action: str, admissible_actions: list[str]) -> str | None:
         """Use quality-mode graph source priors only as a narrow search repair.
 
         This never runs for the stable graph_policy modes. It only redirects a
@@ -4751,7 +4751,7 @@ class MemCoBase(MASMemoryBase):
             return None
         candidates = [
             str(action).strip()
-            for action in (self._gm2_quality_last_action_candidates or [])
+            for action in (self._memco_core_quality_last_action_candidates or [])
             if str(action).strip() in set(admissible_actions)
         ]
         if not candidates:
@@ -4762,7 +4762,7 @@ class MemCoBase(MASMemoryBase):
             for prefix in ("go to ", "open ", "examine "):
                 if lowered.startswith(prefix):
                     target = lowered[len(prefix) :].strip()
-                    return prefix.strip(), self._gm2_base_token(target)
+                    return prefix.strip(), self._memco_core_base_token(target)
             return "", ""
 
         verb, base = _action_target(processed_action)
@@ -4882,7 +4882,7 @@ class MemCoBase(MASMemoryBase):
         memory items that influence the policy prompt are the ones that receive
         later success/failure feedback. It does not alter the solver loop.
         """
-        if not self._gm2_feedback_enabled():
+        if not self._memco_core_feedback_enabled():
             return
         groups = (
             ("quality_policy_local_graph", ("fact_items", "relation_items", "local_graph_contribution"), 3),
@@ -4899,10 +4899,10 @@ class MemCoBase(MASMemoryBase):
                     key = text.lower()
                     if not text or key in seen:
                         continue
-                    if self._gm2_feedback_item_state(item) == "quarantined":
+                    if self._memco_core_feedback_item_state(item) == "quarantined":
                         continue
                     seen.add(key)
-                    self._gm2_record_feedback_item(item, slot=slot, rendered_text=text)
+                    self._memco_core_record_feedback_item(item, slot=slot, rendered_text=text)
                     count += 1
                     if count >= limit:
                         break
@@ -4910,7 +4910,7 @@ class MemCoBase(MASMemoryBase):
                     break
 
     def set_global_retriever(self, global_retriever: Any) -> None:
-        """Attach a shared GM2 global memory while keeping this instance's local memory."""
+        """Attach a shared MemCo global memory while keeping this instance's local memory."""
         external_global = getattr(global_retriever, "_external_global_memory", None)
         if external_global is not None:
             self._external_global_memory = external_global
@@ -4956,7 +4956,7 @@ class MemCoBase(MASMemoryBase):
         env_ref = kargs.get("env_ref")
         task_config = kargs.get("task_config") or {}
         if env_ref is None:
-            self._external_error = "missing env_ref for external GraphMemory2 retrieval"
+            self._external_error = "missing env_ref for external MemCo retrieval"
             return None
         adapter = self._resolve_external_adapter(task_config, env_ref)
         if adapter is not None and hasattr(adapter, "build_query"):
@@ -4976,7 +4976,7 @@ class MemCoBase(MASMemoryBase):
             or str(kargs.get("query_task") or "").strip()
         )
         if not goal:
-            self._external_error = "missing goal for external GraphMemory2 retrieval"
+            self._external_error = "missing goal for external MemCo retrieval"
             return None
 
         gamefile = (
@@ -5122,8 +5122,8 @@ class MemCoBase(MASMemoryBase):
         goal_slots = adapter.goal_slots(goal)
         target_obj = str(goal_slots.get("object", "") or "")
         goal_destination = str(goal_slots.get("destination", "") or "")
-        target_base = self._gm2_base_token(target_obj)
-        destination_base = self._gm2_base_token(goal_destination)
+        target_base = self._memco_core_base_token(target_obj)
+        destination_base = self._memco_core_base_token(goal_destination)
 
         for record in history[1:]:
             if not isinstance(record, dict):
@@ -5144,9 +5144,9 @@ class MemCoBase(MASMemoryBase):
                 if (
                     obj
                     and target_base
-                    and self._gm2_base_token(obj) == target_base
+                    and self._memco_core_base_token(obj) == target_base
                     and destination_base
-                    and self._gm2_base_token(src) == destination_base
+                    and self._memco_core_base_token(src) == destination_base
                 ):
                     delivered_instances.discard(obj)
 
@@ -5157,9 +5157,9 @@ class MemCoBase(MASMemoryBase):
                 if (
                     obj
                     and target_base
-                    and self._gm2_base_token(obj) == target_base
+                    and self._memco_core_base_token(obj) == target_base
                     and destination_base
-                    and self._gm2_base_token(dst) == destination_base
+                    and self._memco_core_base_token(dst) == destination_base
                 ):
                     delivered_instances.add(obj)
 
@@ -5183,11 +5183,11 @@ class MemCoBase(MASMemoryBase):
                 visible_target = False
                 if target_base:
                     visible_target = any(
-                        self._gm2_base_token(str(item)) == target_base
+                        self._memco_core_base_token(str(item)) == target_base
                         for item in (next_state.visible_objects or ())
                     )
                 search_ref = adapter.search_reference_for_action(action, prev_state)
-                if action.verb == "go" and next_state.location and self._gm2_location_role(next_state.location) != "container":
+                if action.verb == "go" and next_state.location and self._memco_core_location_role(next_state.location) != "container":
                     search_ref = next_state.location
                 if action.verb in {"open", "examine", "look", "go"} and search_ref:
                     inspected_locations.add(str(search_ref).lower())
@@ -5214,7 +5214,7 @@ class MemCoBase(MASMemoryBase):
         }
 
     @staticmethod
-    def _gm2_base_token(value: str) -> str:
+    def _memco_core_base_token(value: str) -> str:
         import re
 
         token = re.sub(r"\s+", "_", str(value or "").strip().lower())
@@ -5224,8 +5224,8 @@ class MemCoBase(MASMemoryBase):
         return re.sub(r"_[0-9]+$", "", token)
 
     @classmethod
-    def _gm2_location_role(cls, value: str) -> str:
-        return "container" if cls._gm2_base_token(value) in {"drawer", "cabinet", "safe", "fridge", "microwave"} else "support_surface"
+    def _memco_core_location_role(cls, value: str) -> str:
+        return "container" if cls._memco_core_base_token(value) in {"drawer", "cabinet", "safe", "fridge", "microwave"} else "support_surface"
 
     def _resolve_external_owner_scene(self, task_config: dict | None = None, env_ref: Any = None) -> str:
         configured = str(self._graph_config_value("owner_scene", "") or "").strip()
@@ -5249,11 +5249,11 @@ class MemCoBase(MASMemoryBase):
             return next(iter(sorted(self._external_local_memories)))
         return "default"
 
-    def _gm2_feedback_enabled(self) -> bool:
+    def _memco_core_feedback_enabled(self) -> bool:
         return bool(self._external_retrieval_mode in {"graph_policy_feedback", "graph_policy_quality"})
 
-    def _load_gm2_feedback_stats(self) -> dict[str, Any]:
-        path = self._gm2_feedback_path or (Path(self.persist_dir) / "feedback_stats.json")
+    def _load_memco_core_feedback_stats(self) -> dict[str, Any]:
+        path = self._memco_core_feedback_path or (Path(self.persist_dir) / "feedback_stats.json")
         if not path.exists():
             return {"version": 1, "items": {}}
         try:
@@ -5268,15 +5268,15 @@ class MemCoBase(MASMemoryBase):
         data.setdefault("version", 1)
         return data
 
-    def _save_gm2_feedback_stats(self) -> None:
-        if self._gm2_feedback_path is None:
-            self._gm2_feedback_path = Path(self.persist_dir) / "feedback_stats.json"
-        self._gm2_feedback_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._gm2_feedback_path.open("w", encoding="utf-8") as writer:
-            json.dump(self._gm2_feedback_stats or {"version": 1, "items": {}}, writer, ensure_ascii=False, indent=2)
+    def _save_memco_core_feedback_stats(self) -> None:
+        if self._memco_core_feedback_path is None:
+            self._memco_core_feedback_path = Path(self.persist_dir) / "feedback_stats.json"
+        self._memco_core_feedback_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._memco_core_feedback_path.open("w", encoding="utf-8") as writer:
+            json.dump(self._memco_core_feedback_stats or {"version": 1, "items": {}}, writer, ensure_ascii=False, indent=2)
 
     @staticmethod
-    def _gm2_item_key(item: Any, rendered_text: str = "") -> str:
+    def _memco_core_item_key(item: Any, rendered_text: str = "") -> str:
         source = str(getattr(item, "source", "") or "unknown")
         candidate_id = str(getattr(item, "candidate_id", "") or "")
         ctype = str(getattr(item, "candidate_type", "") or "")
@@ -5284,19 +5284,19 @@ class MemCoBase(MASMemoryBase):
         digest = hashlib.sha1(summary.encode("utf-8", errors="ignore")).hexdigest()[:12]
         return f"{source}|{ctype}|{candidate_id or digest}|{digest}"
 
-    def _gm2_feedback_item_state(self, item: Any) -> str:
-        if not self._gm2_feedback_enabled():
+    def _memco_core_feedback_item_state(self, item: Any) -> str:
+        if not self._memco_core_feedback_enabled():
             return "active"
-        key = self._gm2_item_key(item)
-        stats = ((self._gm2_feedback_stats or {}).get("items") or {}).get(key, {})
+        key = self._memco_core_item_key(item)
+        stats = ((self._memco_core_feedback_stats or {}).get("items") or {}).get(key, {})
         state = str(stats.get("state", "") or "active")
         return state if state in {"active", "demoted", "quarantined"} else "active"
 
-    def _gm2_feedback_adjustment(self, item: Any) -> float:
-        if not self._gm2_feedback_enabled():
+    def _memco_core_feedback_adjustment(self, item: Any) -> float:
+        if not self._memco_core_feedback_enabled():
             return 0.0
-        key = self._gm2_item_key(item)
-        stats = ((self._gm2_feedback_stats or {}).get("items") or {}).get(key, {})
+        key = self._memco_core_item_key(item)
+        stats = ((self._memco_core_feedback_stats or {}).get("items") or {}).get(key, {})
         if not stats:
             return 0.0
         state = str(stats.get("state", "") or "active")
@@ -5307,13 +5307,13 @@ class MemCoBase(MASMemoryBase):
             return min(utility, 0.0) - 0.75
         return max(min(utility, 0.45), -0.45)
 
-    def _gm2_record_feedback_item(self, item: Any, *, slot: str, rendered_text: str) -> None:
-        if not self._gm2_feedback_enabled():
+    def _memco_core_record_feedback_item(self, item: Any, *, slot: str, rendered_text: str) -> None:
+        if not self._memco_core_feedback_enabled():
             return
-        key = self._gm2_item_key(item, rendered_text)
-        if key in self._gm2_episode_feedback_items:
+        key = self._memco_core_item_key(item, rendered_text)
+        if key in self._memco_core_episode_feedback_items:
             return
-        self._gm2_episode_feedback_items[key] = {
+        self._memco_core_episode_feedback_items[key] = {
             "source": str(getattr(item, "source", "") or ""),
             "candidate_id": str(getattr(item, "candidate_id", "") or ""),
             "candidate_type": str(getattr(item, "candidate_type", "") or ""),
@@ -5322,19 +5322,19 @@ class MemCoBase(MASMemoryBase):
             "summary": str(rendered_text or getattr(item, "summary", "") or "")[:500],
         }
 
-    def _update_gm2_feedback_from_episode(self, *, label: bool, **kargs) -> None:
-        if not self._gm2_feedback_enabled() or self.freeze_memory:
-            self._gm2_episode_feedback_items = {}
+    def _update_memco_core_feedback_from_episode(self, *, label: bool, **kargs) -> None:
+        if not self._memco_core_feedback_enabled() or self.freeze_memory:
+            self._memco_core_episode_feedback_items = {}
             return
-        if not self._gm2_episode_feedback_items:
+        if not self._memco_core_episode_feedback_items:
             return
-        stats_root = self._gm2_feedback_stats or {"version": 1, "items": {}}
+        stats_root = self._memco_core_feedback_stats or {"version": 1, "items": {}}
         items = stats_root.setdefault("items", {})
         env_ref = kargs.get("env_ref")
         max_trials = int(getattr(env_ref, "max_trials", 0) or 0) if env_ref is not None else 0
         step_count = int(getattr(self.episode_builder.state, "step_count", 0) or 0) if self.episode_builder else 0
         stalled = bool((not label) and max_trials and step_count >= max_trials)
-        for key, meta in self._gm2_episode_feedback_items.items():
+        for key, meta in self._memco_core_episode_feedback_items.items():
             item_stats = items.setdefault(
                 key,
                 {
@@ -5376,9 +5376,9 @@ class MemCoBase(MASMemoryBase):
                 item_stats["state"] = "demoted"
             else:
                 item_stats["state"] = "active"
-        self._gm2_feedback_stats = stats_root
-        self._save_gm2_feedback_stats()
-        self._gm2_episode_feedback_items = {}
+        self._memco_core_feedback_stats = stats_root
+        self._save_memco_core_feedback_stats()
+        self._memco_core_episode_feedback_items = {}
 
     def summarize(self, **kargs) -> str:
         base = super().summarize(**kargs)
@@ -5401,17 +5401,18 @@ class MemCoBase(MASMemoryBase):
     def save_task_context(self, label: bool, feedback: str = None, **kargs) -> MASMessage:
         saved = super().save_task_context(label=label, feedback=feedback, **kargs)
         if self.episode_builder is not None:
-            saved.add_extra_field("gm2_step_count", self.episode_builder.state.step_count)
-            saved.add_extra_field("gm2_recent_actions", list(self.episode_builder.state.recent_actions))
-        self._update_gm2_feedback_from_episode(label=label, **kargs)
+            saved.add_extra_field("memco_step_count", self.episode_builder.state.step_count)
+            saved.add_extra_field("memco_recent_actions", list(self.episode_builder.state.recent_actions))
+        self._update_memco_core_feedback_from_episode(label=label, **kargs)
         if self._dynamic_graph_enabled and not self.freeze_memory:
             self._update_dynamic_graph_from_env(label=label, **kargs)
         return saved
 
     def _update_dynamic_graph_from_env(self, *, label: bool, **kargs) -> None:
         env_ref = kargs.get("env_ref")
-        if env_ref is None or not hasattr(env_ref, "export_gm2_history"):
-            self._external_error = "dynamic GM2 graph update skipped: missing exportable env_ref"
+        export_history = getattr(env_ref, "export_memco_history", None)
+        if env_ref is None or not callable(export_history):
+            self._external_error = "dynamic MemCo graph update skipped: missing exportable env_ref"
             return
         scene = self._resolve_external_owner_scene(kargs.get("task_config"), env_ref)
         local_memory = self._external_local_memories.get(scene)
@@ -5425,7 +5426,7 @@ class MemCoBase(MASMemoryBase):
         status = "success" if label else "fail"
         model_id = str((kargs.get("task_config") or {}).get("model_type", "") or "")
         try:
-            history_path = env_ref.export_gm2_history(
+            history_path = export_history(
                 str(history_dir),
                 model_id=model_id,
                 status_override=status,
@@ -5456,13 +5457,13 @@ class MemCoBase(MASMemoryBase):
             self._persist_shared_global_memory()
             self._persist_dynamic_graph_memory()
         except Exception as exc:
-            self._external_error = f"dynamic GM2 graph update failed: {type(exc).__name__}: {exc}"
+            self._external_error = f"dynamic MemCo graph update failed: {type(exc).__name__}: {exc}"
 
     def _persist_dynamic_graph_memory(self) -> None:
         if self._external_artifact_dir is None:
             return
         self._external_artifact_dir.mkdir(parents=True, exist_ok=True)
-        local_artifact_scene = self._gm2_local_artifact_scene(self._external_artifact_dir)
+        local_artifact_scene = self._memco_core_local_artifact_scene(self._external_artifact_dir)
         local_items = self._external_local_memories.items()
         if local_artifact_scene:
             local_memory = self._external_local_memories.get(local_artifact_scene)
@@ -5562,19 +5563,19 @@ class MemCoBase(MASMemoryBase):
         if is_fever:
             if bool(mas_message.label):
                 hints.append(
-                    "[GM2-FEVER] Treat memory as search workflow only; decide SUPPORTS/REFUTES/NOT ENOUGH INFO from current evidence."
+                    "[MemCo-FEVER] Treat memory as search workflow only; decide SUPPORTS/REFUTES/NOT ENOUGH INFO from current evidence."
                 )
             if "No Results" in trajectory:
                 hints.append(
-                    "[GM2-FEVER] After No Results, reformulate the current claim query; do not repeat an old entity-specific lookup."
+                    "[MemCo-FEVER] After No Results, reformulate the current claim query; do not repeat an old entity-specific lookup."
                 )
             return hints
         if "Nothing happens." in trajectory:
-            hints.append("[GM2] Avoid repeating actions that already returned 'Nothing happens.'.")
+            hints.append("[MemCo] Avoid repeating actions that already returned 'Nothing happens.'.")
         if bool(mas_message.label):
-            hints.append("[GM2] Prefer action sequences that preserve forward progress and update plans from the latest observation.")
+            hints.append("[MemCo] Prefer action sequences that preserve forward progress and update plans from the latest observation.")
         if "open" in trajectory.lower():
-            hints.append("[GM2] Check receptacle state before interacting; opening a container is often a useful precondition.")
+            hints.append("[MemCo] Check receptacle state before interacting; opening a container is often a useful precondition.")
         return hints
 
 

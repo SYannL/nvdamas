@@ -36,17 +36,17 @@ python scripts/eval_collab_multidomain_global.py \
   --alfworld_eval_split valid_seen,valid_unseen \
   --alfworld_game_root /workspace/run_alf/ALFWORLD_DATA/alfworld_official_042/json_2.1.1 \
   --mas_type autogen \
-  --mas_memory graph_memory3 \
+  --mas_memory memco \
   --reasoning io \
   --model qwen3-32b \
   --run_id <run_name> \
   --max_trials 30 \
   --batch_size 1 \
   --tool_mode search \
-  --gm3_dynamic_graph \
-  --gm3_settings local_plus_global \
-  --gm3_router textloss \
-  --gm3_promotion_threshold 0.35 \
+  --memco_dynamic_graph \
+  --memco_settings local_plus_global \
+  --memco_router textloss \
+  --memco_promotion_threshold 0.35 \
   --reset_memory
 ```
 

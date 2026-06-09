@@ -34,121 +34,31 @@ with open('tasks/configs.yaml') as reader:
 WORKING_DIR: str = None
 LOG_DIR: str = None
 
-GM2_RETRIEVAL_MODE_CHOICES: tuple[str, ...] = (
-    'lightweight',
-    'query',
-    'phasee_compat',
-    'phasee_policy',
-    'phasee_action',
-    'hybrid_policy',
-    'hybrid_repair',
-    'lightweight_repair',
-    'graph_policy',
-    'graph_policy_rerank',
-    'graph_policy_feedback',
-    'graph_policy_candidate',
-    'graph_policy_quality',
-)
 GRAPH_MEMORY_SETTINGS_CHOICES: tuple[str, ...] = ('base', 'local_only', 'global_only', 'local_plus_global')
-GM3_ROUTER_CHOICES: tuple[str, ...] = ('textloss',)
+MEMCO_ROUTER_CHOICES: tuple[str, ...] = ('textloss',)
 
 
-def _warn_legacy_graph_arg(memory_type: str, legacy_flag: str, new_flag: str, value: object) -> None:
-    print(
-        f"[config] {memory_type} received legacy {legacy_flag}={value!r}; prefer {new_flag}.",
-        flush=True,
-    )
-
-
-def _resolve_graph_memory_mem_config(args: argparse.Namespace, memory_type: str) -> dict[str, object]:
-    if memory_type == "graph_memory2":
-        config: dict[str, object] = {
-            "gm2_memory_dir": str(args.gm2_memory_dir or "").strip(),
-            "gm2_repo_root": str(args.gm2_repo_root or "").strip(),
-            "gm2_dynamic_graph": bool(args.gm2_dynamic_graph),
-            "gm2_retrieval_mode": str(args.gm2_retrieval_mode or "lightweight").strip(),
-            "gm2_settings": str(args.gm2_settings or "local_only").strip(),
-            "gm2_owner_scene": str(args.gm2_owner_scene or "").strip(),
-            "gm2_freeze_memory": bool(args.gm2_freeze_memory),
-            "gm2_promotion_threshold": float(args.gm2_promotion_threshold),
-        }
-        if args.gm2_enable_overlay:
-            config["gm2_enable_overlay"] = True
-        return config
-
-    if memory_type != "graph_memory3":
+def _resolve_memco_mem_config(args: argparse.Namespace, memory_type: str) -> dict[str, object]:
+    if memory_type != "memco":
         return {}
 
-    gm3_memory_dir = str(args.gm3_memory_dir or "").strip()
-    if not gm3_memory_dir and str(args.gm2_memory_dir or "").strip():
-        gm3_memory_dir = str(args.gm2_memory_dir).strip()
-        _warn_legacy_graph_arg(memory_type, "--gm2_memory_dir", "--gm3_memory_dir", gm3_memory_dir)
-
-    gm3_repo_root = str(args.gm3_repo_root or "").strip()
-    if not gm3_repo_root and str(args.gm2_repo_root or "").strip():
-        gm3_repo_root = str(args.gm2_repo_root).strip()
-        _warn_legacy_graph_arg(memory_type, "--gm2_repo_root", "--gm3_repo_root", gm3_repo_root)
-
-    gm3_dynamic_graph = bool(args.gm3_dynamic_graph)
-    if not gm3_dynamic_graph and bool(args.gm2_dynamic_graph):
-        gm3_dynamic_graph = True
-        _warn_legacy_graph_arg(memory_type, "--gm2_dynamic_graph", "--gm3_dynamic_graph", True)
-
-    gm3_router = str(args.gm3_router or "").strip().lower()
-    legacy_mode = str(args.gm2_retrieval_mode or "lightweight").strip().lower()
-    if not gm3_router and legacy_mode != "lightweight":
-        gm3_router = "textloss"
-        _warn_legacy_graph_arg(memory_type, "--gm2_retrieval_mode", "--gm3_router", legacy_mode)
-    gm3_router = gm3_router or "textloss"
-
-    gm3_settings = str(args.gm3_settings or "").strip()
-    legacy_settings = str(args.gm2_settings or "local_only").strip()
-    if not gm3_settings and legacy_settings != "local_only":
-        gm3_settings = legacy_settings
-        _warn_legacy_graph_arg(memory_type, "--gm2_settings", "--gm3_settings", legacy_settings)
-    gm3_settings = gm3_settings or "local_only"
-
-    gm3_owner_scene = str(args.gm3_owner_scene or "").strip()
-    if not gm3_owner_scene and str(args.gm2_owner_scene or "").strip():
-        gm3_owner_scene = str(args.gm2_owner_scene).strip()
-        _warn_legacy_graph_arg(memory_type, "--gm2_owner_scene", "--gm3_owner_scene", gm3_owner_scene)
-
-    gm3_freeze_memory = bool(args.gm3_freeze_memory)
-    if not gm3_freeze_memory and bool(args.gm2_freeze_memory):
-        gm3_freeze_memory = True
-        _warn_legacy_graph_arg(memory_type, "--gm2_freeze_memory", "--gm3_freeze_memory", True)
-
-    gm3_enable_overlay = bool(args.gm3_enable_overlay)
-    if not gm3_enable_overlay and bool(args.gm2_enable_overlay):
-        gm3_enable_overlay = True
-        _warn_legacy_graph_arg(memory_type, "--gm2_enable_overlay", "--gm3_enable_overlay", True)
-
-    gm3_promotion_threshold = args.gm3_promotion_threshold
-    if gm3_promotion_threshold is None and float(args.gm2_promotion_threshold) != 0.35:
-        gm3_promotion_threshold = float(args.gm2_promotion_threshold)
-        _warn_legacy_graph_arg(
-            memory_type,
-            "--gm2_promotion_threshold",
-            "--gm3_promotion_threshold",
-            gm3_promotion_threshold,
-        )
-    if gm3_promotion_threshold is None:
-        gm3_promotion_threshold = 0.35
+    memco_promotion_threshold = args.memco_promotion_threshold
+    if memco_promotion_threshold is None:
+        memco_promotion_threshold = 0.35
 
     config = {
-        "gm3_memory_dir": gm3_memory_dir,
-        "gm3_repo_root": gm3_repo_root,
-        "gm3_dynamic_graph": gm3_dynamic_graph,
-        "gm3_router": gm3_router,
-        "gm3_settings": gm3_settings,
-        "gm3_owner_scene": gm3_owner_scene,
-        "gm3_freeze_memory": gm3_freeze_memory,
-        "gm3_promotion_threshold": float(gm3_promotion_threshold),
-        "gm3_use_textgrad": bool(args.gm3_use_textgrad),
-        "gm3_textgrad_engine": str(args.gm3_textgrad_engine or "").strip(),
+        "memco_memory_dir": str(args.memco_memory_dir or "").strip(),
+        "memco_dynamic_graph": bool(args.memco_dynamic_graph),
+        "memco_router": str(args.memco_router or "textloss").strip().lower() or "textloss",
+        "memco_settings": str(args.memco_settings or "local_only").strip() or "local_only",
+        "memco_owner_scene": str(args.memco_owner_scene or "").strip(),
+        "memco_freeze_memory": bool(args.memco_freeze_memory),
+        "memco_promotion_threshold": float(memco_promotion_threshold),
+        "memco_use_textgrad": bool(args.memco_use_textgrad),
+        "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
     }
-    if gm3_enable_overlay:
-        config["gm3_enable_overlay"] = True
+    if args.memco_enable_overlay:
+        config["memco_enable_overlay"] = True
     return config
 
 
@@ -189,20 +99,20 @@ def _export_alfworld_history_if_enabled(
 ) -> str | None:
     if task_manager.task_name != "alfworld":
         return None
-    export_enabled = bool(task_manager.mem_config.get("export_gm2_history", False))
+    export_enabled = bool(task_manager.mem_config.get("export_memco_history", False))
     if not export_enabled:
         return None
-    history_dir = str(task_manager.mem_config.get("gm2_history_dir", "") or "").strip()
+    history_dir = str(task_manager.mem_config.get("memco_history_dir", "") or "").strip()
     if not history_dir:
         return None
     env = getattr(task_manager, "env", None)
-    if env is None or not hasattr(env, "export_gm2_history"):
+    if env is None or not hasattr(env, "export_memco_history"):
         return None
     model_id = str(task_config.get("model_type") or task_manager.mas_config.get("model_type", "") or "")
     try:
-        return env.export_gm2_history(history_dir, model_id=model_id, status_override=status_override)
+        return env.export_memco_history(history_dir, model_id=model_id, status_override=status_override)
     except Exception as exc:
-        task_manager.recorder.log(f"[gm2_history_export] failed: {type(exc).__name__}: {exc}")
+        task_manager.recorder.log(f"[memco_history_export] failed: {type(exc).__name__}: {exc}")
         return None
 
 
@@ -319,7 +229,7 @@ def run_task(task_manager: TaskManager) -> None:
             task_manager.recorder.task_end(reward, done)
             exported = _export_alfworld_history_if_enabled(task_manager, task_config)
             if exported:
-                task_manager.recorder.log(f"[gm2_history_export] saved: {exported}")
+                task_manager.recorder.log(f"[memco_history_export] saved: {exported}")
         except Exception as e:
             # Robustness: ALFWorld/TextWorld occasionally crashes on some gamefiles (e.g. PDDL parser issues).
             # We skip the task but keep the run alive, logging full traceback for later inspection.
@@ -339,7 +249,7 @@ def run_task(task_manager: TaskManager) -> None:
             task_manager.recorder.task_end(reward, done)
             exported = _export_alfworld_history_if_enabled(task_manager, task_config, status_override="fail")
             if exported:
-                task_manager.recorder.log(f"[gm2_history_export] saved after crash: {exported}")
+                task_manager.recorder.log(f"[memco_history_export] saved after crash: {exported}")
             # Continue to next task.
             continue
         
@@ -428,7 +338,7 @@ if __name__ == '__main__':
         '--mas_memory',
         type=str,
         default='g-memory',
-        help='MAS memory: g-memory, graph_memory2, graph_memory3, selectivemem, memrl, ...',
+        help='MAS memory: g-memory, memco, selectivemem, memrl, ...',
     )
     parser.add_argument('--reasoning', type=str, default='io', help='Specify reasoning module')
     parser.add_argument('--model', type=str, default='gpt-3.5-turbo-0125', help='Specify the LLM model type')
@@ -490,15 +400,15 @@ if __name__ == '__main__':
         ),
     )
     parser.add_argument(
-        '--export_gm2_history',
+        '--export_memco_history',
         action='store_true',
-        help='ALFWorld only: export gm2-compatible history_*.json files while running the original project pipeline.',
+        help='ALFWorld only: export MemCo-compatible history_*.json files while running the original project pipeline.',
     )
     parser.add_argument(
-        '--gm2_history_dir',
+        '--memco_history_dir',
         type=str,
         default='',
-        help='ALFWorld only: directory for exported gm2-compatible history files. Defaults to <log_dir>/game_trajectory.',
+        help='ALFWorld only: directory for exported MemCo-compatible history files. Defaults to <log_dir>/game_trajectory.',
     )
     parser.add_argument(
         '--alfworld_game_root',
@@ -510,121 +420,62 @@ if __name__ == '__main__':
         ),
     )
     parser.add_argument(
-        '--gm2_memory_dir',
+        '--memco_memory_dir',
         type=str,
         default='',
-        help='GraphMemory2 only: optional external directory for prebuilt/static gm2 memory artifacts.',
+        help='MemCo only: optional external directory for prebuilt/static graph artifacts.',
     )
     parser.add_argument(
-        '--gm2_repo_root',
-        type=str,
-        default='',
-        help='Deprecated: GraphMemory2 graph modules are vendored under gm2_backend.',
-    )
-    parser.add_argument(
-        '--gm2_dynamic_graph',
+        '--memco_dynamic_graph',
         action='store_true',
-        help='GraphMemory2 only: dynamically build real local/global graph memory from episodes in this run.',
+        help='MemCo only: dynamically build real local/global graph memory from episodes in this run.',
     )
     parser.add_argument(
-        '--gm2_retrieval_mode',
-        type=str,
-        default='lightweight',
-        choices=GM2_RETRIEVAL_MODE_CHOICES,
-        help='GraphMemory2 only: retrieval mode for external graph memory artifacts.',
-    )
-    parser.add_argument(
-        '--gm2_settings',
-        type=str,
-        default='local_only',
-        choices=GRAPH_MEMORY_SETTINGS_CHOICES,
-        help='GraphMemory2 only: which external graph memories to use.',
-    )
-    parser.add_argument(
-        '--gm2_owner_scene',
+        '--memco_router',
         type=str,
         default='',
-        help='GraphMemory2 only: local memory scene name, e.g. kitchen for local_kitchen.json.',
+        choices=MEMCO_ROUTER_CHOICES,
+        help='MemCo only: prompt router strategy.',
     )
     parser.add_argument(
-        '--gm2_freeze_memory',
-        action='store_true',
-        help='GraphMemory2 only: disable cross-task memory updates and use committed memory in read-only mode.',
-    )
-    parser.add_argument(
-        '--gm2_enable_overlay',
-        action='store_true',
-        help='GraphMemory2 only: enable per-episode overlay updates during a task.',
-    )
-    parser.add_argument(
-        '--gm2_promotion_threshold',
-        type=float,
-        default=0.35,
-        help='GraphMemory2 only: placeholder threshold for local-to-global promotion logic.',
-    )
-    parser.add_argument(
-        '--gm3_memory_dir',
-        type=str,
-        default='',
-        help='GraphMemory3 only: optional external directory for prebuilt/static gm3 graph artifacts.',
-    )
-    parser.add_argument(
-        '--gm3_repo_root',
-        type=str,
-        default='',
-        help='Deprecated: GraphMemory3 graph modules are vendored under gm2_backend.',
-    )
-    parser.add_argument(
-        '--gm3_dynamic_graph',
-        action='store_true',
-        help='GraphMemory3 only: dynamically build real local/global graph memory from episodes in this run.',
-    )
-    parser.add_argument(
-        '--gm3_router',
-        type=str,
-        default='',
-        choices=GM3_ROUTER_CHOICES,
-        help='GraphMemory3 only: prompt router strategy.',
-    )
-    parser.add_argument(
-        '--gm3_settings',
+        '--memco_settings',
         type=str,
         default='',
         choices=GRAPH_MEMORY_SETTINGS_CHOICES,
-        help='GraphMemory3 only: which external graph memories to use.',
+        help='MemCo only: which graph memories to use.',
     )
     parser.add_argument(
-        '--gm3_owner_scene',
+        '--memco_owner_scene',
         type=str,
         default='',
-        help='GraphMemory3 only: local memory scene name, e.g. kitchen for local_kitchen.json.',
+        help='MemCo only: local memory scene name, e.g. kitchen for local_kitchen.json.',
     )
     parser.add_argument(
-        '--gm3_freeze_memory',
+        '--memco_freeze_memory',
         action='store_true',
-        help='GraphMemory3 only: disable cross-task memory updates and use committed memory in read-only mode.',
+        help='MemCo only: disable cross-task memory updates and use committed memory in read-only mode.',
     )
     parser.add_argument(
-        '--gm3_enable_overlay',
+        '--memco_enable_overlay',
         action='store_true',
-        help='GraphMemory3 only: enable per-episode overlay updates during a task.',
+        help='MemCo only: enable per-episode overlay updates during a task.',
     )
     parser.add_argument(
-        '--gm3_promotion_threshold',
+        '--memco_promotion_threshold',
         type=float,
         default=None,
-        help='GraphMemory3 only: local-to-global promotion threshold.',
+        help='MemCo only: local-to-global promotion threshold.',
     )
     parser.add_argument(
-        '--gm3_use_textgrad',
+        '--memco_use_textgrad',
         action='store_true',
-        help='GraphMemory3 only: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.',
+        help='MemCo only: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.',
     )
     parser.add_argument(
-        '--gm3_textgrad_engine',
+        '--memco_textgrad_engine',
         type=str,
         default='',
-        help='GraphMemory3 only: TextGrad engine name, e.g. experimental:openai/qwen32b-api.',
+        help='MemCo only: TextGrad engine name, e.g. experimental:openai/qwen32b-api.',
     )
 
     args = parser.parse_args()
@@ -702,17 +553,17 @@ if __name__ == '__main__':
         hop=args.hop,
         task_name=_mem_task_name,
     )
-    if mas_memory_type in {"graph_memory2", "graph_memory3"}:
-        task_configs.mem_config.update(_resolve_graph_memory_mem_config(args, mas_memory_type))
+    if mas_memory_type == "memco":
+        task_configs.mem_config.update(_resolve_memco_mem_config(args, mas_memory_type))
     if task == "alfworld":
-        history_dir = args.gm2_history_dir.strip() or os.path.join(LOG_DIR, "game_trajectory")
+        history_dir = args.memco_history_dir.strip() or os.path.join(LOG_DIR, "game_trajectory")
         task_configs.mem_config.update(
-            export_gm2_history=bool(args.export_gm2_history),
-            gm2_history_dir=history_dir,
+            export_memco_history=bool(args.export_memco_history),
+            memco_history_dir=history_dir,
         )
-        if args.export_gm2_history:
+        if args.export_memco_history:
             os.makedirs(history_dir, exist_ok=True)
-            print(f"GM2-compatible histories will be exported to: {os.path.abspath(history_dir)}", flush=True)
+            print(f"MemCo-compatible histories will be exported to: {os.path.abspath(history_dir)}", flush=True)
 
     build_mas(task_configs, reasoning_type, mas_memory_type, model_type)
 

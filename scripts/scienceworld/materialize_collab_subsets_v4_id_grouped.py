@@ -185,7 +185,7 @@ def _annotate(
         "env_name": "scienceworld",
         "task_type": "scienceworld",
         "dataset_family": "scienceworld",
-        "gm3_domain": "scienceworld",
+        "memco_domain": "scienceworld",
         "scienceworld_domain": domain,
         "scienceworld_family": domain,
         "scienceworld_role": role,
