@@ -53,15 +53,10 @@ EVAL_ONLY="${EVAL_ONLY:-0}"
 TOOL_MODE="${TOOL_MODE:-}"
 MAX_TRAIN="${MAX_TRAIN:-}"
 MAX_EVAL="${MAX_EVAL:-}"
-GM2_DYNAMIC_GRAPH="${GM2_DYNAMIC_GRAPH:-0}"
-GM2_REPO_ROOT="${GM2_REPO_ROOT:-}"
-GM2_RETRIEVAL_MODE="${GM2_RETRIEVAL_MODE:-graph_policy}"
-GM2_SETTINGS="${GM2_SETTINGS:-local_plus_global}"
-GM3_DYNAMIC_GRAPH="${GM3_DYNAMIC_GRAPH:-1}"
-GM3_REPO_ROOT="${GM3_REPO_ROOT:-}"
-GM3_ROUTER="${GM3_ROUTER:-textloss}"
-GM3_SETTINGS="${GM3_SETTINGS:-local_plus_global}"
-GM3_PROMOTION_THRESHOLD="${GM3_PROMOTION_THRESHOLD:-0.35}"
+MEMCO_DYNAMIC_GRAPH="${MEMCO_DYNAMIC_GRAPH:-1}"
+MEMCO_ROUTER="${MEMCO_ROUTER:-textloss}"
+MEMCO_SETTINGS="${MEMCO_SETTINGS:-local_plus_global}"
+MEMCO_PROMOTION_THRESHOLD="${MEMCO_PROMOTION_THRESHOLD:-0.35}"
 MEMSKILL_CONTROLLER="${MEMSKILL_CONTROLLER:-llm}"
 MEMSKILL_CHECKPOINT_PATH="${MEMSKILL_CHECKPOINT_PATH:-/home/xenial/scratch/nvdamas/Models/memskill/alfworld_controller.pt}"
 MEMSKILL_OPERATION_BANK_PATH="${MEMSKILL_OPERATION_BANK_PATH:-}"
@@ -111,27 +106,13 @@ elif [ "$MAS_MEMORY" = "amem" ] || [ "$MAS_MEMORY" = "memrl" ]; then
     cmd+=(--tool_mode search)
 fi
 
-if [ "$MAS_MEMORY" = "graph_memory2" ]; then
-    if [ "$GM2_DYNAMIC_GRAPH" = "1" ]; then
-        cmd+=(--gm2_dynamic_graph)
+if [ "$MAS_MEMORY" = "memco" ]; then
+    if [ "$MEMCO_DYNAMIC_GRAPH" = "1" ]; then
+        cmd+=(--memco_dynamic_graph)
     fi
-    if [ -n "$GM2_REPO_ROOT" ]; then
-        cmd+=(--gm2_repo_root "$GM2_REPO_ROOT")
-    fi
-    cmd+=(--gm2_retrieval_mode "$GM2_RETRIEVAL_MODE")
-    cmd+=(--gm2_settings "$GM2_SETTINGS")
-fi
-
-if [ "$MAS_MEMORY" = "graph_memory3" ]; then
-    if [ "$GM3_DYNAMIC_GRAPH" = "1" ]; then
-        cmd+=(--gm3_dynamic_graph)
-    fi
-    if [ -n "$GM3_REPO_ROOT" ]; then
-        cmd+=(--gm3_repo_root "$GM3_REPO_ROOT")
-    fi
-    cmd+=(--gm3_router "$GM3_ROUTER")
-    cmd+=(--gm3_settings "$GM3_SETTINGS")
-    cmd+=(--gm3_promotion_threshold "$GM3_PROMOTION_THRESHOLD")
+    cmd+=(--memco_router "$MEMCO_ROUTER")
+    cmd+=(--memco_settings "$MEMCO_SETTINGS")
+    cmd+=(--memco_promotion_threshold "$MEMCO_PROMOTION_THRESHOLD")
 fi
 
 if [ "$MAS_MEMORY" = "memskill" ]; then
