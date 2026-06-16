@@ -161,16 +161,17 @@ class MemCoMASMemory(MemCoBase):
             return min(base, float(getattr(self, "_memco_alfworld_weak_global_weight", 0.35) or 0.35))
         return base
 
-    def _memco_qwen4b_legacy_fever_pddl(self, query: Any = None) -> bool:
-        if str(os.getenv("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower() not in {
+    def _memco_fever_policy_enabled(self, query: Any = None) -> bool:
+        if str(os.getenv("NV_MEMCO_FEVER_POLICY", "")).strip().lower() not in {
             "1",
             "true",
             "yes",
             "on",
+            "adaptive_cache",
         }:
             return False
         task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
-        return task_family.startswith("fever") or task_family.startswith("pddl")
+        return task_family.startswith("fever")
 
     def init_task_context(self, task_main: str, task_description: str = None) -> Any:
         message = super().init_task_context(task_main, task_description)
@@ -735,7 +736,7 @@ class MemCoMASMemory(MemCoBase):
             task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
             header = (
                 "### MemCo MEMORY RETRIEVAL HINT"
-                if task_family.startswith("fever") and not self._memco_qwen4b_legacy_fever_pddl(query)
+                if task_family.startswith("fever") and not self._memco_fever_policy_enabled(query)
                 else "### MemCo MEMORY DECISION SUMMARY"
             )
             planner_notes.append(
@@ -1178,9 +1179,9 @@ class MemCoMASMemory(MemCoBase):
         exhausted = [str(x) for x in dynamic.get("exhausted_locations", []) or [] if str(x).strip()]
         task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
 
-        legacy_qwen4b_fp = self._memco_qwen4b_legacy_fever_pddl(query)
+        fever_policy_enabled = self._memco_fever_policy_enabled(query)
 
-        if task_family.startswith("fever") and not legacy_qwen4b_fp:
+        if task_family.startswith("fever") and not fever_policy_enabled:
             self._memco_last_fever_memory_render_count = 0
             hint_payload = self._memco_fever_direct_retrieval_hint(
                 query=query,
@@ -1218,7 +1219,7 @@ class MemCoMASMemory(MemCoBase):
         )
         fever_health = (
             {}
-            if legacy_qwen4b_fp and task_family.startswith("fever")
+            if fever_policy_enabled and task_family.startswith("fever")
             else self._memco_fever_health_snapshot(query=query, bundle=bundle, candidates=candidates)
         )
         routed = self._memco_textloss_route(
@@ -1232,7 +1233,7 @@ class MemCoMASMemory(MemCoBase):
         if fever_health:
             routed["fever_health"] = fever_health
         selected = routed["selected"]
-        if not (legacy_qwen4b_fp and task_family.startswith("fever")):
+        if not (fever_policy_enabled and task_family.startswith("fever")):
             selected = self._memco_filter_fever_selected_sections(query=query, selected=selected)
         selected = self._memco_filter_pddl_selected_sections(query=query, selected=selected, admissible=admissible)
         routed["selected_after_fever_gate"] = self._memco_core_debug_jsonable(selected)
@@ -1719,11 +1720,11 @@ class MemCoMASMemory(MemCoBase):
                 return True, "bfcl_phase_policy"
 
         if task_family.startswith("fever"):
-            if self._memco_qwen4b_legacy_fever_pddl(query):
+            if self._memco_fever_policy_enabled(query):
                 for slot in ("local_grounding", "global_workflow", "failure_avoidance"):
                     if slot in slots and self._memco_selected_slot_has_real_item(selected, slot):
-                        return True, f"fever_legacy_{slot}_phase_grounded"
-                return False, "fever_legacy_no_phase_grounded_memory"
+                        return True, f"fever_policy_{slot}_phase_grounded"
+                return False, "fever_policy_no_phase_grounded_memory"
             return False, "fever_uses_direct_pattern_hint_path"
 
         if task_family.startswith("pddl"):
@@ -2212,7 +2213,7 @@ class MemCoMASMemory(MemCoBase):
             elif pattern_kind in {"workflow", "closure", "rule", "precondition"}:
                 rendered.append(text)
         if task_family.startswith("fever"):
-            legacy_qwen4b_fp = self._memco_qwen4b_legacy_fever_pddl(query)
+            fever_policy_enabled = self._memco_fever_policy_enabled(query)
             style = self._memco_prompt_style(query=None, task_family=task_family)
             for item in (
                 list(getattr(bundle, "local_items", []) or [])
@@ -2224,7 +2225,7 @@ class MemCoMASMemory(MemCoBase):
                 text = self._memco_clean(str(getattr(item, "summary", "") or ""))
                 if not text:
                     continue
-                if legacy_qwen4b_fp:
+                if fever_policy_enabled:
                     if self._memco_should_suppress_fever_workflow_for_phase(
                         text=text,
                         task_family=task_family,

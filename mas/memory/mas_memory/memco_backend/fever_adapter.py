@@ -33,12 +33,13 @@ def _extract_bracket_arg(action: str) -> tuple[str, str]:
     return match.group(1), match.group(2).strip()
 
 
-def _legacy_qwen4b_fever_enabled() -> bool:
-    return str(os.environ.get("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower() in {
+def _memco_fever_policy_enabled() -> bool:
+    return str(os.environ.get("NV_MEMCO_FEVER_POLICY", "")).strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
+        "adaptive_cache",
     }
 
 
@@ -109,7 +110,7 @@ class FeverAdapter:
         return f"{self.derive_scene_id(domain, history_path)}:{task_id if task_id is not None else 'unknown'}"
 
     def infer_task_family(self, claim: str, domain: str | None = None) -> str:
-        if _legacy_qwen4b_fever_enabled():
+        if _memco_fever_policy_enabled():
             if domain:
                 return f"fever:{_normalize(domain)}"
             return "fever:claim_verification"
@@ -171,7 +172,7 @@ class FeverAdapter:
         desired_types = [CandidateType.PRECONDITION, CandidateType.WORKFLOW]
         if progress_state in {"search_failed", "invalid_action"}:
             desired_types.append(CandidateType.FAILURE)
-        if _legacy_qwen4b_fever_enabled():
+        if _memco_fever_policy_enabled():
             entity = self._claim_anchor(claim)
             keywords = tuple(
                 dict.fromkeys(
@@ -358,7 +359,7 @@ class FeverAdapter:
         observations = [str(row.get("Observation", "") or "") for row in history if str(row.get("Observation", "") or "").strip()]
         if any("invalid action" in obs.lower() for obs in observations[-2:]):
             return "invalid_action"
-        if _legacy_qwen4b_fever_enabled():
+        if _memco_fever_policy_enabled():
             if any(action.lower().startswith("lookup[") for action in actions):
                 return "ready_finish"
             if any(action.lower().startswith("search[") for action in actions):
@@ -423,7 +424,7 @@ class FeverAdapter:
         obs = str(record.get("Observation") or "").lower()
         if "invalid action" in obs:
             return "invalid_action"
-        if _legacy_qwen4b_fever_enabled():
+        if _memco_fever_policy_enabled():
             if "cannot find" in obs:
                 return "search_not_found"
             if "last page searched was not found" in obs:
@@ -452,7 +453,7 @@ class FeverAdapter:
     def _claim_anchor(claim: str) -> str:
         text = str(claim or "").strip()
         text = re.sub(r"^\s*(?:verify\s+claim|claim)\s*:\s*", "", text, flags=re.I).strip()
-        if _legacy_qwen4b_fever_enabled():
+        if _memco_fever_policy_enabled():
             predicate = re.search(
                 r"\b(?:is|are|was|were|has|have|had|does|do|did|worked|appeared|released|formed|created|directed|starred)\b",
                 text,

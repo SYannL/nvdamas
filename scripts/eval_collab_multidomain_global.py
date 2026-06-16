@@ -260,7 +260,7 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
     if args.mas_memory != "memco":
         return {}
 
-    qwen4b_legacy_fp = _use_qwen4b_legacy_fever_pddl(args)
+    memco_policy = _resolve_memco_dataset_policy(args)
     memco_router = str(args.memco_router or "").strip().lower() or "textloss"
     memco_settings = str(args.memco_settings or "").strip() or "local_plus_global"
     memco_promotion_threshold = float(args.memco_promotion_threshold) if args.memco_promotion_threshold is not None else 0.35
@@ -274,25 +274,37 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
         "memco_shared_global_dir": shared_global_dir,
         "memco_use_textgrad": bool(args.memco_use_textgrad),
         "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
+        "memco_dataset_policy": memco_policy,
     }
-    if qwen4b_legacy_fp:
-        config["memco_qwen4b_legacy_fever_pddl"] = True
+    if memco_policy == "fever":
+        config["memco_fever_policy"] = "adaptive_cache"
+    elif memco_policy == "pddl":
+        config["memco_pddl_policy"] = "action_guard"
     if bool(args.memco_enable_overlay):
         config["memco_enable_overlay"] = True
     return config
 
 
-def _use_qwen4b_legacy_fever_pddl(args: argparse.Namespace) -> bool:
-    model = str(getattr(args, "model", "") or "").strip().lower()
+def _resolve_memco_dataset_policy(args: argparse.Namespace) -> str:
     family = str(getattr(args, "dataset_family", "") or "").strip().lower()
     memory = str(getattr(args, "mas_memory", "") or "").strip().lower()
-    forced = str(os.environ.get("NV_MEMCO_FORCE_LEGACY_FEVER_PDDL", "")).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    return memory == "memco" and family in {"fever", "pddl", "pddl_2"} and ("qwen4b" in model or forced)
+    if memory != "memco":
+        return ""
+    if family == "fever":
+        return "fever"
+    if family in {"pddl", "pddl_2"}:
+        return "pddl"
+    if family == "alfworld":
+        return "alfworld"
+    return "default"
+
+
+def _use_memco_fever_policy(args: argparse.Namespace) -> bool:
+    return _resolve_memco_dataset_policy(args) == "fever"
+
+
+def _use_memco_pddl_policy(args: argparse.Namespace) -> bool:
+    return _resolve_memco_dataset_policy(args) == "pddl"
 
 
 def _resolve_memskill_common(args: argparse.Namespace) -> dict[str, Any]:
@@ -1359,19 +1371,22 @@ def main() -> None:
     if getattr(args, "skip_eval", False):
         eval_splits = []
 
-    qwen4b_legacy_fever_pddl = _use_qwen4b_legacy_fever_pddl(args)
-    if qwen4b_legacy_fever_pddl:
-        os.environ["NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL"] = "1"
-        if str(args.dataset_family or "").strip().lower() == "fever":
-            cache_env = str(os.environ.get("FEVER_WIKI_CACHE", "") or "").strip()
-            if not cache_env or cache_env.lower() in {"0", "false", "off", "none"}:
-                os.environ["FEVER_WIKI_CACHE"] = os.path.join(os.getcwd(), ".cache", "fever_wiki_cache.json")
-            os.environ["NV_MEMCO_QWEN4B_LEGACY_FEVER_ENV"] = "1"
-        else:
-            os.environ.pop("NV_MEMCO_QWEN4B_LEGACY_FEVER_ENV", None)
+    memco_dataset_policy = _resolve_memco_dataset_policy(args)
+    if memco_dataset_policy:
+        os.environ["NV_MEMCO_DATASET_POLICY"] = memco_dataset_policy
     else:
-        os.environ.pop("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", None)
-        os.environ.pop("NV_MEMCO_QWEN4B_LEGACY_FEVER_ENV", None)
+        os.environ.pop("NV_MEMCO_DATASET_POLICY", None)
+    if _use_memco_fever_policy(args):
+        os.environ["NV_MEMCO_FEVER_POLICY"] = "adaptive_cache"
+        cache_env = str(os.environ.get("FEVER_WIKI_CACHE", "") or "").strip()
+        if not cache_env or cache_env.lower() in {"0", "false", "off", "none"}:
+            os.environ["FEVER_WIKI_CACHE"] = os.path.join(os.getcwd(), ".cache", "fever_wiki_cache.json")
+    else:
+        os.environ.pop("NV_MEMCO_FEVER_POLICY", None)
+    if _use_memco_pddl_policy(args):
+        os.environ["NV_MEMCO_PDDL_POLICY"] = "action_guard"
+    else:
+        os.environ.pop("NV_MEMCO_PDDL_POLICY", None)
 
     merged_eval_dir = (
         Path(args.alfworld_merged_eval_dir).expanduser().resolve()

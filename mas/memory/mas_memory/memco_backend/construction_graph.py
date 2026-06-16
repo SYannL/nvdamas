@@ -38,12 +38,13 @@ class _ReplayBelief:
     placed_relevant_count_est: int
 
 
-def _legacy_qwen4b_fever_enabled() -> bool:
-    return str(os.environ.get("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower() in {
+def _memco_fever_policy_enabled() -> bool:
+    return str(os.environ.get("NV_MEMCO_FEVER_POLICY", "")).strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
+        "adaptive_cache",
     }
 
 
@@ -2706,7 +2707,7 @@ class LocalGraphMaintainer:
         workflows do.  These artifacts avoid old labels/entities while keeping
         the reusable search/lookup strategy specific enough to route.
         """
-        if _legacy_qwen4b_fever_enabled():
+        if _memco_fever_policy_enabled():
             return self._induce_fever_artifacts_legacy(
                 episode_graph,
                 episode,

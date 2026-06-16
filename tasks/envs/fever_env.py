@@ -16,12 +16,13 @@ class FeverEnv(BaseEnv):
         
         self.env_config = env_config
         self.memco_domain = "fever"
-        self._memco_qwen4b_legacy_fever = (
-            str(os.environ.get("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower()
-            in {"1", "true", "yes", "on"}
-            and str(os.environ.get("NV_MEMCO_QWEN4B_LEGACY_FEVER_ENV", "")).strip().lower()
-            in {"1", "true", "yes", "on"}
-        )
+        self._memco_fever_policy_enabled = str(os.environ.get("NV_MEMCO_FEVER_POLICY", "")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+            "adaptive_cache",
+        }
         cache_path = os.environ.get(
             "FEVER_WIKI_CACHE",
             os.path.join(os.getcwd(), ".cache", "fever_wiki_cache.json"),
@@ -70,7 +71,7 @@ class FeverEnv(BaseEnv):
     
     def step(self, action: str) -> tuple[str, float, bool]:
 
-        action: str = self._process_action_legacy(action) if self._memco_qwen4b_legacy_fever else self.process_action(action)
+        action: str = self._process_action_legacy(action) if self._memco_fever_policy_enabled else self.process_action(action)
         self.steps += 1
 
         if self._parse_action_type(action) == 'thought':
@@ -86,7 +87,7 @@ class FeverEnv(BaseEnv):
             return observation, 0, False
         
         action_type, argument = self._parse_action(action)
-        if action_type in {"Search", "Lookup"} and not self._memco_qwen4b_legacy_fever:
+        if action_type in {"Search", "Lookup"} and not self._memco_fever_policy_enabled:
             argument = self._normalize_query_argument(action_type, argument)
             action = f"{action_type}[{argument}]"
 
@@ -119,7 +120,7 @@ class FeverEnv(BaseEnv):
         elif action_type == 'Search':
             while True:
                 try:
-                    if self._memco_qwen4b_legacy_fever:
+                    if self._memco_fever_policy_enabled:
                         observation = self.explorer.search(argument).strip('\n').strip()
                     else:
                         observation = self.explorer.search(argument, context=self.claim).strip('\n').strip()
