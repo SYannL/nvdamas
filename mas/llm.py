@@ -70,7 +70,23 @@ class GPTChat(LLM):
             api_key=KEY
         )
         self._is_qwen = "qwen" in (model_name or "").lower()
+        self._is_qwen4b = "qwen4b" in (model_name or "").lower()
         self._is_gpt4omini = "gpt-4o-mini" in (model_name or "").lower()
+
+    def _use_qwen4b_legacy_fever_pddl(self) -> bool:
+        enabled = str(os.environ.get("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        forced = str(os.environ.get("NV_MEMCO_FORCE_LEGACY_FEVER_PDDL", "")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        return self._is_qwen and enabled and (self._is_qwen4b or forced)
 
     @staticmethod
     def _is_action_only_env_prompt(content: str) -> bool:
@@ -197,6 +213,10 @@ class GPTChat(LLM):
 
     def _inject_action_only_guard(self, content: str, *, strict_retry: bool = False) -> str:
         content = str(content or "")
+        if self._use_qwen4b_legacy_fever_pddl():
+            if "/no_think" not in content:
+                return "/no_think\nOutput exactly one valid command and nothing else.\n" + content
+            return content
         if self._is_fever_action_prompt(content):
             prefix = (
                 "Output exactly one action and nothing else.\n"
@@ -241,7 +261,9 @@ class GPTChat(LLM):
                 content = str(msg.get("content") or "")
                 is_action_only = self._is_action_only_env_prompt(content)
                 is_fever_action = self._is_fever_action_prompt(content)
-                if is_action_only or is_fever_action:
+                if self._use_qwen4b_legacy_fever_pddl():
+                    msg["content"] = self._inject_action_only_guard(content, strict_retry=strict_retry)
+                elif is_action_only or is_fever_action:
                     msg["content"] = self._inject_action_only_guard(content, strict_retry=strict_retry)
                 action_prompt = content
                 break

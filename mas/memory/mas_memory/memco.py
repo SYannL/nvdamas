@@ -161,6 +161,17 @@ class MemCoMASMemory(MemCoBase):
             return min(base, float(getattr(self, "_memco_alfworld_weak_global_weight", 0.35) or 0.35))
         return base
 
+    def _memco_qwen4b_legacy_fever_pddl(self, query: Any = None) -> bool:
+        if str(os.getenv("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower() not in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            return False
+        task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
+        return task_family.startswith("fever") or task_family.startswith("pddl")
+
     def init_task_context(self, task_main: str, task_description: str = None) -> Any:
         message = super().init_task_context(task_main, task_description)
         self._memco_last_prompt_signature = ""
@@ -722,7 +733,11 @@ class MemCoMASMemory(MemCoBase):
         planner_notes = []
         if route.get("prompt"):
             task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
-            header = "### MemCo MEMORY RETRIEVAL HINT" if task_family.startswith("fever") else "### MemCo MEMORY DECISION SUMMARY"
+            header = (
+                "### MemCo MEMORY RETRIEVAL HINT"
+                if task_family.startswith("fever") and not self._memco_qwen4b_legacy_fever_pddl(query)
+                else "### MemCo MEMORY DECISION SUMMARY"
+            )
             planner_notes.append(
                 f"{header}\n"
                 + str(route["prompt"]).strip()
@@ -1163,7 +1178,9 @@ class MemCoMASMemory(MemCoBase):
         exhausted = [str(x) for x in dynamic.get("exhausted_locations", []) or [] if str(x).strip()]
         task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
 
-        if task_family.startswith("fever"):
+        legacy_qwen4b_fp = self._memco_qwen4b_legacy_fever_pddl(query)
+
+        if task_family.startswith("fever") and not legacy_qwen4b_fp:
             self._memco_last_fever_memory_render_count = 0
             hint_payload = self._memco_fever_direct_retrieval_hint(
                 query=query,
@@ -1199,7 +1216,11 @@ class MemCoMASMemory(MemCoBase):
             owner_scene=owner_scene,
             env_ref=env_ref,
         )
-        fever_health = self._memco_fever_health_snapshot(query=query, bundle=bundle, candidates=candidates)
+        fever_health = (
+            {}
+            if legacy_qwen4b_fp and task_family.startswith("fever")
+            else self._memco_fever_health_snapshot(query=query, bundle=bundle, candidates=candidates)
+        )
         routed = self._memco_textloss_route(
             candidates=candidates,
             query=query,
@@ -1211,7 +1232,8 @@ class MemCoMASMemory(MemCoBase):
         if fever_health:
             routed["fever_health"] = fever_health
         selected = routed["selected"]
-        selected = self._memco_filter_fever_selected_sections(query=query, selected=selected)
+        if not (legacy_qwen4b_fp and task_family.startswith("fever")):
+            selected = self._memco_filter_fever_selected_sections(query=query, selected=selected)
         selected = self._memco_filter_pddl_selected_sections(query=query, selected=selected, admissible=admissible)
         routed["selected_after_fever_gate"] = self._memco_core_debug_jsonable(selected)
         if fever_health:
@@ -1697,6 +1719,11 @@ class MemCoMASMemory(MemCoBase):
                 return True, "bfcl_phase_policy"
 
         if task_family.startswith("fever"):
+            if self._memco_qwen4b_legacy_fever_pddl(query):
+                for slot in ("local_grounding", "global_workflow", "failure_avoidance"):
+                    if slot in slots and self._memco_selected_slot_has_real_item(selected, slot):
+                        return True, f"fever_legacy_{slot}_phase_grounded"
+                return False, "fever_legacy_no_phase_grounded_memory"
             return False, "fever_uses_direct_pattern_hint_path"
 
         if task_family.startswith("pddl"):
@@ -2185,6 +2212,8 @@ class MemCoMASMemory(MemCoBase):
             elif pattern_kind in {"workflow", "closure", "rule", "precondition"}:
                 rendered.append(text)
         if task_family.startswith("fever"):
+            legacy_qwen4b_fp = self._memco_qwen4b_legacy_fever_pddl(query)
+            style = self._memco_prompt_style(query=None, task_family=task_family)
             for item in (
                 list(getattr(bundle, "local_items", []) or [])
                 + list(getattr(bundle, "workflow_items", []) or [])
@@ -2192,10 +2221,33 @@ class MemCoMASMemory(MemCoBase):
             ):
                 if not str(getattr(item, "source", "") or "").startswith("local"):
                     continue
-                if not self._memco_fever_item_has_positive_transfer_signal(item):
-                    continue
                 text = self._memco_clean(str(getattr(item, "summary", "") or ""))
                 if not text:
+                    continue
+                if legacy_qwen4b_fp:
+                    if self._memco_should_suppress_fever_workflow_for_phase(
+                        text=text,
+                        task_family=task_family,
+                        progress=progress,
+                    ):
+                        continue
+                    if not self._memco_fever_workflow_fits_phase(
+                        text=text,
+                        task_family=task_family,
+                        progress=progress,
+                    ):
+                        continue
+                    if not style.keep_local_artifact_text(
+                        self,
+                        domain="fever",
+                        task_family=task_family,
+                        text=text,
+                        norm_text=self._memco_norm(text),
+                    ):
+                        continue
+                    rendered.append(text)
+                    continue
+                if not self._memco_fever_item_has_positive_transfer_signal(item):
                     continue
                 line = self._memco_render_fever_bundle_hint(
                     text=text,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,15 @@ def _extract_bracket_arg(action: str) -> tuple[str, str]:
     if not match:
         return "", ""
     return match.group(1), match.group(2).strip()
+
+
+def _legacy_qwen4b_fever_enabled() -> bool:
+    return str(os.environ.get("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 class FeverAdapter:
@@ -99,6 +109,10 @@ class FeverAdapter:
         return f"{self.derive_scene_id(domain, history_path)}:{task_id if task_id is not None else 'unknown'}"
 
     def infer_task_family(self, claim: str, domain: str | None = None) -> str:
+        if _legacy_qwen4b_fever_enabled():
+            if domain:
+                return f"fever:{_normalize(domain)}"
+            return "fever:claim_verification"
         # ALFWorld uses task_family for the abstract task class, while scene_id
         # carries the concrete domain/layout.  FEVER should follow the same
         # split: scene_id remains A_film_tv/B_music, and task_family is the
@@ -157,6 +171,48 @@ class FeverAdapter:
         desired_types = [CandidateType.PRECONDITION, CandidateType.WORKFLOW]
         if progress_state in {"search_failed", "invalid_action"}:
             desired_types.append(CandidateType.FAILURE)
+        if _legacy_qwen4b_fever_enabled():
+            entity = self._claim_anchor(claim)
+            keywords = tuple(
+                dict.fromkeys(
+                    [
+                        f"domain={domain}",
+                        f"progress={progress_state}",
+                        f"label={_normalize(label)}" if label else "",
+                        *(_normalize(x) for x in self._claim_keywords(claim)[:10]),
+                        *(_normalize(x) for x in self._evidence_phrases(observation)[:8]),
+                    ]
+                )
+            )
+            return MemoryQuery(
+                goal=f"Verify claim: {claim}",
+                scene_id=scene_id,
+                current_stage=state.workflow_stage,
+                progress_state=progress_state,
+                task_family=self.infer_task_family(claim, domain),
+                goal_roles={"object": entity} if entity else {},
+                required_count=1,
+                placed_relevant_count=1 if progress_state in {"ready_finish", "done"} else 0,
+                remaining_relevant_count=0 if progress_state == "done" else 1,
+                destination_reached=progress_state == "done",
+                goal_object_matches_visible=progress_state in {"need_lookup_or_finish", "ready_finish", "done"},
+                admissible_actions=tuple(self.canonicalize_action(cmd) for cmd in admissible),
+                desired_types=tuple(desired_types),
+                failure_label=self._last_failure(history),
+                keywords=tuple(k for k in keywords if k),
+                belief={
+                    "claim": claim,
+                    "answer": label,
+                    "history_len": len(history),
+                    "last_action": str(current.get("Action", "") or ""),
+                },
+                dynamic_context={
+                    "visible_objects": list(state.visible_objects),
+                    "layout_id": self.derive_layout_id(domain, task_config.get("task_id", "")),
+                    "task_config_env_name": str(task_config.get("env_name", "")),
+                    "memco_domain": self.domain_name,
+                },
+            )
         profile = self._claim_profile(claim)
         entity = str(profile.get("primary_entity", "") or self._claim_anchor(claim))
         relation_keywords = [str(x) for x in profile.get("relation_keywords", []) if str(x).strip()]
@@ -302,6 +358,14 @@ class FeverAdapter:
         observations = [str(row.get("Observation", "") or "") for row in history if str(row.get("Observation", "") or "").strip()]
         if any("invalid action" in obs.lower() for obs in observations[-2:]):
             return "invalid_action"
+        if _legacy_qwen4b_fever_enabled():
+            if any(action.lower().startswith("lookup[") for action in actions):
+                return "ready_finish"
+            if any(action.lower().startswith("search[") for action in actions):
+                if observations and "cannot find" in observations[-1].lower():
+                    return "search_failed"
+                return "need_lookup_or_finish"
+            return "need_search"
         last_action = actions[-1].lower() if actions else ""
         if last_action.startswith("lookup["):
             return "ready_finish"
@@ -359,6 +423,14 @@ class FeverAdapter:
         obs = str(record.get("Observation") or "").lower()
         if "invalid action" in obs:
             return "invalid_action"
+        if _legacy_qwen4b_fever_enabled():
+            if "cannot find" in obs:
+                return "search_not_found"
+            if "last page searched was not found" in obs:
+                return "lookup_without_page"
+            if bool(record.get("Done", False)) and float(record.get("Score", 0.0) or 0.0) <= 0:
+                return "wrong_finish_label"
+            return None
         if FeverAdapter._is_search_miss_text(obs):
             return "search_not_found"
         if "last page searched was not found" in obs:
@@ -380,6 +452,24 @@ class FeverAdapter:
     def _claim_anchor(claim: str) -> str:
         text = str(claim or "").strip()
         text = re.sub(r"^\s*(?:verify\s+claim|claim)\s*:\s*", "", text, flags=re.I).strip()
+        if _legacy_qwen4b_fever_enabled():
+            predicate = re.search(
+                r"\b(?:is|are|was|were|has|have|had|does|do|did|worked|appeared|released|formed|created|directed|starred)\b",
+                text,
+                flags=re.I,
+            )
+            if predicate:
+                subject = text[: predicate.start()].strip(" .,:;\"'")
+                if 1 <= len(re.findall(r"[A-Za-z0-9]+", subject)) <= 8:
+                    return _normalize(subject)
+            candidates = re.findall(
+                r"\b(?:[A-Z][A-Za-z0-9]*|[A-Z]\.)(?:\s+(?:the|of|and|in|on|for|to|a|an|[A-Z][A-Za-z0-9]*|[A-Z]\.)){0,5}",
+                text,
+            )
+            if candidates:
+                return _normalize(candidates[0])
+            words = FeverAdapter._claim_keywords(claim)
+            return _normalize(words[0]) if words else ""
         # FEVER search should usually start from the claim subject.  The older
         # title-case regex collapsed names with lowercase connectors, e.g.
         # "Off the Wall" -> "Off", which produces weak Search hints.

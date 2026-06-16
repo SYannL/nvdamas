@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import asdict
 from dataclasses import dataclass
+import os
 import re
 from typing import Any
 
@@ -35,6 +36,15 @@ class _ReplayBelief:
     searched_locations: set[str]
     search_attempt_counts: dict[str, int]
     placed_relevant_count_est: int
+
+
+def _legacy_qwen4b_fever_enabled() -> bool:
+    return str(os.environ.get("NV_MEMCO_QWEN4B_LEGACY_FEVER_PDDL", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _record_graph_stats(stats: Stats, *, positive: bool, stalled: bool = False) -> None:
@@ -2501,6 +2511,187 @@ class LocalGraphMaintainer:
             )
         return list(artifacts.values())
 
+    def _induce_fever_artifacts_legacy(
+        self,
+        episode_graph: EpisodeGraph,
+        episode: EpisodeRecord,
+        *,
+        episode_success: bool,
+    ) -> list[MemoryArtifact]:
+        """GM3-compatible FEVER memories: coarse search/lookup workflow only."""
+        domain = "fever"
+        family = "fever:claim_verification"
+        claim = _fever_claim_text(episode)
+        artifacts: dict[str, MemoryArtifact] = {}
+
+        def upsert_artifact(
+            *,
+            kind: ArtifactKind,
+            summary: str,
+            anchor: dict,
+            payload: dict,
+            success: bool,
+            stalled: bool = False,
+            utility_delta: float = 0.0,
+        ) -> None:
+            aid = f"{kind.value}:{_condition_signature(anchor)}:{_condition_signature(payload)}"
+            artifact = artifacts.get(aid)
+            if artifact is None:
+                artifact = MemoryArtifact(
+                    artifact_id=aid,
+                    kind=kind,
+                    summary=summary,
+                    anchor=dict(anchor),
+                    payload=dict(payload),
+                )
+                artifacts[aid] = artifact
+            artifact.observe(
+                scene_id=episode.scene_id,
+                episode_id=episode_graph.episode_id,
+                success=success,
+                stalled=stalled,
+                utility_delta=utility_delta,
+            )
+
+        search_steps = [step for step in episode.steps if _fever_is_search(step)]
+        lookup_steps = [step for step in episode.steps if _fever_is_lookup(step)]
+        finish_steps = [step for step in episode.steps if _fever_is_finish(step)]
+        first_search_arg = _fever_action_arg(search_steps[0]) if search_steps else ""
+        first_lookup_arg = _fever_action_arg(lookup_steps[0]) if lookup_steps else ""
+        relation_hint = _fever_relation_keyword_hint(
+            claim,
+            search_arg=first_search_arg,
+            lookup_arg=first_lookup_arg,
+        )
+        has_successful_search = any(step.feedback.success and not step.feedback.failure_label for step in search_steps)
+        has_successful_lookup = any(step.feedback.success and not step.feedback.failure_label for step in lookup_steps)
+
+        if search_steps or episode_success:
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER evidence workflow: start with Search on the claim's primary entity "
+                    "before any Finish label."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "need_search",
+                    "artifact_role": "fever_evidence_search",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "evidence_search",
+                    "claim_role": "primary_entity",
+                    "action_patterns": [
+                        "Search[claim primary entity]",
+                        "search(query=claim_primary_entity)",
+                    ],
+                },
+                success=bool(episode_success or has_successful_search),
+                utility_delta=0.20 if episode_success else 0.08,
+            )
+
+        if lookup_steps:
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER lookup workflow: after Search retrieves a page, use Lookup on a "
+                    "relation or attribute keyword from the claim before Finish."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "need_lookup_or_finish",
+                    "artifact_role": "fever_lookup_strategy",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "lookup_relation_keyword",
+                    "keyword_role": relation_hint,
+                    "action_patterns": [
+                        "Lookup[claim relation keyword]",
+                        "lookup(keyword=claim_relation_keyword)",
+                    ],
+                },
+                success=bool(episode_success or has_successful_lookup),
+                utility_delta=0.22 if episode_success else 0.09,
+            )
+
+        if any(_fever_no_results(step) for step in episode.steps):
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER recovery workflow: if Search or Lookup returns No Results, reformulate "
+                    "to a shorter entity/relation keyword before giving a final label."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "search_failed",
+                    "artifact_role": "fever_no_results_recovery",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "no_results_recovery",
+                    "repair_patterns": [
+                        "Search[shorter claim entity]",
+                        "Lookup[shorter claim relation keyword]",
+                    ],
+                },
+                success=True,
+                utility_delta=0.14,
+            )
+
+        first_finish_idx = finish_steps[0].step_idx if finish_steps else None
+        first_search_idx = search_steps[0].step_idx if search_steps else None
+        first_lookup_idx = lookup_steps[0].step_idx if lookup_steps else None
+        premature_finish = (
+            first_finish_idx is not None
+            and (
+                first_search_idx is None
+                or first_finish_idx < first_search_idx
+                or first_lookup_idx is None
+            )
+            and not episode_success
+        )
+        wrong_finish = any(step.feedback.failure_label == "wrong_finish_label" for step in finish_steps)
+        if premature_finish or wrong_finish:
+            upsert_artifact(
+                kind=ArtifactKind.PROTOTYPE,
+                summary=(
+                    "FEVER failure avoidance: avoid Finish[...] before Search/Lookup evidence "
+                    "settles the claim; early label guesses often fail."
+                ),
+                anchor={
+                    "task_family": family,
+                    "goal_arity": 1,
+                    "progress_state": "ready_finish",
+                    "artifact_role": "fever_premature_finish_failure",
+                    "domain": domain,
+                },
+                payload={
+                    "source": "fever_episode_graph",
+                    "pattern_kind": "workflow",
+                    "fever_pattern": "premature_finish_failure",
+                    "avoid_patterns": ["Finish[unsupported label]"],
+                    "repair_patterns": [
+                        "Search[claim primary entity]",
+                        "Lookup[claim relation keyword]",
+                    ],
+                },
+                success=True,
+                utility_delta=0.12,
+            )
+
+        return list(artifacts.values())
+
     def _induce_fever_artifacts(
         self,
         episode_graph: EpisodeGraph,
@@ -2515,6 +2706,12 @@ class LocalGraphMaintainer:
         workflows do.  These artifacts avoid old labels/entities while keeping
         the reusable search/lookup strategy specific enough to route.
         """
+        if _legacy_qwen4b_fever_enabled():
+            return self._induce_fever_artifacts_legacy(
+                episode_graph,
+                episode,
+                episode_success=episode_success,
+            )
         domain = "fever"
         claim = _fever_claim_text(episode)
         claim_profile = _fever_claim_profile(claim)

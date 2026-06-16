@@ -187,6 +187,8 @@ class LangChainWiki:
         observation = f"Could not find [{search}]. Similar: [{similar_str}]"
         if error_str:
             observation = f"{observation} SearchErrors: [{error_str}]"
+        if error_str:
+            return observation
         self._cache[key] = {
             "status": "miss",
             "search": search,
@@ -210,8 +212,25 @@ class LangChainWiki:
             self.lookup_index = 0
             return self._sumary
         if entry.get("status") == "miss":
+            errors = " ".join(str(x) for x in (entry.get("errors") or []))
+            observation = str(entry.get("observation") or "")
+            if "JSONDecodeError" in errors or "JSONDecodeError" in observation:
+                return None
             self.document = None
-            return str(entry.get("observation") or "Could not find page.")
+            return observation or "Could not find page."
+        return None
+
+    def _apply_query_cache_hit(self, query: str) -> Optional[str]:
+        query_norm = normalize_search_query(query or "").strip().lower()
+        if not query_norm:
+            return None
+        for entry in self._cache.values():
+            if not isinstance(entry, dict) or entry.get("status") != "hit":
+                continue
+            cached_query = normalize_search_query(str(entry.get("query") or "")).strip().lower()
+            if cached_query != query_norm:
+                continue
+            return self._apply_cache_entry(entry)
         return None
 
     def _try_page(self, title: str) -> Optional[Document]:
@@ -247,6 +266,10 @@ class LangChainWiki:
         cached = self._apply_cache_entry(self._cache.get(cache_key, {}))
         if cached is not None:
             return cached
+        if not str(context or "").strip():
+            cached = self._apply_query_cache_hit(query)
+            if cached is not None:
+                return cached
 
         self._last_errors = []
         queries = self._contextual_queries(query, context)
