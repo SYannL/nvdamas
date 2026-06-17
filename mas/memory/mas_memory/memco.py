@@ -151,14 +151,9 @@ class MemCoMASMemory(MemCoBase):
         return "gpt-4o-mini" in self._memco_model_name()
 
     def _memco_effective_global_weight(self, *, owner_scene: str, domain: str) -> float:
-        """Return global weight for current episode. Only dampen for ALFWorld+gpt-4o-mini."""
+        """Return global weight for current episode."""
         base = float(getattr(self, "_memco_global_weight", 0.65) or 0.65)
-        if domain != "alfworld" or not self._memco_is_gpt4omini_model():
-            return base
-        scene = str(owner_scene or "").strip().lower()
-        weak = getattr(self, "_memco_alfworld_weak_domains", set()) or set()
-        if scene and scene in weak:
-            return min(base, float(getattr(self, "_memco_alfworld_weak_global_weight", 0.35) or 0.35))
+        # Match legacy GM3 behavior: no ALFWorld+gpt-4o-mini-specific dampening.
         return base
 
     def _memco_fever_policy_enabled(self, query: Any = None) -> bool:
@@ -579,6 +574,16 @@ class MemCoMASMemory(MemCoBase):
             admissible_by_norm = {self._normalize_action_text(cmd): cmd for cmd in admissible}
             processed_admissible = admissible_by_norm.get(processed_norm, "")
             is_concrete = self._is_concrete_alfworld_action(processed_action)
+
+            delivery_repair = self._deterministic_delivery_repair(
+                processed_action=processed_action,
+                env_ref=env_ref,
+                task_config=task_config or {},
+                step_index=step_index,
+                admissible_actions=admissible,
+            )
+            if delivery_repair and not self._memco_action_is_blocked(delivery_repair, blocked_actions):
+                return _debug_return(delivery_repair, "memco_delivery_repair")
 
             embedded_action = self._memco_embedded_phase_action(
                 query=query,

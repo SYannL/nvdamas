@@ -17,7 +17,6 @@ The multidomain script currently supports:
 | Benchmark | `--dataset_family` | Domain split |
 | --- | --- | --- |
 | ALFWorld | `alfworld` | scene domains: bathroom, bedroom, kitchen, living |
-| ScienceWorld | `scienceworld` | initial-room domains |
 | FEVER | `fever` | claim-topic domains |
 | PDDL | `pddl` | planning-game domains |
 
