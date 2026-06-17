@@ -70,6 +70,7 @@ class GPTChat(LLM):
             api_key=KEY
         )
         self._is_qwen = "qwen" in (model_name or "").lower()
+        self._is_qwen4b = "qwen4b" in (model_name or "").lower()
         self._is_gpt4omini = "gpt-4o-mini" in (model_name or "").lower()
 
     def _use_memco_fever_policy(self) -> bool:
@@ -89,6 +90,13 @@ class GPTChat(LLM):
             "on",
             "action_guard",
         }
+
+    def _use_memco_qwen_command_guard(self) -> bool:
+        if self._use_memco_fever_policy():
+            return self._is_qwen
+        if self._use_memco_pddl_policy():
+            return self._is_qwen4b
+        return False
 
     @staticmethod
     def _is_action_only_env_prompt(content: str) -> bool:
@@ -215,7 +223,7 @@ class GPTChat(LLM):
 
     def _inject_action_only_guard(self, content: str, *, strict_retry: bool = False) -> str:
         content = str(content or "")
-        if (self._use_memco_fever_policy() or self._use_memco_pddl_policy()) and self._is_qwen:
+        if self._use_memco_qwen_command_guard():
             if "/no_think" not in content:
                 return "/no_think\nOutput exactly one valid command and nothing else.\n" + content
             return content
@@ -263,7 +271,7 @@ class GPTChat(LLM):
                 content = str(msg.get("content") or "")
                 is_action_only = self._is_action_only_env_prompt(content)
                 is_fever_action = self._is_fever_action_prompt(content)
-                if (self._use_memco_fever_policy() or self._use_memco_pddl_policy()) and self._is_qwen:
+                if self._use_memco_qwen_command_guard():
                     msg["content"] = self._inject_action_only_guard(content, strict_retry=strict_retry)
                 elif is_action_only or is_fever_action:
                     msg["content"] = self._inject_action_only_guard(content, strict_retry=strict_retry)
