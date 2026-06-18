@@ -21,6 +21,20 @@ The multidomain script currently supports:
 | PDDL | `pddl` | planning-game domains |
 
 
+## Data Setup
+
+For ALFWorld, download the official PDDL game files before running evaluation:
+
+```bash
+alfworld-download --force-download --force
+```
+
+This command should place the ALFWorld assets under the configured `ALFWORLD_DATA` directory. The multidomain command should then point `--alfworld_game_root` to the downloaded PDDL JSON tree, for example:
+
+```bash
+--alfworld_game_root "$ALFWORLD_DATA/json_2.1.1"
+```
+
 ## Basic Usage
 
 All benchmarks use the same multidomain protocol. The script first builds a local memory for each source domain, then consolidates local memories into a shared global memory, and finally evaluates with both local and global memory available to the agents. This keeps the evaluation mechanism fixed while only changing the benchmark loader and data paths.
