@@ -1,9 +1,0 @@
-Qwen3-32B:
-  model_family: Qwen3
-  model_variant: 32B
-  model_type: LLM
-  gpus_per_node: 2
-  num_nodes: 1
-  vocab_size: 151936
-  vllm_args:
-    --tensor-parallel-size: 2

@@ -49,3 +49,5 @@ pids/
 scripts/launch_qwen4b_api.sh
 scripts/stop_qwen4b_api.sh
 requirements-memrl.txt
+template.env
+qwen3-32b-fixed.yaml
