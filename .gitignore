@@ -47,3 +47,4 @@ pids/
 !README.md
 scripts/launch_qwen4b_api.sh
 scripts/stop_qwen4b_api.sh
+requirements-memrl.txt
