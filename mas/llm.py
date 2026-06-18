@@ -91,11 +91,36 @@ class GPTChat(LLM):
             "action_guard",
         }
 
+    def _dataset_policy(self) -> str:
+        return (
+            str(os.environ.get("NV_DATASET_FAMILY", "") or "").strip().lower()
+            or str(os.environ.get("NV_MEMCO_DATASET_POLICY", "") or "").strip().lower()
+        )
+
+    def _use_fever_action_format(self) -> bool:
+        return self._dataset_policy() == "fever"
+
+    def _use_alfworld_action_format(self) -> bool:
+        return self._dataset_policy() == "alfworld"
+
     def _use_memco_qwen_command_guard(self) -> bool:
         if self._use_memco_fever_policy():
             return self._is_qwen
         if self._use_memco_pddl_policy():
             return self._is_qwen4b
+        return False
+
+    @staticmethod
+    def _is_alfworld_action_prompt(content: str) -> bool:
+        lowered = str(content or "").lower()
+        if "-= welcome to textworld, alfred! =-" in lowered:
+            return True
+        if "your task is to:" in lowered and (
+            "admissible commands" in lowered
+            or "what action would you like to do next" in lowered
+            or "valid commands" in lowered
+        ):
+            return True
         return False
 
     @staticmethod
@@ -112,8 +137,9 @@ class GPTChat(LLM):
         )
         return any(marker in lowered for marker in markers)
 
-    @staticmethod
-    def _is_fever_action_prompt(content: str) -> bool:
+    def _is_fever_action_prompt(self, content: str) -> bool:
+        if not self._use_fever_action_format():
+            return False
         text = str(content or "")
         lowered = text.lower()
         # Exclude extraction/analysis prompts that contain FEVER trajectories as examples
@@ -223,6 +249,10 @@ class GPTChat(LLM):
 
     def _inject_action_only_guard(self, content: str, *, strict_retry: bool = False) -> str:
         content = str(content or "")
+        if self._is_qwen4b and (self._use_alfworld_action_format() or self._is_alfworld_action_prompt(content)):
+            if "/no_think" not in content:
+                return "/no_think\nOutput exactly one valid ALFWorld command and nothing else.\n" + content
+            return content
         if self._use_memco_qwen_command_guard():
             if "/no_think" not in content:
                 return "/no_think\nOutput exactly one valid command and nothing else.\n" + content
@@ -270,7 +300,13 @@ class GPTChat(LLM):
             if msg["role"] == "user":
                 content = str(msg.get("content") or "")
                 is_action_only = self._is_action_only_env_prompt(content)
+                is_alfworld_action = self._is_qwen4b and (
+                    self._is_alfworld_action_prompt(content)
+                    or (self._use_alfworld_action_format() and "your task is to:" in content.lower())
+                )
                 is_fever_action = self._is_fever_action_prompt(content)
+                if is_alfworld_action:
+                    is_action_only = True
                 if self._use_memco_qwen_command_guard():
                     msg["content"] = self._inject_action_only_guard(content, strict_retry=strict_retry)
                 elif is_action_only or is_fever_action:

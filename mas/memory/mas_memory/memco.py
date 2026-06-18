@@ -53,6 +53,14 @@ class MemCoMASMemory(MemCoBase):
             router = "textloss"
         self._external_retrieval_mode = "memco_textloss" if router == "textloss" else f"memco_{router}"
         self._memco_debug_trace_path = Path(self.persist_dir) / "memco_debug_trace.jsonl"
+        if self._memco_config_is_alfworld_qwen4b():
+            filtered_insights = [
+                item for item in self.insight_bank
+                if self._memco_text_is_safe_alfworld_qwen4b_insight(item)
+            ]
+            if len(filtered_insights) != len(self.insight_bank):
+                self.insight_bank = filtered_insights
+                self._save_insights()
         self._memco_last_prompt_signature = ""
         self._memco_use_textgrad = bool(
             self.global_config.get("memco_use_textgrad", False)
@@ -150,6 +158,71 @@ class MemCoMASMemory(MemCoBase):
     def _memco_is_gpt4omini_model(self) -> bool:
         return "gpt-4o-mini" in self._memco_model_name()
 
+    def _memco_is_qwen4b_model(self) -> bool:
+        model = self._memco_model_name()
+        return "qwen" in model and "4b" in model
+
+    def _memco_query_is_alfworld(self, query: Any = None) -> bool:
+        if query is None:
+            return False
+        task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
+        if task_family.startswith(("pick_", "look_at")) or any(
+            family in task_family
+            for family in (
+                "pick_and_place",
+                "pick_two_obj",
+                "pick_clean",
+                "pick_cool",
+                "pick_heat",
+                "look_at_obj_in_light",
+            )
+        ):
+            return True
+        scene_id = self._memco_norm(str(getattr(query, "scene_id", "") or ""))
+        if scene_id.startswith("alfworld:"):
+            return True
+        return scene_id in {"bathroom", "bedroom", "kitchen", "living"}
+
+    def _memco_is_alfworld_qwen4b_case(self, *, domain: str = "", query: Any = None) -> bool:
+        if not self._memco_is_qwen4b_model():
+            return False
+        if str(domain or "").strip().lower() == "alfworld":
+            return True
+        return self._memco_query_is_alfworld(query)
+
+    def _memco_config_is_alfworld_qwen4b(self) -> bool:
+        if not self._memco_is_qwen4b_model():
+            return False
+        policy = self._memco_norm(str(self.global_config.get("memco_dataset_policy", "") or ""))
+        owner = self._memco_norm(str(self._graph_config_value("owner_scene", "") or ""))
+        return policy == "alfworld" or owner in {"bathroom", "bedroom", "kitchen", "living"}
+
+    @staticmethod
+    def _memco_text_is_safe_alfworld_qwen4b_insight(text: str) -> bool:
+        lowered = str(text or "").strip().lower()
+        return lowered in {
+            "[memco] avoid repeating actions that already returned 'nothing happens.'.",
+            "[memco] prefer action sequences that preserve forward progress and update plans from the latest observation.",
+            "[memco] check receptacle state before interacting; opening a container is often a useful precondition.",
+        }
+
+    def _memco_message_is_alfworld_task(self, mas_message: Any) -> bool:
+        task_main = self._memco_norm(str(getattr(mas_message, "task_main", "") or ""))
+        if task_main.startswith(("pick_", "look_at")) or any(
+            family in task_main
+            for family in (
+                "pick_and_place",
+                "pick_two_obj",
+                "pick_clean",
+                "pick_cool",
+                "pick_heat",
+                "look_at_obj_in_light",
+            )
+        ):
+            return True
+        task_description = str(getattr(mas_message, "task_description", "") or "").lower()
+        return "-= welcome to textworld, alfred! =-" in task_description
+
     def _memco_effective_global_weight(self, *, owner_scene: str, domain: str) -> float:
         """Return global weight for current episode."""
         base = float(getattr(self, "_memco_global_weight", 0.65) or 0.65)
@@ -186,6 +259,19 @@ class MemCoMASMemory(MemCoBase):
             },
         )
         return message
+
+    def _derive_insights_from_message(self, mas_message: Any) -> list[str]:
+        if self._memco_is_qwen4b_model() and self._memco_message_is_alfworld_task(mas_message):
+            trajectory = str(getattr(mas_message, "task_trajectory", "") or "")
+            hints: list[str] = []
+            if "Nothing happens." in trajectory:
+                hints.append("[MemCo] Avoid repeating actions that already returned 'Nothing happens.'.")
+            if bool(getattr(mas_message, "label", False)):
+                hints.append("[MemCo] Prefer action sequences that preserve forward progress and update plans from the latest observation.")
+            if "open" in trajectory.lower():
+                hints.append("[MemCo] Check receptacle state before interacting; opening a container is often a useful precondition.")
+            return hints
+        return super()._derive_insights_from_message(mas_message)
 
     def move_memory_state(self, action: str, observation: str, **kargs) -> None:
         super().move_memory_state(action, observation, **kargs)
@@ -575,6 +661,34 @@ class MemCoMASMemory(MemCoBase):
             processed_admissible = admissible_by_norm.get(processed_norm, "")
             is_concrete = self._is_concrete_alfworld_action(processed_action)
 
+            if self._memco_is_alfworld_qwen4b_case(domain=domain, query=query):
+                think_repair = self._memco_repair_alfworld_qwen4b_think_action(
+                    raw_response=raw_response,
+                    processed_action=processed_action,
+                    admissible=admissible,
+                    blocked_actions=blocked_actions,
+                )
+                if think_repair:
+                    return _debug_return(think_repair, "memco_qwen4b_alfworld_think_action_repair")
+                bracket_repair = self._memco_repair_alfworld_qwen4b_bracket_action(
+                    raw_response=raw_response,
+                    processed_action=processed_action,
+                    admissible=admissible,
+                    query=query,
+                    blocked_actions=blocked_actions,
+                )
+                if bracket_repair:
+                    return _debug_return(bracket_repair, "memco_qwen4b_alfworld_bracket_action_repair")
+                intent_repair = self._memco_repair_alfworld_qwen4b_admissible_intent(
+                    raw_response=raw_response,
+                    processed_action=processed_action,
+                    query=query,
+                    admissible=admissible,
+                    blocked_actions=blocked_actions,
+                )
+                if intent_repair:
+                    return _debug_return(intent_repair, "memco_qwen4b_alfworld_admissible_intent_repair")
+
             delivery_repair = self._deterministic_delivery_repair(
                 processed_action=processed_action,
                 env_ref=env_ref,
@@ -603,6 +717,17 @@ class MemCoMASMemory(MemCoBase):
                 step_index=step_index,
             )
             if object_guard:
+                if (
+                    self._memco_is_alfworld_qwen4b_case(domain=domain, query=query)
+                    and self._memco_norm(object_guard).startswith("think:")
+                ):
+                    fallback = self._memco_alfworld_qwen4b_bracket_fallback_action(
+                        query=query,
+                        admissible=admissible,
+                        blocked_actions=blocked_actions,
+                    )
+                    if fallback:
+                        return _debug_return(fallback, "memco_qwen4b_alfworld_object_guard_fallback")
                 if not self._memco_action_is_blocked(object_guard, blocked_actions):
                     return _debug_return(object_guard, "memco_object_guard")
                 self._memco_debug_append(
@@ -675,6 +800,17 @@ class MemCoMASMemory(MemCoBase):
                                 return _debug_return(preferred, "memco_search_bias_override")
                 elif self._memco_search_bias_queue:
                     return _debug_return(final_action, "memco_search_bias_all_blocked_examine_ok")
+
+            if self._memco_is_alfworld_qwen4b_case(domain=domain, query=query) and (
+                not processed_admissible or not is_concrete
+            ):
+                fallback = self._memco_alfworld_qwen4b_phase_fallback_action(
+                    query=query,
+                    admissible=admissible,
+                    blocked_actions=blocked_actions,
+                )
+                if fallback:
+                    return _debug_return(fallback, "memco_qwen4b_alfworld_phase_fallback")
 
         self._memco_debug_append(
             "action_hook_observe",
@@ -1184,28 +1320,30 @@ class MemCoMASMemory(MemCoBase):
         exhausted = [str(x) for x in dynamic.get("exhausted_locations", []) or [] if str(x).strip()]
         task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
 
-        fever_policy_enabled = self._memco_fever_policy_enabled(query)
-
-        if task_family.startswith("fever") and not fever_policy_enabled:
-            self._memco_last_fever_memory_render_count = 0
-            hint_payload = self._memco_fever_direct_retrieval_hint(
-                query=query,
-                local_memory=local_memory,
-                global_memory=global_memory,
-                env_ref=env_ref,
-                step_index=step_index,
-            )
-            hint = str(hint_payload.get("prompt", "") or "")
-            debug = dict(hint_payload.get("debug", {}) or {})
-            debug.setdefault("mode", "fever_pattern_hint")
-            debug["flow"] = "fever_searchonly_direct_hint"
-            debug["uses_textloss_summary"] = False
-            if hint:
-                self._memco_last_fever_memory_render_count = 1
-                debug["memory_render_count"] = 1
-                return {"prompt": hint, "debug": debug}
-            debug["memory_render_count"] = 0
-            return {"prompt": "", "debug": debug}
+        is_alfworld_qwen4b = self._memco_is_alfworld_qwen4b_case(query=query)
+        fever_policy_enabled = False
+        if not is_alfworld_qwen4b:
+            fever_policy_enabled = self._memco_fever_policy_enabled(query)
+            if task_family.startswith("fever") and not fever_policy_enabled:
+                self._memco_last_fever_memory_render_count = 0
+                hint_payload = self._memco_fever_direct_retrieval_hint(
+                    query=query,
+                    local_memory=local_memory,
+                    global_memory=global_memory,
+                    env_ref=env_ref,
+                    step_index=step_index,
+                )
+                hint = str(hint_payload.get("prompt", "") or "")
+                debug = dict(hint_payload.get("debug", {}) or {})
+                debug.setdefault("mode", "fever_pattern_hint")
+                debug["flow"] = "fever_searchonly_direct_hint"
+                debug["uses_textloss_summary"] = False
+                if hint:
+                    self._memco_last_fever_memory_render_count = 1
+                    debug["memory_render_count"] = 1
+                    return {"prompt": hint, "debug": debug}
+                debug["memory_render_count"] = 0
+                return {"prompt": "", "debug": debug}
         blocked_actions = self._memco_recent_examine_ok_actions(env_ref)
 
         candidates = self._memco_candidate_sections(
@@ -1222,11 +1360,13 @@ class MemCoMASMemory(MemCoBase):
             owner_scene=owner_scene,
             env_ref=env_ref,
         )
-        fever_health = (
-            {}
-            if fever_policy_enabled and task_family.startswith("fever")
-            else self._memco_fever_health_snapshot(query=query, bundle=bundle, candidates=candidates)
-        )
+        route_health: dict[str, Any] = {}
+        if not is_alfworld_qwen4b:
+            route_health = (
+                {}
+                if fever_policy_enabled and task_family.startswith("fever")
+                else self._memco_fever_health_snapshot(query=query, bundle=bundle, candidates=candidates)
+            )
         routed = self._memco_textloss_route(
             candidates=candidates,
             query=query,
@@ -1235,17 +1375,21 @@ class MemCoMASMemory(MemCoBase):
             held=held,
             exhausted=exhausted,
         )
-        if fever_health:
-            routed["fever_health"] = fever_health
+        if route_health:
+            routed["fever_health"] = route_health
         selected = routed["selected"]
-        if not (fever_policy_enabled and task_family.startswith("fever")):
-            selected = self._memco_filter_fever_selected_sections(query=query, selected=selected)
-        selected = self._memco_filter_pddl_selected_sections(query=query, selected=selected, admissible=admissible)
-        routed["selected_after_fever_gate"] = self._memco_core_debug_jsonable(selected)
-        if fever_health:
-            fever_health["memory_render_count"] = int(sum(len(section.get("items", []) or []) for section in selected))
-            self._memco_last_fever_memory_render_count = int(fever_health["memory_render_count"])
-            routed["fever_health"] = fever_health
+        selected_debug_key = "selected_after_dataset_gate"
+        if not is_alfworld_qwen4b:
+            if not (fever_policy_enabled and task_family.startswith("fever")):
+                selected = self._memco_filter_fever_selected_sections(query=query, selected=selected)
+            selected = self._memco_filter_pddl_selected_sections(query=query, selected=selected, admissible=admissible)
+            if task_family.startswith("fever"):
+                selected_debug_key = "selected_after_fever_gate"
+        routed[selected_debug_key] = self._memco_core_debug_jsonable(selected)
+        if route_health:
+            route_health["memory_render_count"] = int(sum(len(section.get("items", []) or []) for section in selected))
+            self._memco_last_fever_memory_render_count = int(route_health["memory_render_count"])
+            routed["fever_health"] = route_health
         if not selected:
             return {"prompt": "", "debug": routed}
         task_family_for_gate = self._memco_norm(str(getattr(query, "task_family", "") or ""))
@@ -1330,12 +1474,13 @@ class MemCoMASMemory(MemCoBase):
             )
         if not priority_items:
             priority_items.extend(self._memco_source_table_priority_actions(source_evidence_table, limit=2))
-        if task_family_for_gate.startswith("pddl"):
-            priority_items = self._memco_pddl_gate_priority_items(
-                query=query,
-                priority_items=priority_items,
-                admissible=admissible,
-            )
+        if not is_alfworld_qwen4b:
+            if task_family_for_gate.startswith("pddl"):
+                priority_items = self._memco_pddl_gate_priority_items(
+                    query=query,
+                    priority_items=priority_items,
+                    admissible=admissible,
+                )
         self._memco_search_bias_queue = self._memco_search_bias_candidates(source_evidence_table, limit=4)
         routed["search_bias_queue"] = self._memco_core_debug_jsonable(self._memco_search_bias_queue[:6])
 
@@ -3818,6 +3963,220 @@ class MemCoMASMemory(MemCoBase):
             return False
         return self._memco_norm(action) in blocked_actions
 
+    def _memco_repair_alfworld_qwen4b_think_action(
+        self,
+        *,
+        raw_response: str,
+        processed_action: str,
+        admissible: list[str],
+        blocked_actions: set[str] | None,
+    ) -> str:
+        admissible_by_norm = {
+            self._memco_norm(command): command
+            for command in admissible
+            if str(command).strip()
+        }
+        for text in (raw_response, processed_action):
+            candidate = self._memco_strip_alfworld_think_prefix(text)
+            if not candidate:
+                continue
+            mapped = admissible_by_norm.get(self._memco_norm(candidate), "")
+            if mapped and not self._memco_action_is_blocked(mapped, blocked_actions):
+                return mapped
+        return ""
+
+    def _memco_strip_alfworld_think_prefix(self, text: str) -> str:
+        candidate = str(text or "").strip()
+        candidate = re.sub(r"^>\s*", "", candidate).strip()
+        candidate = re.sub(r"\s+", " ", candidate)
+        norm = self._memco_norm(candidate)
+        if norm.startswith("think:"):
+            candidate = candidate.split(":", 1)[1].strip()
+        return candidate.rstrip(".").strip()
+
+    def _memco_repair_alfworld_qwen4b_bracket_action(
+        self,
+        *,
+        raw_response: str,
+        processed_action: str,
+        admissible: list[str],
+        query: Any,
+        blocked_actions: set[str] | None,
+    ) -> str:
+        text = " ".join(str(part or "") for part in (raw_response, processed_action))
+        match = re.search(r"\b([A-Za-z_][\w-]*)\s*\[([^\]]*)\]", text)
+        if not match:
+            return ""
+        action_type = self._memco_norm(str(match.group(1) or ""))
+        if action_type == "finish":
+            return self._memco_alfworld_qwen4b_bracket_fallback_action(
+                query=query,
+                admissible=admissible,
+                blocked_actions=blocked_actions,
+            )
+        target = str(match.group(2) or "").strip()
+        if target:
+            mapped = self._memco_map_bracket_target_to_admissible(
+                target=target,
+                admissible=admissible,
+                blocked_actions=blocked_actions,
+            )
+            if mapped:
+                return mapped
+        if action_type not in {"search", "lookup"}:
+            return ""
+        fallback = self._memco_alfworld_qwen4b_bracket_fallback_action(
+            query=query,
+            admissible=admissible,
+            blocked_actions=blocked_actions,
+        )
+        return fallback
+
+    def _memco_repair_alfworld_qwen4b_admissible_intent(
+        self,
+        *,
+        raw_response: str,
+        processed_action: str,
+        query: Any,
+        admissible: list[str],
+        blocked_actions: set[str] | None,
+    ) -> str:
+        text = " ".join(str(part or "") for part in (processed_action, raw_response))
+        mapped = self._memco_first_admissible_action_in_text(text, admissible)
+        if mapped and not self._memco_action_is_blocked(mapped, blocked_actions):
+            return mapped
+
+        goal_roles = getattr(query, "goal_roles", {}) or {}
+        tool = self._memco_base(str(goal_roles.get("tool", "") or ""))
+        task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
+        text_norm = self._memco_norm(text)
+        if task_family.startswith("look_at") and tool and tool in text_norm and "use" in text_norm:
+            for command in admissible:
+                cmd = self._memco_norm(command)
+                if cmd.startswith("use ") and tool in cmd and not self._memco_action_is_blocked(command, blocked_actions):
+                    return command
+        return ""
+
+    def _memco_map_bracket_target_to_admissible(
+        self,
+        *,
+        target: str,
+        admissible: list[str],
+        blocked_actions: set[str] | None,
+    ) -> str:
+        target_norm = self._memco_norm(target)
+        target_base = self._memco_base(target_norm)
+        if not target_norm:
+            return ""
+        command_preferences = (
+            f"go to {target_norm}",
+            f"open {target_norm}",
+            f"examine {target_norm}",
+            f"look at {target_norm}",
+        )
+        admissible_by_norm = {
+            self._memco_norm(command): command
+            for command in admissible
+            if str(command).strip()
+        }
+        for preferred in command_preferences:
+            command = admissible_by_norm.get(self._memco_norm(preferred), "")
+            if command and not self._memco_action_is_blocked(command, blocked_actions):
+                return command
+        for command in admissible:
+            command_norm = self._memco_norm(command)
+            if not command_norm.startswith(("go to ", "open ", "examine ", "look at ")):
+                continue
+            if self._memco_action_is_blocked(command, blocked_actions):
+                continue
+            command_target = self._memco_command_target_text(command_norm)
+            if target_base and self._memco_base(command_target) == target_base:
+                return command
+        return ""
+
+    def _memco_alfworld_qwen4b_bracket_fallback_action(
+        self,
+        *,
+        query: Any,
+        admissible: list[str],
+        blocked_actions: set[str] | None,
+    ) -> str:
+        goal_roles = getattr(query, "goal_roles", {}) or {}
+        target = self._memco_base(str(goal_roles.get("object", "") or ""))
+        tool = self._memco_base(str(goal_roles.get("tool", "") or ""))
+        destination = self._memco_base(str(goal_roles.get("destination", "") or ""))
+        progress = str(getattr(query, "progress_state", "") or "")
+        held_count = int(getattr(query, "held_relevant_count", 0) or 0)
+        visible_match = bool(getattr(query, "goal_object_matches_visible", False))
+
+        candidates: list[str] = []
+        if held_count > 0:
+            if tool and progress in {"carry_target", "process_target", "search_second"}:
+                candidates.extend(self._memco_tool_priority_actions(target=target, tool=tool, admissible=admissible))
+            if destination:
+                candidates.extend(
+                    self._memco_destination_priority_actions(
+                        target=target,
+                        destination=destination,
+                        admissible=admissible,
+                    )
+                )
+        if visible_match:
+            candidates.extend(self._memco_take_priority_actions(target=target, admissible=admissible))
+        candidates.extend(command for command in admissible if self._memco_norm(command) == "look")
+        candidates.extend(command for command in admissible if self._memco_norm(command) == "inventory")
+        for action in self._memco_dedupe(candidates, 20):
+            if action and not self._memco_action_is_blocked(action, blocked_actions):
+                return action
+        return ""
+
+    def _memco_alfworld_qwen4b_phase_fallback_action(
+        self,
+        *,
+        query: Any,
+        admissible: list[str],
+        blocked_actions: set[str] | None,
+    ) -> str:
+        goal_roles = getattr(query, "goal_roles", {}) or {}
+        target = self._memco_base(str(goal_roles.get("object", "") or ""))
+        tool = self._memco_base(str(goal_roles.get("tool", "") or ""))
+        destination = self._memco_base(str(goal_roles.get("destination", "") or ""))
+        progress = str(getattr(query, "progress_state", "") or "")
+        held_count = int(getattr(query, "held_relevant_count", 0) or 0)
+        visible_match = bool(getattr(query, "goal_object_matches_visible", False))
+
+        candidates: list[str] = []
+        if held_count > 0:
+            if tool and progress in {"carry_target", "process_target", "search_second"}:
+                candidates.extend(self._memco_tool_priority_actions(target=target, tool=tool, admissible=admissible))
+            if destination:
+                candidates.extend(
+                    self._memco_destination_priority_actions(
+                        target=target,
+                        destination=destination,
+                        admissible=admissible,
+                    )
+                )
+        if visible_match:
+            candidates.extend(self._memco_take_priority_actions(target=target, admissible=admissible))
+        if progress.startswith("search"):
+            for item in self._memco_search_bias_queue[:4]:
+                action = str(item.get("action", "") or "").strip()
+                if action and self._memco_search_bias_is_strong(item):
+                    candidates.append(action)
+            candidates.extend(command for command in admissible if self._memco_is_search_navigation_action(command))
+        candidates.extend(
+            command
+            for command in admissible
+            if self._memco_norm(command) not in {"help", "inventory", "look"}
+        )
+        candidates.extend(command for command in admissible if self._memco_norm(command) in {"look", "inventory"})
+
+        for action in self._memco_dedupe(candidates, 30):
+            if action and not self._memco_action_is_blocked(action, blocked_actions):
+                return action
+        return ""
+
     def _memco_is_two_object_task(self, query: Any) -> bool:
         required = int(getattr(query, "required_count", 0) or 0)
         if required >= 2:
@@ -3879,7 +4238,7 @@ class MemCoMASMemory(MemCoBase):
             return ""
         task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
         allowed_roles = self._memco_allowed_role_bases(query)
-        phase_prefixes = ("take ", "put ", "move ", "heat ", "clean ", "cool ", "examine ")
+        phase_prefixes = ("take ", "put ", "move ", "heat ", "clean ", "cool ", "use ", "examine ")
         for action in sorted((str(a).strip() for a in admissible if str(a).strip()), key=len, reverse=True):
             action_norm = self._memco_norm(action)
             if not action_norm or action_norm not in text:
@@ -3906,9 +4265,6 @@ class MemCoMASMemory(MemCoBase):
         processed_admissible: str,
     ) -> bool:
         text = self._memco_norm(processed_action)
-        task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
-        if task_family.startswith("look_at"):
-            return False
         if self._memco_mentions_completion(text):
             return False
         if self._memco_mentions_phase_critical_action(query=query, text=text):
@@ -3923,7 +4279,7 @@ class MemCoMASMemory(MemCoBase):
             return True
         level = str(item.get("evidence_level", "") or "")
         score = float(item.get("score", 0.0) or 0.0)
-        return level == "exact" and score >= 0.75
+        return level in {"exact", "same_family"} or score >= 0.75
 
     @staticmethod
     def _memco_mentions_completion(text: str) -> bool:
@@ -4161,15 +4517,20 @@ class MemCoMASMemory(MemCoBase):
         tool_norm = self._memco_base(tool)
         target_norm = self._memco_base(target)
         go_actions: list[str] = []
+        use_actions: list[str] = []
         process_actions: list[str] = []
         for command in admissible:
             cmd = self._memco_norm(command)
             if tool_norm and cmd.startswith("go to ") and tool_norm == self._memco_base(cmd):
                 go_actions.append(command)
+            if tool_norm and tool_norm in cmd and cmd.startswith("use "):
+                use_actions.append(command)
             if tool_norm and tool_norm in cmd and any(cmd.startswith(prefix) for prefix in ("clean ", "cool ", "heat ")):
                 if not target_norm or target_norm in cmd:
                     process_actions.append(command)
         out: list[str] = []
+        if use_actions:
+            out.append(use_actions[0])
         if go_actions:
             out.append(go_actions[0])
         if process_actions:

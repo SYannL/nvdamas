@@ -1371,6 +1371,7 @@ def main() -> None:
     if getattr(args, "skip_eval", False):
         eval_splits = []
 
+    os.environ["NV_DATASET_FAMILY"] = str(args.dataset_family or "").strip().lower()
     memco_dataset_policy = _resolve_memco_dataset_policy(args)
     if memco_dataset_policy:
         os.environ["NV_MEMCO_DATASET_POLICY"] = memco_dataset_policy
