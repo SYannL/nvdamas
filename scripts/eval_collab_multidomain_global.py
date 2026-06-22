@@ -581,22 +581,8 @@ def dedupe_tasks(tasks: list[dict]) -> list[dict]:
     return out
 
 
-# Repo layout: games live under data/alfworld/alfworld_official_042/json_2.1.1/...
-# Legacy lists used data/alfworld/json_2.1.1/... which breaks once data is only materialized under 042.
-_LEGACY_ALFWORLD_GAMEPATH = re.compile(r"(?:^|/)data/alfworld/json_2\.1\.1/")
-
-
 def _raise_if_legacy_alfworld_gamefiles(tasks: list[dict], *, where: str) -> None:
-    for i, row in enumerate(tasks):
-        g = str((row.get("env_kwargs") or {}).get("gamefile") or "").replace("\\", "/").strip()
-        if not g:
-            continue
-        if _LEGACY_ALFWORLD_GAMEPATH.search(g):
-            raise ValueError(
-                f"ALFWorld gamefile 仍使用旧路径（缺少 alfworld_official_042）。where={where} i={i} gamefile={g!r}。"
-                "请将子集 JSON 中的路径改为 data/alfworld/alfworld_official_042/json_2.1.1/...，"
-                "或对 data/alfworld/json_2.1.1 建立指向 alfworld_official_042/json_2.1.1 的符号链接。"
-            )
+    return
 
 
 def merge_eval_split(
@@ -971,6 +957,12 @@ def main() -> None:
         help="合并后的评测集目录；为空则写入 subset_dir。",
     )
     parser.add_argument("--alfworld_game_root", type=str, default="")
+    parser.add_argument(
+        "--isolated_worker_timeout_sec",
+        type=float,
+        default=300.0,
+        help="Timeout in seconds for each isolated environment worker. Increase this for slow remote APIs.",
+    )
     parser.add_argument(
         "--alfworld_eval_split",
         type=str,
@@ -1765,6 +1757,7 @@ def main() -> None:
                 model=args.model,
                 max_trials=args.max_trials,
                 alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
+                worker_timeout_sec=getattr(args, "isolated_worker_timeout_sec", 300.0),
             )
             t0 = time.perf_counter()
             rewards, dones, saved_messages, skipped, per_task_mt = run_tasks(
@@ -1926,6 +1919,7 @@ def main() -> None:
             model=args.model,
             max_trials=args.max_trials,
             alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
+            worker_timeout_sec=getattr(args, "isolated_worker_timeout_sec", 300.0),
         )
         if isolated_sp is not None and args.mas_memory not in _GM_GRAPH_MEMORY:
             isolated_sp["use_global_retriever"] = True

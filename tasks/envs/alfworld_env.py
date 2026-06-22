@@ -50,10 +50,16 @@ def _resolve_gamefile_with_external_root(gamefile: str, env_config: dict[str, An
     if not value:
         return value
     root = str((env_config or {}).get("external_game_root") or "").strip().rstrip("/")
-    legacy_prefix = "data/alfworld/json_2.1.1/"
-    if root and value.startswith(legacy_prefix):
-        suffix = value[len(legacy_prefix):]
-        return str(Path(root) / suffix)
+    legacy_prefixes = (
+        "data/alfworld/alfworld_official_042/json_2.1.1/",
+        "data/alfworld/json_2.1.1/",
+    )
+    if root:
+        for prefix in legacy_prefixes:
+            marker_at = value.find(prefix)
+            if marker_at >= 0:
+                suffix = value[marker_at + len(prefix):]
+                return str(Path(root) / suffix)
     return value
 
 
