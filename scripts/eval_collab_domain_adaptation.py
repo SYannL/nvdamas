@@ -323,7 +323,6 @@ def build_isolated_subprocess_args(
     model: str,
     max_trials: int,
     alfworld_game_root: str = "",
-    worker_timeout_sec: float = 300.0,
 ) -> dict[str, Any] | None:
     """
     When non-None, ``run_tasks`` runs each episode in a child process with redirected
@@ -337,7 +336,6 @@ def build_isolated_subprocess_args(
         "model": model,
         "max_trials": max_trials,
         "alfworld_game_root": root,
-        "worker_timeout_sec": float(worker_timeout_sec),
     }
 
 
@@ -779,7 +777,7 @@ def run_tasks(
                         [sys.executable, script_path, "--alfworld-worker", args_path, task_path, result_path],
                         stdout=stdout_fh,
                         stderr=stderr_fh,
-                        timeout=float(alfworld_subprocess_args.get("worker_timeout_sec", 300.0)),
+                        timeout=300,
                         cwd=os.path.dirname(os.path.dirname(script_path)),
                     )
                 sub_wall_s = time.perf_counter() - t_sub0

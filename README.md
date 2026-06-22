@@ -35,8 +35,6 @@ This command should place the ALFWorld assets under the configured `ALFWORLD_DAT
 --alfworld_game_root "$ALFWORLD_DATA/json_2.1.1"
 ```
 
-The collaborative subset JSON files are experiment inputs and are not included under `data/` in this repository. Place them under the path passed to `--alfworld_subset_dir` before running ALFWorld experiments.
-
 ## Basic Usage
 
 All benchmarks use the same multidomain protocol. The script first builds a local memory for each source domain, then consolidates local memories into a shared global memory, and finally evaluates with both local and global memory available to the agents. This keeps the evaluation mechanism fixed while only changing the benchmark loader and data paths.
@@ -45,11 +43,11 @@ The core command shape is:
 
 ```bash
 python scripts/eval_collab_multidomain_global.py \
-  --dataset_family alfworld \
+  -dataset_family alfworld \
   --alfworld_domains bathroom,bedroom,kitchen,living \
   --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
   --alfworld_eval_split valid_seen,valid_unseen \
-  --alfworld_game_root "$ALFWORLD_DATA/json_2.1.1" \
+  --alfworld_game_root /workspace/run_alf/ALFWORLD_DATA/alfworld_official_042/json_2.1.1 \
   --mas_type autogen \
   --mas_memory memco \
   --reasoning io \
@@ -62,7 +60,6 @@ python scripts/eval_collab_multidomain_global.py \
   --memco_settings local_plus_global \
   --memco_router textloss \
   --memco_promotion_threshold 0.35 \
-  --isolated_worker_timeout_sec 900 \
   --reset_memory
 ```
 
