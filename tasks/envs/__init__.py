@@ -1,6 +1,7 @@
 import importlib
 import json
 import os
+from io import StringIO
 
 from .base_env import BaseEnv, BaseRecorder
 # from .alfworld_env import AlfworldEnv, AlfworldRecorder, get_env_name_from_gamefile, prefixes
@@ -75,6 +76,12 @@ def _load_jsonl_rows(path: str) -> list[dict]:
     with open(path, "r", encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
 
+
+def _open_existing_or_empty(path: str, *, json_array: bool = False):
+    if os.path.exists(path):
+        return open(path, "r", encoding="utf-8")
+    return StringIO("[]" if json_array else "")
+
 ## Tasks
 if AlfworldEnv is not None:
     alfworld_tasks: list[dict] = [
@@ -86,12 +93,12 @@ if AlfworldEnv is not None:
             },
             'task_type': prefixes[get_env_name_from_gamefile(row["gamefile"])],
             'env_name': get_env_name_from_gamefile(row["gamefile"])
-        } for row in json.load(open(TASKS_PATH['alfworld'], "r")) 
+        } for row in json.load(_open_existing_or_empty(TASKS_PATH['alfworld'], json_array=True))
     ]
 else:
     alfworld_tasks: list[dict] = []
 
-with open(TASKS_PATH['fever'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['fever']) as f:
     fever_tasks = [
         {
             'task': row['claim'],
@@ -101,7 +108,7 @@ with open(TASKS_PATH['fever'], 'r') as f:
         for row in (json.loads(line) for line in f) 
     ][:100]
 
-with open(TASKS_PATH['huskyqa'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['huskyqa']) as f:
     huskyqa_tasks = [
         {
             'task': row['question'],
@@ -111,7 +118,7 @@ with open(TASKS_PATH['huskyqa'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_test'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_test']) as f:
     medmcqa_test_tasks = [
         {
             'task': row['question'],
@@ -129,7 +136,7 @@ with open(TASKS_PATH['medmcqa_test'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_physio_30'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_physio_30']) as f:
     medmcqa_physio_30_tasks = [
         {
             'task': row['question'],
@@ -147,7 +154,7 @@ with open(TASKS_PATH['medmcqa_physio_30'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_pharma_30'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_pharma_30']) as f:
     medmcqa_pharma_30_tasks = [
         {
             'task': row['question'],
@@ -165,7 +172,7 @@ with open(TASKS_PATH['medmcqa_pharma_30'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_physio_3'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_physio_3']) as f:
     medmcqa_physio_3_tasks = [
         {
             'task': row['question'],
@@ -183,7 +190,7 @@ with open(TASKS_PATH['medmcqa_physio_3'], 'r') as f:
         for row in (json.loads(line) for line in f if line.strip())
     ]
 
-with open(TASKS_PATH['medmcqa_pharma_3'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_pharma_3']) as f:
     medmcqa_pharma_3_tasks = [
         {
             'task': row['question'],
@@ -201,7 +208,7 @@ with open(TASKS_PATH['medmcqa_pharma_3'], 'r') as f:
         for row in (json.loads(line) for line in f if line.strip())
     ]
 
-with open(TASKS_PATH['medmcqa_physio_150_build'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_physio_150_build']) as f:
     medmcqa_physio_150_build_tasks = [
         {
             'task': row['question'],
@@ -219,7 +226,7 @@ with open(TASKS_PATH['medmcqa_physio_150_build'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_pharma_150_build'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_pharma_150_build']) as f:
     medmcqa_pharma_150_build_tasks = [
         {
             'task': row['question'],
@@ -237,7 +244,7 @@ with open(TASKS_PATH['medmcqa_pharma_150_build'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_physio_20_test'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_physio_20_test']) as f:
     medmcqa_physio_20_test_tasks = [
         {
             'task': row['question'],
@@ -255,7 +262,7 @@ with open(TASKS_PATH['medmcqa_physio_20_test'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_pharma_20_test'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_pharma_20_test']) as f:
     medmcqa_pharma_20_test_tasks = [
         {
             'task': row['question'],
@@ -273,7 +280,7 @@ with open(TASKS_PATH['medmcqa_pharma_20_test'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_anatomy_20'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_anatomy_20']) as f:
     medmcqa_anatomy_20_tasks = [
         {
             'task': row['question'],
@@ -291,7 +298,7 @@ with open(TASKS_PATH['medmcqa_anatomy_20'], 'r') as f:
         for row in (json.loads(line) for line in f)
     ]
 
-with open(TASKS_PATH['medmcqa_surgery_20'], 'r') as f:
+with _open_existing_or_empty(TASKS_PATH['medmcqa_surgery_20']) as f:
     medmcqa_surgery_20_tasks = [
         {
             'task': row['question'],
@@ -310,7 +317,7 @@ with open(TASKS_PATH['medmcqa_surgery_20'], 'r') as f:
     ]
 
 TASK_NAMES = ["barman", "blockworld", "gripper", "tyreworld"]
-if get_all_environment_configs is not None:
+if get_all_environment_configs is not None and os.path.exists(TASKS_PATH['pddl']):
     pddl_tasks: list[dict] = get_all_environment_configs(TASK_NAMES, TASKS_PATH['pddl'])
 else:
     pddl_tasks: list[dict] = []
@@ -550,7 +557,7 @@ def get_task(task: str, env_config: dict | None = None) -> list[dict]:
         raise ValueError(f'Unsupported task type: {task}')
     
     task_list = TASK_DATA.get(task)
-    if task == 'alfworld' and len(task_list) == 0:
+    if task == 'alfworld' and len(task_list) == 0 and AlfworldEnv is None:
         raise ImportError(
             f'ALFWorld tasks list is empty. This is likely because the alfworld package failed to import.\n'
             f'Please check the error message above and install the required dependencies.'
