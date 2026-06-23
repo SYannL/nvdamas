@@ -98,7 +98,7 @@ start_job "alfworld" "alfworld_amem_qwen4b_cuda0_${TS}" \
   --alfworld_domains bathroom,bedroom,kitchen,living \
   --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
   --alfworld_eval_split valid_seen,valid_unseen \
-  --alfworld_game_root /workspace/run_alf/ALFWORLD_DATA/alfworld_official_042/json_2.1.1
+  --alfworld_game_root "${ALFWORLD_DATA:-${ROOT}/data/alfworld}/json_2.1.1"
 
 echo "Started 3 background jobs."
 echo "Logs:"

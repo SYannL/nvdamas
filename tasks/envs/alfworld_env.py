@@ -259,9 +259,9 @@ class AlfworldEnv(BaseEnv):
         return f"think: {text}"
 
     def _adapt_action_to_admissible(self, action: str) -> str:
-        """Map legacy ALFWorld placement syntax to official_042 move syntax.
+        """Map legacy ALFWorld placement syntax to the official move syntax.
 
-        Official 0.4.2 tw-pddl games expose placement commands such as
+        Official ALFWorld tw-pddl games expose placement commands such as
         `move bowl 1 to shelf 2`, while this project's prompts often produce
         `put bowl 1 in/on shelf 2`. Only rewrite when the target command is
         explicitly admissible in the current state.

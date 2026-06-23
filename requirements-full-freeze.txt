@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cu128
+
 accelerate==1.10.1
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.5

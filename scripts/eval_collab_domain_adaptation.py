@@ -1564,7 +1564,7 @@ def build_alfworld_subset(
         raise ValueError(f"Unsupported ALFWorld group: {group_name}")
 
     group_spec = ALFWORLD_GROUP_SPECS[group_name]
-    split_root = repo_root / "data" / "alfworld" / "alfworld_official_042" / "json_2.1.1" / split_name
+    split_root = repo_root / "data" / "alfworld" / "json_2.1.1" / split_name
     if not split_root.exists():
         raise FileNotFoundError(f"ALFWorld split directory not found: {split_root}")
 

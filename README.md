@@ -21,11 +21,35 @@ The multidomain script currently supports:
 | PDDL | `pddl` | planning-game domains |
 
 
+## Environment Setup
+
+Create the reproduction environment with Python 3.11 and the full pinned package
+snapshot:
+
+```bash
+conda create -n memco python=3.11 -y
+conda activate memco
+
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements-full-freeze.txt
+```
+
+`requirements-full-freeze.txt` includes the PyTorch CUDA 12.8 wheel index required
+for the pinned `torch==2.8.0+cu128`, `torchvision==0.23.0+cu128`, and
+`torchaudio==2.8.0+cu128` packages.
+
+The same setup can be run as a script:
+
+```bash
+bash scripts/setup_memco_env.sh
+```
+
 ## Data Setup
 
 For ALFWorld, download the official PDDL game files before running evaluation:
 
 ```bash
+export ALFWORLD_DATA="$PWD/data/alfworld"
 alfworld-download --force-download --force
 ```
 

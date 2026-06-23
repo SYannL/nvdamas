@@ -876,7 +876,7 @@ class MemCoBase(MASMemoryBase):
             )
             return selected_action
 
-        # Official042 exposes final placement as `move X to Y`. When the
+        # Official ALFWorld exposes final placement as `move X to Y`. When the
         # solver is already holding the target at the destination it can still
         # repeat a legacy preparation action such as `open safe 1`. Prefer the
         # exact admissible delivery action in that narrow state. This is a
@@ -912,7 +912,7 @@ class MemCoBase(MASMemoryBase):
                 )
                 return _debug_return(object_guard, "object_guard_repair")
             # Preserve the solver/env workflow for concrete ALFWorld commands.
-            # The env adapter still handles official042 syntax normalization
+            # The env adapter still handles official syntax normalization
             # such as put -> move. Graph policy is only a fallback for thoughts
             # or unparseable model output.
             self._external_error = f"last {self._external_retrieval_mode}=concrete_action_preserved"
@@ -925,7 +925,7 @@ class MemCoBase(MASMemoryBase):
             # Lightweight repair is deliberately narrow. It never builds a
             # state policy and never overrides an already admissible solver
             # action. It only projects explicit textual intent onto the current
-            # admissible command list, plus the official042 put->move syntax
+            # admissible command list, plus the official put->move syntax
             # bridge handled by _extract_admissible_action.
             if processed_admissible:
                 self._external_error = "last lightweight_repair=already_admissible"
@@ -1341,9 +1341,9 @@ class MemCoBase(MASMemoryBase):
         step_index: int,
         admissible_actions: list[str],
     ) -> str | None:
-        """Map a narrow official042 delivery-ready state to placement.
+        """Map a narrow official delivery-ready state to placement.
 
-        Some official042 ALFWorld tasks expose placement as `move X to Y`.
+        Some official ALFWorld tasks expose placement as `move X to Y`.
         When the solver is already holding the goal object at the destination
         and the exact move command is currently admissible, continuing to search
         usually loses the episode, especially for two-object tasks. Select that
@@ -1461,7 +1461,7 @@ class MemCoBase(MASMemoryBase):
         for command in admissible_actions:
             command_norm = self._normalize_action_text(command).replace("_", " ")
             if not command_norm.startswith(f"{verb} "):
-                # official042 final placement often appears as move even when
+                # Official final placement often appears as move even when
                 # solver says put.
                 if not (verb == "put" and command_norm.startswith("move ")):
                     continue
