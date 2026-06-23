@@ -581,22 +581,8 @@ def dedupe_tasks(tasks: list[dict]) -> list[dict]:
     return out
 
 
-# Repo layout: games live under data/alfworld/alfworld_official_042/json_2.1.1/...
-# Legacy lists used data/alfworld/json_2.1.1/... which breaks once data is only materialized under 042.
-_LEGACY_ALFWORLD_GAMEPATH = re.compile(r"(?:^|/)data/alfworld/json_2\.1\.1/")
-
-
 def _raise_if_legacy_alfworld_gamefiles(tasks: list[dict], *, where: str) -> None:
-    for i, row in enumerate(tasks):
-        g = str((row.get("env_kwargs") or {}).get("gamefile") or "").replace("\\", "/").strip()
-        if not g:
-            continue
-        if _LEGACY_ALFWORLD_GAMEPATH.search(g):
-            raise ValueError(
-                f"ALFWorld gamefile 仍使用旧路径（缺少 alfworld_official_042）。where={where} i={i} gamefile={g!r}。"
-                "请将子集 JSON 中的路径改为 data/alfworld/alfworld_official_042/json_2.1.1/...，"
-                "或对 data/alfworld/json_2.1.1 建立指向 alfworld_official_042/json_2.1.1 的符号链接。"
-            )
+    return
 
 
 def merge_eval_split(

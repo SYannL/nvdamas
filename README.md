@@ -29,11 +29,14 @@ For ALFWorld, download the official PDDL game files before running evaluation:
 alfworld-download --force-download --force
 ```
 
-This command should place the ALFWorld assets under the configured `ALFWORLD_DATA` directory. The multidomain command should then point `--alfworld_game_root` to the downloaded PDDL JSON tree, for example:
+This command should place the ALFWorld assets under the configured `ALFWORLD_DATA` directory. Make the downloaded PDDL JSON tree available at the same path used by the subset `gamefile` entries:
 
 ```bash
---alfworld_game_root "$ALFWORLD_DATA/json_2.1.1"
+mkdir -p data/alfworld
+ln -sfn "$ALFWORLD_DATA/json_2.1.1" data/alfworld/json_2.1.1
 ```
+
+ALFWorld subset files are expected to contain directly usable `gamefile` paths, such as `data/alfworld/json_2.1.1/.../game.tw-pddl`.
 
 ## Basic Usage
 
@@ -43,11 +46,10 @@ The core command shape is:
 
 ```bash
 python scripts/eval_collab_multidomain_global.py \
-  -dataset_family alfworld \
+  --dataset_family alfworld \
   --alfworld_domains bathroom,bedroom,kitchen,living \
   --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
   --alfworld_eval_split valid_seen,valid_unseen \
-  --alfworld_game_root /workspace/run_alf/ALFWORLD_DATA/alfworld_official_042/json_2.1.1 \
   --mas_type autogen \
   --mas_memory memco \
   --reasoning io \
