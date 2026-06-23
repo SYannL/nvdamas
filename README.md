@@ -29,14 +29,13 @@ For ALFWorld, download the official PDDL game files before running evaluation:
 alfworld-download --force-download --force
 ```
 
-This command should place the ALFWorld assets under the configured `ALFWORLD_DATA` directory. Make the downloaded PDDL JSON tree available at the same path used by the subset `gamefile` entries:
+This command should place the ALFWorld assets under the configured `ALFWORLD_DATA` directory. Pass the local `json_2.1.1` path to the evaluation script:
 
 ```bash
-mkdir -p data/alfworld
-ln -sfn "$ALFWORLD_DATA/json_2.1.1" data/alfworld/json_2.1.1
+--alfworld_game_root "$ALFWORLD_DATA/json_2.1.1"
 ```
 
-ALFWorld subset files are expected to contain directly usable `gamefile` paths, such as `data/alfworld/json_2.1.1/.../game.tw-pddl`.
+ALFWorld subset files may contain `gamefile` paths such as `data/alfworld/json_2.1.1/.../game.tw-pddl`; the runtime uses the suffix under `json_2.1.1` together with `--alfworld_game_root`.
 
 ## Basic Usage
 
@@ -50,6 +49,7 @@ python scripts/eval_collab_multidomain_global.py \
   --alfworld_domains bathroom,bedroom,kitchen,living \
   --alfworld_subset_dir data/alfworld/collab_subsets/v3_s \
   --alfworld_eval_split valid_seen,valid_unseen \
+  --alfworld_game_root "$ALFWORLD_DATA/json_2.1.1" \
   --mas_type autogen \
   --mas_memory memco \
   --reasoning io \

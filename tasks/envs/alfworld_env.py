@@ -46,7 +46,13 @@ def get_env_name_from_gamefile(gamefile: str) -> Union[str, None]:
 
 
 def _resolve_gamefile_with_external_root(gamefile: str, env_config: dict[str, Any]) -> str:
-    return str(gamefile or "").replace("\\", "/").strip()
+    value = str(gamefile or "").replace("\\", "/").strip()
+    root = str((env_config or {}).get("external_game_root") or "").strip().rstrip("/")
+    marker = "json_2.1.1/"
+    if root and marker in value:
+        suffix = value.split(marker, 1)[1]
+        return str(Path(root) / suffix)
+    return value
 
 
 class AlfworldEnv(BaseEnv):
