@@ -71,6 +71,7 @@ class GPTChat(LLM):
         )
         self._is_qwen = "qwen" in (model_name or "").lower()
         self._is_qwen4b = "qwen4b" in (model_name or "").lower()
+        self._is_qwen32b = "qwen32b" in (model_name or "").lower()
         self._is_gpt4omini = "gpt-4o-mini" in (model_name or "").lower()
 
     def _use_memco_fever_policy(self) -> bool:
@@ -102,6 +103,9 @@ class GPTChat(LLM):
 
     def _use_alfworld_action_format(self) -> bool:
         return self._dataset_policy() == "alfworld"
+
+    def _use_alfworld_qwen32_action_guard(self) -> bool:
+        return self._use_alfworld_action_format() and self._is_qwen32b
 
     def _use_memco_qwen_command_guard(self) -> bool:
         if self._use_memco_fever_policy():
@@ -249,6 +253,10 @@ class GPTChat(LLM):
 
     def _inject_action_only_guard(self, content: str, *, strict_retry: bool = False) -> str:
         content = str(content or "")
+        if self._use_alfworld_qwen32_action_guard():
+            if "/no_think" not in content:
+                return "/no_think\nOutput exactly one valid command and nothing else.\n" + content
+            return content
         if self._is_qwen4b and (self._use_alfworld_action_format() or self._is_alfworld_action_prompt(content)):
             if "/no_think" not in content:
                 return "/no_think\nOutput exactly one valid ALFWorld command and nothing else.\n" + content
@@ -300,12 +308,13 @@ class GPTChat(LLM):
             if msg["role"] == "user":
                 content = str(msg.get("content") or "")
                 is_action_only = self._is_action_only_env_prompt(content)
+                is_alfworld_qwen32_action = self._use_alfworld_qwen32_action_guard()
                 is_alfworld_action = self._is_qwen4b and (
                     self._is_alfworld_action_prompt(content)
                     or (self._use_alfworld_action_format() and "your task is to:" in content.lower())
                 )
                 is_fever_action = self._is_fever_action_prompt(content)
-                if is_alfworld_action:
+                if is_alfworld_qwen32_action or is_alfworld_action:
                     is_action_only = True
                 if self._use_memco_qwen_command_guard():
                     msg["content"] = self._inject_action_only_guard(content, strict_retry=strict_retry)
