@@ -108,8 +108,6 @@ class GPTChat(LLM):
         return self._use_alfworld_action_format() and self._is_qwen32b
 
     def _use_memco_qwen_command_guard(self) -> bool:
-        if self._use_memco_fever_policy():
-            return self._is_qwen
         if self._use_memco_pddl_policy():
             return self._is_qwen4b
         return False
