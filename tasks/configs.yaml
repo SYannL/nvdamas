@@ -1,6 +1,6 @@
 # global configs
 memory_folder: ./.db
-embedding_model: sentence-transformers/all-MiniLM-L6-v2
+embedding_model: ./model/Qwen3-Embedding-0.6B
 
 # env configs
 alfworld:

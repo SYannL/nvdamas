@@ -3006,8 +3006,16 @@ class LocalGraphMaintainer:
 
 
 class GlobalPromoter:
-    def __init__(self, score_threshold: float = 0.35) -> None:
+    def __init__(
+        self,
+        score_threshold: float = 0.35,
+        *,
+        enable_abstraction: bool = True,
+        enable_promotion: bool = True,
+    ) -> None:
         self.score_threshold = score_threshold
+        self.enable_abstraction = bool(enable_abstraction)
+        self.enable_promotion = bool(enable_promotion)
 
     def _specificity_penalty(self, candidate: PromotionCandidate) -> float:
         lowered = candidate.summary.lower()
@@ -3087,8 +3095,8 @@ class GlobalPromoter:
         return 2
 
     def _global_rule_copy(self, rule: MemoryRule) -> MemoryRule:
-        condition = _abstract_global_mapping(rule.condition)
-        effect = _abstract_global_mapping(rule.effect)
+        condition = _abstract_global_mapping(rule.condition) if self.enable_abstraction else dict(rule.condition)
+        effect = _abstract_global_mapping(rule.effect) if self.enable_abstraction else dict(rule.effect)
         return MemoryRule(
             rule_id=_global_rule_id(rule, condition, effect),
             rule_type=rule.rule_type,
@@ -3096,7 +3104,7 @@ class GlobalPromoter:
             task_family=rule.task_family,
             goal_arity=rule.goal_arity,
             progress_state=rule.progress_state,
-            goal_roles=_abstract_goal_roles(rule.goal_roles),
+            goal_roles=_abstract_goal_roles(rule.goal_roles) if self.enable_abstraction else dict(rule.goal_roles),
             condition=condition,
             effect=effect,
         )
@@ -3109,7 +3117,9 @@ class GlobalPromoter:
             return None
         if raw_pattern_kind == "scene_relation" or raw_artifact_role == "scene_relation":
             return None
-        if raw_pattern_kind == "source_type_prior" or raw_artifact_role == "source_type_prior":
+        if self.enable_abstraction and (
+            raw_pattern_kind == "source_type_prior" or raw_artifact_role == "source_type_prior"
+        ):
             anchor = {
                 "task_family": artifact.anchor.get("task_family", ""),
                 "goal_arity": artifact.anchor.get("goal_arity", 1),
@@ -3125,7 +3135,9 @@ class GlobalPromoter:
                 "goal_object": artifact.payload.get("goal_object", ""),
                 "action_patterns": artifact.payload.get("action_patterns", []),
             }
-        elif fever_pattern == "content_search_route" or raw_artifact_role == "fever_content_search_route":
+        elif self.enable_abstraction and (
+            fever_pattern == "content_search_route" or raw_artifact_role == "fever_content_search_route"
+        ):
             # FEVER route memories should transfer as claim-type/search-role
             # procedures. Drop per-episode query variants so support can
             # aggregate into a real global route instead of many singleton
@@ -3155,7 +3167,7 @@ class GlobalPromoter:
                     "Lookup[current claim relation keyword]",
                 ],
             }
-        elif fever_pattern in {"claim_type_no_results_recovery", "generic_no_results_recovery"}:
+        elif self.enable_abstraction and fever_pattern in {"claim_type_no_results_recovery", "generic_no_results_recovery"}:
             claim_type = str(
                 artifact.payload.get("claim_type")
                 or artifact.anchor.get("claim_type")
@@ -3180,9 +3192,12 @@ class GlobalPromoter:
                     "Lookup[current claim relation keyword]",
                 ],
             }
-        else:
+        elif self.enable_abstraction:
             anchor = _abstract_global_mapping(artifact.anchor)
             payload = _abstract_global_mapping(artifact.payload)
+        else:
+            anchor = dict(artifact.anchor)
+            payload = dict(artifact.payload)
         return MemoryArtifact(
             artifact_id=_global_artifact_id(artifact, anchor, payload),
             kind=artifact.kind,
@@ -3220,25 +3235,28 @@ class GlobalPromoter:
             support = candidate.positive + candidate.negative
             confidence = candidate.confidence
 
-            if candidate.candidate_type == CandidateType.PRECONDITION:
-                if support < 2 or candidate.positive < 2 or confidence < 0.6:
-                    continue
-            elif candidate.candidate_type == CandidateType.WORKFLOW and pattern_kind == "workflow":
-                if candidate.positive < 2 or candidate.positive < candidate.negative:
-                    continue
-            elif candidate.candidate_type == CandidateType.WORKFLOW and pattern_kind == "closure":
-                if candidate.positive < 2:
-                    continue
-            elif candidate.candidate_type == CandidateType.FAILURE and pattern_kind == "anti_pattern":
-                if candidate.stalled < 2:
-                    continue
-            if adjusted_score >= self.score_threshold and candidate.coverage >= min_scene_coverage:
+            if self.enable_promotion:
+                if candidate.candidate_type == CandidateType.PRECONDITION:
+                    if support < 2 or candidate.positive < 2 or confidence < 0.6:
+                        continue
+                elif candidate.candidate_type == CandidateType.WORKFLOW and pattern_kind == "workflow":
+                    if candidate.positive < 2 or candidate.positive < candidate.negative:
+                        continue
+                elif candidate.candidate_type == CandidateType.WORKFLOW and pattern_kind == "closure":
+                    if candidate.positive < 2:
+                        continue
+                elif candidate.candidate_type == CandidateType.FAILURE and pattern_kind == "anti_pattern":
+                    if candidate.stalled < 2:
+                        continue
+            if not self.enable_promotion or (
+                adjusted_score >= self.score_threshold and candidate.coverage >= min_scene_coverage
+            ):
                 global_memory.candidates[candidate.candidate_id] = candidate
 
         aggregated_rules: dict[str, MemoryRule] = {}
         for local in local_memories:
             for rule in local.rules_by_id.values():
-                if rule.rule_type in {RuleType.BLOCKED, RuleType.REPAIR}:
+                if self.enable_promotion and rule.rule_type in {RuleType.BLOCKED, RuleType.REPAIR}:
                     # These are valuable locally but too easy to over-apply across
                     # unseen tasks without the original PhaseE action reranker.
                     continue
@@ -3260,10 +3278,10 @@ class GlobalPromoter:
                 merged.conflict = max(merged.conflict, rule.conflict)
 
         for rule in aggregated_rules.values():
-            if _is_low_information_global_rule(rule):
+            if self.enable_promotion and _is_low_information_global_rule(rule):
                 continue
             min_scene_coverage = self._rule_min_scene_coverage(rule)
-            if (
+            if not self.enable_promotion or (
                 rule.support >= 3
                 and rule.stats.success >= 2
                 and rule.stats.confidence >= 0.6
@@ -3295,7 +3313,7 @@ class GlobalPromoter:
                 merged.conflict = max(merged.conflict, artifact.conflict)
 
         for artifact in aggregated_artifacts.values():
-            if _is_low_information_global_artifact(artifact):
+            if self.enable_promotion and _is_low_information_global_artifact(artifact):
                 continue
             min_scene_coverage = self._artifact_min_scene_coverage(artifact)
             pattern_kind = str(artifact.payload.get("pattern_kind", "") or artifact.anchor.get("pattern_kind", ""))
@@ -3307,7 +3325,7 @@ class GlobalPromoter:
                 min_support = 3
                 min_success = 2
                 min_confidence = 0.6
-            if (
+            if not self.enable_promotion or (
                 artifact.support >= min_support
                 and artifact.stats.success >= min_success
                 and artifact.stats.confidence >= min_confidence

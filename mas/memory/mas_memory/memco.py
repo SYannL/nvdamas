@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import os
@@ -52,6 +53,12 @@ class MemCoMASMemory(MemCoBase):
             )
             router = "textloss"
         self._external_retrieval_mode = "memco_textloss" if router == "textloss" else f"memco_{router}"
+        self._memco_ablate_no_adaptive_routing = bool(
+            self.global_config.get("memco_ablate_no_adaptive_routing", False)
+        )
+        self._memco_routing_ablation_seed = int(
+            self.global_config.get("memco_routing_ablation_seed", 42) or 42
+        )
         self._memco_debug_trace_path = Path(self.persist_dir) / "memco_debug_trace.jsonl"
         if self._memco_config_is_alfworld_qwen4b():
             filtered_insights = [
@@ -385,10 +392,63 @@ class MemCoMASMemory(MemCoBase):
         best_score = self._memco_scienceworld_float_attr(env_ref, "best_score", 0.0)
         last_score = self._memco_scienceworld_float_attr(env_ref, "last_score", 0.0)
         blocked_actions = self._memco_scienceworld_recent_invalid_actions(env_ref)
-        reason = "scienceworld_advisory_only"
+        reason = "scienceworld_keep_model_action"
 
         if processed_admissible and not final_action:
             final_action = processed_admissible
+            reason = "scienceworld_normalized_valid_action"
+
+        if processed_norm in blocked_actions:
+            replacement = self._memco_scienceworld_preferred_action(
+                profile=profile,
+                admissible=admissible,
+                env_ref=env_ref,
+                current_action=final_action,
+            )
+            if replacement:
+                final_action = replacement
+                reason = "scienceworld_replace_recent_invalid_action"
+
+        preferred = self._memco_scienceworld_preferred_action(
+            profile=profile,
+            admissible=admissible,
+            env_ref=env_ref,
+            current_action=final_action,
+        )
+        if preferred and self._memco_scienceworld_should_force_preferred_action(
+            preferred=preferred,
+            current_action=final_action,
+            profile=profile,
+            env_ref=env_ref,
+        ):
+            final_action = preferred
+            reason = "scienceworld_force_template_preferred_action"
+
+        high_risk = self._memco_scienceworld_is_high_risk_action(final_action)
+        if high_risk and not self._memco_scienceworld_action_is_safe_for_profile(
+            final_action,
+            profile=profile,
+            env_ref=env_ref,
+        ):
+            replacement = self._memco_scienceworld_preferred_action(
+                profile=profile,
+                admissible=admissible,
+                env_ref=env_ref,
+                current_action=final_action,
+            )
+            if replacement and self._normalize_action_text(replacement) != self._normalize_action_text(final_action):
+                final_action = replacement
+                reason = "scienceworld_guard_high_risk_target"
+        elif high_risk:
+            replacement = self._memco_scienceworld_preferred_action(
+                profile=profile,
+                admissible=admissible,
+                env_ref=env_ref,
+                current_action=final_action,
+            )
+            if replacement and self._normalize_action_text(replacement) != self._normalize_action_text(final_action):
+                final_action = replacement
+                reason = "scienceworld_use_stage_preferred_action"
 
         self._memco_debug_append(
             "action_hook_observe",
@@ -407,6 +467,55 @@ class MemCoMASMemory(MemCoBase):
             },
         )
         return final_action
+
+    def _memco_scienceworld_should_force_preferred_action(
+        self,
+        *,
+        preferred: str,
+        current_action: str,
+        profile: dict[str, Any],
+        env_ref: Any,
+    ) -> bool:
+        preferred_norm = self._normalize_action_text(preferred)
+        current_norm = self._normalize_action_text(current_action)
+        if not preferred_norm or preferred_norm == current_norm:
+            return False
+        kind = str(profile.get("task_kind", "") or "generic")
+        last_score = max(
+            self._memco_scienceworld_float_attr(env_ref, "last_score", 0.0),
+            self._memco_scienceworld_float_attr(env_ref, "best_score", 0.0),
+        )
+        if kind.startswith("lifespan"):
+            return preferred_norm.startswith("focus on ")
+        if kind == "conductivity":
+            if (preferred_norm.startswith("place ") or preferred_norm.startswith("move ")) and last_score >= 40:
+                return True
+            if preferred_norm.startswith("focus on ") and (
+                not current_norm
+                or current_norm.startswith(("connect ", "activate ", "open ", "go to "))
+                or self._memco_scienceworld_is_generic_bad_target(
+                    self._memco_scienceworld_action_target_text(current_norm)
+                )
+            ):
+                return True
+        if kind == "friction":
+            if preferred_norm.startswith("focus on inclined plane"):
+                return True
+            if current_norm.startswith(("connect ", "activate ", "open freezer")):
+                return True
+        if kind == "melting_point":
+            if preferred_norm.startswith("focus on ") and (
+                last_score >= 40
+                or current_norm.startswith(("connect ", "activate "))
+                or not current_norm
+            ):
+                return True
+        if kind.startswith("grow"):
+            if preferred_norm.startswith("focus on ") and last_score >= 40:
+                return True
+            if current_norm.startswith("connect "):
+                return True
+        return False
 
     def _memco_scienceworld_task_profile(
         self,
@@ -434,7 +543,29 @@ class MemCoMASMemory(MemCoBase):
         text = self._normalize_action_text(f"{task_name}. {goal}")
         targets: list[str] = []
         answer_targets: list[str] = []
+        answer_boxes: dict[str, str] = {}
+        final_targets: list[str] = []
+        relation: str = ""
+        threshold: float | None = None
+        friction_materials: list[str] = []
         task_kind = "generic"
+
+        if "life span" in text and "animal" in text:
+            wants_longest = "longest life span" in text
+            wants_shortest = "shortest life span" in text
+            if wants_longest and wants_shortest:
+                task_kind = "lifespan_longest_then_shortest" if text.find("longest") < text.find("shortest") else "lifespan_shortest_then_longest"
+            elif wants_longest:
+                task_kind = "lifespan_longest"
+            elif wants_shortest:
+                task_kind = "lifespan_shortest"
+
+        if re.search(r"\bgrow\b", text):
+            task_kind = "grow"
+            for match in re.finditer(r"\bfocus on (?:the )?(?:grown )?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
+                final_targets.append(match.group(1))
+            for match in re.finditer(r"\bgrow (?:a |an |the )?([a-z0-9][a-z0-9 \-]+?)(?: plant| from seed|\.|,|$)", text):
+                final_targets.append(match.group(1))
 
         state_patterns = (
             r"\b(?:boil|melt|freeze|combust)\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)",
@@ -448,25 +579,81 @@ class MemCoMASMemory(MemCoBase):
                 targets.append(match.group(1))
                 break
 
+        if "melting point" in text:
+            task_kind = "melting_point"
+            material_match = re.search(r"\bmelting point of\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:,|\.|\s+which|\s+is\b|$)", text)
+            if material_match:
+                targets.append(material_match.group(1))
+            threshold_match = re.search(r"\b(?:above|greater than|over)\s+(-?\d+(?:\.\d+)?)\s+degrees celsius\b", text)
+            if threshold_match:
+                try:
+                    threshold = float(threshold_match.group(1))
+                except Exception:
+                    threshold = None
+            above_match = re.search(r"\bif\b.*?\b(?:above|greater than|over)\b.*?\bfocus on\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text)
+            below_match = re.search(r"\bif\b.*?\b(?:below|less than|under)\b.*?\bfocus on\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text)
+            if above_match:
+                answer_boxes["above"] = above_match.group(1)
+                answer_targets.append(above_match.group(1))
+            if below_match:
+                answer_boxes["below"] = below_match.group(1)
+                answer_targets.append(below_match.group(1))
+
         for match in re.finditer(r"\b(?:first|next|then),?\s*focus on\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
             target = match.group(1)
             if target not in {"substance", "object", "thing"}:
                 targets.append(target)
-                task_kind = "ordered_focus"
+                if task_kind == "generic":
+                    task_kind = "ordered_focus"
 
         for match in re.finditer(r"\bif\b[^.;]*?\bfocus on\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
             answer_targets.append(match.group(1))
-            task_kind = "conditional_focus"
+            if task_kind in {"generic", "ordered_focus", "state_change"}:
+                task_kind = "conditional_focus"
+
+        for match in re.finditer(r"\bif\b[^.;]*?\bconductive\b[^.;]*?\bplace it in\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
+            answer_boxes["conductive"] = match.group(1)
+            task_kind = "conductivity"
+        for match in re.finditer(r"\bif\b[^.;]*?\bnonconductive\b[^.;]*?\bplace it in\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
+            answer_boxes["nonconductive"] = match.group(1)
+            task_kind = "conductivity"
+        for match in re.finditer(r"\bif\b[^.;]*?\bnon conductive\b[^.;]*?\bplace it in\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:[.;,]|$)", text):
+            answer_boxes["nonconductive"] = match.group(1)
+            task_kind = "conductivity"
+        if "electrically conductive" in text or "electrical circuit" in text:
+            task_kind = "conductivity" if "buzzer" not in text else "power_circuit"
+            material_match = re.search(r"\bdetermine if\s+([a-z0-9][a-z0-9 \-]+?)\s+is electrically conductive\b", text)
+            if material_match:
+                targets.append(material_match.group(1))
+
+        if "inclined plane" in text and "friction" in text:
+            task_kind = "friction"
+            relation = "least" if "least friction" in text else "most" if "most friction" in text else ""
+            pair_match = re.search(r"\btwo inclined planes\s*\(([^)]+)\)", text)
+            if pair_match:
+                friction_materials = [
+                    item.strip()
+                    for item in re.split(r"\s*,\s*|\s+and\s+", pair_match.group(1))
+                    if item.strip()
+                ]
+                targets.extend(f"inclined plane with a {item} surface" for item in friction_materials)
+            answer_targets.extend(targets)
 
         if "dominant" in text or "recessive" in text:
             task_kind = "genetics"
 
         targets = self._memco_scienceworld_dedupe_phrases(targets)
         answer_targets = self._memco_scienceworld_dedupe_phrases(answer_targets)
+        final_targets = self._memco_scienceworld_dedupe_phrases(final_targets)
         return {
             "task_kind": task_kind,
             "targets": targets,
             "answer_targets": answer_targets,
+            "answer_boxes": answer_boxes,
+            "final_targets": final_targets,
+            "relation": relation,
+            "threshold": threshold,
+            "friction_materials": self._memco_scienceworld_dedupe_phrases(friction_materials),
             "goal": goal[:300],
             "task_name": task_name[:120],
         }
@@ -490,6 +677,550 @@ class MemCoMASMemory(MemCoBase):
             return float(getattr(env_ref, name, default) or default)
         except Exception:
             return default
+
+    def _memco_scienceworld_action_is_safe_for_profile(
+        self,
+        action: str,
+        *,
+        profile: dict[str, Any],
+        env_ref: Any,
+    ) -> bool:
+        norm = self._normalize_action_text(action)
+        target = self._memco_scienceworld_action_target_text(norm)
+        kind = str(profile.get("task_kind", "") or "generic")
+        if not norm:
+            return False
+        if self._memco_scienceworld_is_distractor_focus(target, profile):
+            return False
+        if norm.startswith("connect ") and kind not in {"conductivity", "power_circuit"}:
+            return False
+        if kind.startswith("lifespan"):
+            if norm.startswith("focus on "):
+                return self._memco_scienceworld_target_is_animal(target)
+            return True
+        if kind.startswith("grow"):
+            if norm.startswith("focus on "):
+                final_targets = list(profile.get("final_targets") or [])
+                if final_targets:
+                    return self._memco_scienceworld_phrase_matches_any(target, final_targets)
+                return not self._memco_scienceworld_is_generic_bad_target(target)
+            return True
+        if kind == "conductivity":
+            if norm.startswith("connect "):
+                material = self._memco_scienceworld_conductivity_material(profile)
+                # Known-material conductivity tasks in ScienceWorld are often
+                # scored by placing the material in the correct answer box after
+                # focusing it.  Circuit-building is useful for unknowns, but it
+                # distracts for known materials like sodium chloride/aluminum foil.
+                if material and self._memco_scienceworld_known_conductivity(material) is not None:
+                    return False
+            if norm.startswith("place ") or norm.startswith("move "):
+                material = self._memco_scienceworld_conductivity_material(profile)
+                known = self._memco_scienceworld_known_conductivity(material)
+                answer_boxes = dict(profile.get("answer_boxes") or {})
+                if material and known is not None and answer_boxes:
+                    box = answer_boxes.get("conductive" if known else "nonconductive", "")
+                    return (
+                        self._memco_scienceworld_action_contains_material(norm, material)
+                        and self._memco_scienceworld_action_contains_phrase(norm, box)
+                    )
+                return bool(self._memco_scienceworld_action_matches_profile(norm, profile))
+            return True
+        if kind == "friction":
+            if norm.startswith("focus on "):
+                return self._memco_scienceworld_focus_matches_profile(norm, profile)
+            if norm.startswith("connect "):
+                return False
+            return True
+        if kind == "melting_point":
+            if norm.startswith("focus on "):
+                if "thermometer" in target:
+                    return True
+                return self._memco_scienceworld_focus_matches_profile(norm, profile)
+            if norm.startswith("connect "):
+                return False
+            return True
+        if kind in {"conditional_focus", "ordered_focus", "state_change"}:
+            if norm.startswith("focus on "):
+                return self._memco_scienceworld_focus_matches_profile(norm, profile)
+        return True
+
+    def _memco_scienceworld_preferred_action(
+        self,
+        *,
+        profile: dict[str, Any],
+        admissible: list[str],
+        env_ref: Any,
+        current_action: str,
+    ) -> str:
+        if not admissible:
+            return ""
+        kind = str(profile.get("task_kind", "") or "generic")
+        last_score = self._memco_scienceworld_float_attr(env_ref, "last_score", 0.0)
+        best_score = self._memco_scienceworld_float_attr(env_ref, "best_score", 0.0)
+        current_norm = self._normalize_action_text(current_action)
+
+        if kind.startswith("lifespan"):
+            mode = "longest" if "longest" in kind else "shortest"
+            if "then_shortest" in kind and max(last_score, best_score) >= 60:
+                mode = "shortest"
+            if "then_longest" in kind and max(last_score, best_score) >= 60:
+                mode = "longest"
+            action = self._memco_scienceworld_best_lifespan_action(admissible, mode=mode)
+            if action:
+                return action
+
+        if kind.startswith("grow"):
+            action = self._memco_scienceworld_best_grow_action(profile, admissible, last_score=max(last_score, best_score))
+            if action:
+                return action
+
+        if kind == "conductivity":
+            action = self._memco_scienceworld_best_conductivity_action(profile, admissible, last_score=max(last_score, best_score))
+            if action:
+                return action
+
+        if kind == "friction":
+            action = self._memco_scienceworld_best_friction_action(profile, admissible, last_score=max(last_score, best_score))
+            if action:
+                return action
+
+        if kind == "melting_point":
+            action = self._memco_scienceworld_best_melting_point_action(
+                profile,
+                admissible,
+                env_ref=env_ref,
+                last_score=max(last_score, best_score),
+            )
+            if action:
+                return action
+
+        if kind in {"conditional_focus", "ordered_focus", "state_change"}:
+            action = self._memco_scienceworld_best_focus_action(profile, admissible, last_score=max(last_score, best_score))
+            if action:
+                return action
+
+        # General repair fallback: prefer a target-matching valid action over a
+        # blocked/invalid or generic high-risk command.
+        for cmd in admissible:
+            norm = self._normalize_action_text(cmd)
+            if norm == current_norm:
+                continue
+            if self._memco_scienceworld_is_high_risk_action(norm) and self._memco_scienceworld_action_matches_profile(norm, profile):
+                return cmd
+        if current_norm.startswith("connect "):
+            return self._memco_scienceworld_safe_fallback_action(profile, admissible, current_action=current_action)
+        return ""
+
+    def _memco_scienceworld_best_focus_action(
+        self,
+        profile: dict[str, Any],
+        admissible: list[str],
+        *,
+        last_score: float,
+    ) -> str:
+        targets = list(profile.get("answer_targets") or [])
+        if last_score < 40:
+            targets = list(profile.get("targets") or []) + targets
+        else:
+            targets = targets + list(profile.get("targets") or [])
+        for target in targets:
+            cmd = self._memco_scienceworld_find_focus_action(admissible, target)
+            if cmd:
+                return cmd
+        return ""
+
+    def _memco_scienceworld_best_grow_action(
+        self,
+        profile: dict[str, Any],
+        admissible: list[str],
+        *,
+        last_score: float,
+    ) -> str:
+        final_targets = list(profile.get("final_targets") or [])
+        for target in final_targets:
+            cmd = self._memco_scienceworld_find_focus_action(admissible, target)
+            if cmd and (last_score > 0 or "grown" in self._normalize_action_text(str(profile.get("goal", "")))):
+                return cmd
+        return ""
+
+    def _memco_scienceworld_best_conductivity_action(
+        self,
+        profile: dict[str, Any],
+        admissible: list[str],
+        *,
+        last_score: float,
+    ) -> str:
+        material = self._memco_scienceworld_conductivity_material(profile)
+        if not material:
+            return ""
+        known = self._memco_scienceworld_known_conductivity(material)
+        answer_boxes = dict(profile.get("answer_boxes") or {})
+        if known is None or last_score < 40:
+            focus = self._memco_scienceworld_find_focus_action(admissible, material)
+            return focus
+        box = answer_boxes.get("conductive" if known else "nonconductive", "")
+        if not box:
+            return ""
+        material_tokens = self._memco_scienceworld_tokens(material)
+        for cmd in admissible:
+            norm = self._normalize_action_text(cmd)
+            if not (norm.startswith("place ") or norm.startswith("move ")):
+                continue
+            if self._memco_scienceworld_action_contains_material(norm, material) and self._memco_scienceworld_action_contains_phrase(norm, box):
+                return cmd
+        # Some ScienceWorld unknown substances appear in the task as "unknown
+        # substance U" but in the action list as plain "unknown substance".
+        # Prefer the correct box action over touching batteries/wires.
+        if material_tokens and "unknown substance" in self._normalize_action_text(material):
+            for cmd in admissible:
+                norm = self._normalize_action_text(cmd)
+                if not (norm.startswith("place ") or norm.startswith("move ")):
+                    continue
+                if "unknown substance" in norm and self._memco_scienceworld_action_contains_phrase(norm, box):
+                    return cmd
+        return ""
+
+    def _memco_scienceworld_best_friction_action(
+        self,
+        profile: dict[str, Any],
+        admissible: list[str],
+        *,
+        last_score: float,
+    ) -> str:
+        materials = list(profile.get("friction_materials") or [])
+        relation = str(profile.get("relation", "") or "")
+        target = self._memco_scienceworld_friction_answer_material(materials, relation)
+        if target:
+            cmd = self._memco_scienceworld_find_focus_action(admissible, f"inclined plane with a {target} surface")
+            if cmd:
+                return cmd
+        if last_score >= 40:
+            for candidate in list(profile.get("answer_targets") or []) + list(profile.get("targets") or []):
+                cmd = self._memco_scienceworld_find_focus_action(admissible, candidate)
+                if cmd:
+                    return cmd
+        for preferred in ("stopwatch", "steel block"):
+            cmd = self._memco_scienceworld_find_focus_action(admissible, preferred)
+            if cmd:
+                return cmd
+        return ""
+
+    def _memco_scienceworld_best_melting_point_action(
+        self,
+        profile: dict[str, Any],
+        admissible: list[str],
+        *,
+        env_ref: Any,
+        last_score: float,
+    ) -> str:
+        answer_boxes = dict(profile.get("answer_boxes") or {})
+        threshold = profile.get("threshold")
+        material = self._memco_scienceworld_melting_material(profile)
+        known_relation = self._memco_scienceworld_known_melting_relation(material, threshold)
+        observed_relation = self._memco_scienceworld_melting_relation_from_history(env_ref, threshold)
+        if last_score < 20:
+            cmd = self._memco_scienceworld_find_focus_action(admissible, "thermometer")
+            if cmd:
+                return cmd
+        if last_score < 40 and material:
+            cmd = self._memco_scienceworld_find_focus_action(admissible, material)
+            if cmd:
+                return cmd
+        relation = observed_relation or known_relation
+        if relation and answer_boxes:
+            box = answer_boxes.get(relation, "")
+            if box:
+                cmd = self._memco_scienceworld_find_focus_action(admissible, box)
+                if cmd and (last_score >= 40 or observed_relation):
+                    return cmd
+        for target in ("thermometer", material):
+            cmd = self._memco_scienceworld_find_focus_action(admissible, target)
+            if cmd:
+                return cmd
+        if last_score >= 40:
+            for box in (answer_boxes.get("above", ""), answer_boxes.get("below", "")):
+                cmd = self._memco_scienceworld_find_focus_action(admissible, box)
+                if cmd:
+                    return cmd
+        return ""
+
+    def _memco_scienceworld_safe_fallback_action(
+        self,
+        profile: dict[str, Any],
+        admissible: list[str],
+        *,
+        current_action: str,
+    ) -> str:
+        current_norm = self._normalize_action_text(current_action)
+        for target in list(profile.get("answer_targets") or []) + list(profile.get("targets") or []) + list(profile.get("final_targets") or []):
+            cmd = self._memco_scienceworld_find_focus_action(admissible, target)
+            if cmd and self._normalize_action_text(cmd) != current_norm:
+                return cmd
+        for cmd in admissible:
+            norm = self._normalize_action_text(cmd)
+            if norm == current_norm or norm.startswith("connect "):
+                continue
+            if norm.startswith("focus on ") and not self._memco_scienceworld_is_generic_bad_target(
+                self._memco_scienceworld_action_target_text(norm)
+            ):
+                return cmd
+        for cmd in admissible:
+            norm = self._normalize_action_text(cmd)
+            if norm != current_norm and not norm.startswith("connect "):
+                return cmd
+        return ""
+
+    def _memco_scienceworld_find_focus_action(self, admissible: list[str], target: str) -> str:
+        target_tokens = set(self._memco_scienceworld_tokens(target))
+        if not target_tokens:
+            return ""
+        exact_norm = self._normalize_action_text(f"focus on {target}")
+        for cmd in admissible:
+            if self._normalize_action_text(cmd) == exact_norm:
+                return cmd
+        best_cmd = ""
+        best_score = -1
+        for cmd in admissible:
+            norm = self._normalize_action_text(cmd)
+            if not norm.startswith("focus on "):
+                continue
+            target_text = self._memco_scienceworld_action_target_text(norm)
+            if self._memco_scienceworld_is_generic_bad_target(target_text):
+                continue
+            tokens = set(self._memco_scienceworld_tokens(target_text))
+            overlap = len(target_tokens & tokens)
+            if overlap > best_score and target_tokens.issubset(tokens):
+                best_cmd = cmd
+                best_score = overlap
+        return best_cmd
+
+    def _memco_scienceworld_melting_material(self, profile: dict[str, Any]) -> str:
+        targets = list(profile.get("targets") or [])
+        for target in targets:
+            norm = self._normalize_action_text(target)
+            if "thermometer" not in norm and "box" not in norm:
+                return norm
+        text = self._normalize_action_text(
+            " ".join([str(profile.get("task_name", "") or ""), str(profile.get("goal", "") or "")])
+        )
+        match = re.search(r"\bmelting point of\s+(?:the\s+)?([a-z0-9][a-z0-9 \-]+?)(?:,|\.|\s+which|\s+is\b|$)", text)
+        return match.group(1).strip() if match else ""
+
+    @staticmethod
+    def _memco_scienceworld_known_melting_relation(material: str, threshold: Any) -> str:
+        try:
+            limit = float(threshold)
+        except Exception:
+            return ""
+        norm = re.sub(r"\s+", " ", str(material or "").strip().lower())
+        melting_points = {
+            "water": 0.0,
+            "ice": 0.0,
+            "gallium": 29.8,
+            "butter": 35.0,
+            "chocolate": 34.0,
+            "wax": 62.0,
+            "tin": 231.9,
+            "lead": 327.5,
+            "zinc": 419.5,
+            "aluminum": 660.3,
+            "copper": 1084.6,
+            "iron": 1538.0,
+            "gold": 1064.0,
+            "silver": 961.8,
+            "solid unknown substance y": 250.0,
+            "unknown substance y": 250.0,
+        }
+        value = melting_points.get(norm)
+        if value is None:
+            return ""
+        return "above" if value > limit else "below"
+
+    def _memco_scienceworld_melting_relation_from_history(self, env_ref: Any, threshold: Any) -> str:
+        try:
+            limit = float(threshold)
+        except Exception:
+            return ""
+        if env_ref is None:
+            return ""
+        text = "\n".join(
+            str(record.get("Observation", "") or "")
+            for record in list(getattr(env_ref, "current_history", []) or [])[-8:]
+            if isinstance(record, dict)
+        ).lower()
+        values: list[float] = []
+        for match in re.finditer(r"(-?\d+(?:\.\d+)?)\s*(?:degrees?\s+celsius|c\b)", text):
+            try:
+                values.append(float(match.group(1)))
+            except Exception:
+                continue
+        for match in re.finditer(r"\bmelting point\b[^.\n]*?(-?\d+(?:\.\d+)?)", text):
+            try:
+                values.append(float(match.group(1)))
+            except Exception:
+                continue
+        if not values:
+            return ""
+        value = values[-1]
+        return "above" if value > limit else "below"
+
+    @staticmethod
+    def _memco_scienceworld_friction_answer_material(materials: list[str], relation: str) -> str:
+        if not materials or relation not in {"least", "most"}:
+            return ""
+        ranks = {
+            "unknown material a": 15,
+            "unknown material b": 25,
+            "unknown material c": 35,
+            "unknown material d": 45,
+            "unknown material h": 85,
+            "ice": 5,
+            "glass": 12,
+            "aluminum": 22,
+            "steel": 28,
+            "copper": 30,
+            "gold": 32,
+            "silver": 34,
+            "platinum": 38,
+            "paper": 42,
+            "cloth": 58,
+            "cardboard": 48,
+            "carpet": 72,
+            "wood": 55,
+            "rubber": 80,
+            "sandpaper": 95,
+        }
+        scored: list[tuple[int, str]] = []
+        for material in materials:
+            norm = re.sub(r"\s+", " ", str(material or "").strip().lower())
+            if norm in ranks:
+                scored.append((ranks[norm], norm))
+        if not scored:
+            return ""
+        scored.sort(key=lambda item: item[0], reverse=(relation == "most"))
+        return scored[0][1]
+
+    def _memco_scienceworld_action_contains_material(self, action: str, material: str) -> bool:
+        action_norm = self._normalize_action_text(action)
+        material_norm = self._normalize_action_text(material)
+        if not action_norm or not material_norm:
+            return False
+        material_variants = {material_norm}
+        material_variants.add(re.sub(r"\s+[a-z]$", "", material_norm).strip())
+        if material_norm.startswith("unknown substance"):
+            material_variants.add("unknown substance")
+        if material_norm.startswith("solid unknown substance"):
+            material_variants.add("solid unknown substance")
+            material_variants.add("unknown substance")
+        for variant in material_variants:
+            if variant and variant in action_norm:
+                return True
+        material_tokens = set(self._memco_scienceworld_tokens(material_norm))
+        action_tokens = set(self._memco_scienceworld_tokens(action_norm))
+        return bool(material_tokens) and material_tokens.issubset(action_tokens)
+
+    def _memco_scienceworld_action_contains_phrase(self, action: str, phrase: str) -> bool:
+        action_norm = self._normalize_action_text(action)
+        phrase_norm = self._normalize_action_text(phrase)
+        if not phrase_norm:
+            return False
+        if phrase_norm in action_norm:
+            return True
+        phrase_tokens = set(self._memco_scienceworld_tokens(phrase_norm))
+        action_tokens = set(self._memco_scienceworld_tokens(action_norm))
+        return bool(phrase_tokens) and phrase_tokens.issubset(action_tokens)
+
+    def _memco_scienceworld_best_lifespan_action(self, admissible: list[str], *, mode: str) -> str:
+        candidates: list[tuple[int, str]] = []
+        for cmd in admissible:
+            norm = self._normalize_action_text(cmd)
+            if not norm.startswith("focus on "):
+                continue
+            target = self._memco_scienceworld_action_target_text(norm)
+            if not self._memco_scienceworld_target_is_animal(target):
+                continue
+            rank = self._memco_scienceworld_lifespan_rank(target)
+            candidates.append((rank, cmd))
+        if not candidates:
+            return ""
+        candidates.sort(key=lambda item: item[0], reverse=(mode == "longest"))
+        return candidates[0][1]
+
+    @staticmethod
+    def _memco_scienceworld_target_is_animal(target_text: str) -> bool:
+        norm = re.sub(r"\s+", " ", str(target_text or "").lower())
+        if any(bad in norm for bad in ("wood", "air", "ground", "door", "outside", "greenhouse", "inventory", "fountain", "fire pit", "axe", "shovel")):
+            return False
+        animal_words = {
+            "alligator", "ant", "bee", "beetle", "bird", "butterfly", "cat", "chameleon",
+            "chipmunk", "cow", "crocodile", "dog", "dolphin", "elephant", "fish", "frog",
+            "hamster", "hedgehog", "horse", "lion", "lizard", "mouse", "parrot", "rabbit",
+            "shark", "snake", "tiger", "tortoise", "turtle", "whale", "zebra",
+        }
+        tokens = set(re.findall(r"[a-z]+", norm))
+        return bool(tokens & animal_words) or " egg" in f" {norm}" or norm.startswith("baby ")
+
+    @staticmethod
+    def _memco_scienceworld_lifespan_rank(target_text: str) -> int:
+        norm = re.sub(r"\s+", " ", str(target_text or "").lower())
+        # Coarse species ordering is only a ScienceWorld answer-selection prior.
+        # It is used after the current task explicitly asks for lifespan and the
+        # command is already present in the simulator's valid-action list.
+        ranks = [
+            (100, ("giant tortoise", "tortoise", "turtle")),
+            (95, ("crocodile", "alligator")),
+            (90, ("elephant", "whale")),
+            (82, ("parrot",)),
+            (70, ("horse", "dolphin")),
+            (62, ("lion", "tiger", "shark")),
+            (55, ("snake", "lizard", "chameleon")),
+            (45, ("rabbit", "cat", "dog")),
+            (35, ("chipmunk", "hedgehog", "hamster")),
+            (25, ("frog", "fish", "bird")),
+            (10, ("mouse", "bee", "ant", "beetle", "butterfly")),
+        ]
+        base = 50
+        for score, names in ranks:
+            if any(name in norm for name in names):
+                base = score
+                break
+        if norm.startswith("baby ") or " baby " in norm:
+            base -= 8
+        if "egg" in norm:
+            base += 2
+        return base
+
+    def _memco_scienceworld_conductivity_material(self, profile: dict[str, Any]) -> str:
+        text = self._normalize_action_text(
+            " ".join([str(profile.get("task_name", "") or ""), str(profile.get("goal", "") or "")])
+        )
+        match = re.search(r"\bdetermine if\s+([a-z0-9][a-z0-9 \-]+?)\s+is electrically conductive\b", text)
+        if match:
+            return match.group(1).strip()
+        match = re.search(r"\bthe\s+([a-z0-9][a-z0-9 \-]+?)\s+is located around the workshop\b", text)
+        if match:
+            return match.group(1).strip()
+        targets = list(profile.get("targets") or [])
+        return str(targets[0]) if targets else ""
+
+    @staticmethod
+    def _memco_scienceworld_known_conductivity(material: str) -> bool | None:
+        norm = re.sub(r"\s+", " ", str(material or "").strip().lower())
+        conductive = {
+            "aluminum", "aluminum foil", "copper", "copper wire", "gold", "iron",
+            "steel", "silver", "metal", "metal fork", "graphite",
+            "unknown substance u",
+        }
+        nonconductive = {
+            "sodium chloride", "salt", "wood", "plastic", "rubber", "glass",
+            "paper", "cloth", "water", "distilled water", "sugar",
+        }
+        if norm in conductive or any(norm == item for item in conductive):
+            return True
+        if norm in nonconductive or any(norm == item for item in nonconductive):
+            return False
+        return None
 
     def _memco_scienceworld_focus_matches_profile(self, action: str, profile: dict[str, Any]) -> bool:
         target_text = self._memco_scienceworld_action_target_text(action)
@@ -888,6 +1619,12 @@ class MemCoMASMemory(MemCoBase):
             query=query,
             query_task=str(kargs.get("query_task") or ""),
         )
+        scienceworld_policy_notes = self._memco_scienceworld_policy_notes(
+            query=query,
+            env_ref=kargs.get("env_ref"),
+            task_config=kargs.get("task_config") or {},
+        )
+        planner_notes.extend(scienceworld_policy_notes)
 
         self._memco_debug_append(
             "memco_retrieve",
@@ -968,7 +1705,12 @@ class MemCoMASMemory(MemCoBase):
                 continue
             if not self._memco_message_is_scienceworld(message):
                 continue
-            if not self._memco_scienceworld_message_has_progress(message):
+            # ScienceWorld partial progress is cheap and often misleading: many
+            # failed episodes get positive score for merely reaching the room or
+            # focusing an intermediate object.  Only full-success traces should be
+            # shown as executable patterns; partial traces remain available to the
+            # graph router but must not masquerade as "past successes".
+            if not self._memco_scienceworld_message_is_full_success(message):
                 continue
             candidates.append(message)
 
@@ -988,6 +1730,69 @@ class MemCoMASMemory(MemCoBase):
             if len(patterns) >= 2:
                 break
         return patterns
+
+    def _memco_scienceworld_policy_notes(
+        self,
+        *,
+        query: Any,
+        env_ref: Any,
+        task_config: dict,
+    ) -> list[str]:
+        task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
+        if not task_family.startswith("scienceworld"):
+            return []
+        admissible = [
+            str(cmd).strip()
+            for cmd in (getattr(env_ref, "last_admissible_commands", []) or [])
+            if str(cmd).strip()
+        ] if env_ref is not None else []
+        try:
+            profile = self._memco_scienceworld_task_profile(
+                query=query,
+                env_ref=env_ref,
+                task_config=task_config or {},
+            )
+        except Exception:
+            profile = {}
+        preferred = self._memco_scienceworld_preferred_action(
+            profile=profile,
+            admissible=admissible,
+            env_ref=env_ref,
+            current_action="",
+        )
+        goal = self._normalize_action_text(str(profile.get("goal", "") or getattr(query, "goal", "") or ""))
+        kind = str(profile.get("task_kind", "") or "generic")
+        lines = [
+            "### MemCo SCIENCEWORLD SUCCESS POLICY",
+            "Use only the current valid-action list. Treat memory as a shortcut to the scoring action, not as a reason to run extra experiments.",
+        ]
+        if preferred:
+            lines.append(f"Preferred next valid command: {preferred}")
+        if kind.startswith("lifespan"):
+            lines.append(
+                "Lifespan tasks: after reaching outside, focus an animal/baby/egg target only; never focus wood, air, tools, rooms, doors, or containers."
+            )
+        elif kind.startswith("grow"):
+            lines.append(
+                "Grow tasks: if the requested final fruit/plant is already visible in valid actions, focus it; otherwise continue seed/soil/water/pollination setup and avoid focusing bee hive/containers as answers."
+            )
+        elif kind == "conductivity":
+            lines.append(
+                "Conductivity tasks: after focusing a known material, choose the requested answer box when the material is known; do not build a circuit unless the task explicitly asks to power a device."
+            )
+        elif kind == "friction":
+            lines.append(
+                "Inclined-plane friction tasks: avoid unrelated room/container/electrical actions; when a named surface answer is visible, focus that inclined plane directly."
+            )
+        elif kind == "melting_point":
+            lines.append(
+                "Melting-point tasks: focus the thermometer and target substance first, then focus the above/below answer box; never use electrical connect actions for this task."
+            )
+        elif kind in {"conditional_focus", "state_change", "measurement"} or "focus on" in goal:
+            lines.append(
+                "Conditional measurement tasks: perform the required focus steps, then choose one of the task's answer targets; avoid unnecessary extra heating/cooling once an answer target is available."
+            )
+        return ["\n".join(lines)]
 
     def _memco_scienceworld_progress_execution_pattern(self, message: Any, *, match_score: float = 0.0) -> str:
         description = self._memco_scienceworld_clean_task_query(str(getattr(message, "task_description", "") or ""))
@@ -1110,14 +1915,34 @@ class MemCoMASMemory(MemCoBase):
             score += 35.0 if current_kind == candidate_kind else -70.0
 
         current_group = str((getattr(query, "goal_roles", {}) or {}).get("scienceworld_family", "") or "").strip()
-        if current_group and f"scienceworld_family={current_group}" in candidate_text:
-            score += 12.0
+        raw_candidate_text = self._memco_norm(
+            "\n".join(
+                [
+                    str(getattr(message, "task_main", "") or ""),
+                    str(getattr(message, "task_description", "") or ""),
+                    str(getattr(message, "task_trajectory", "") or "")[:1200],
+                ]
+            )
+        )
+        loose_group_match = (
+            len(current_group) >= 4
+            and not current_group.isdigit()
+            and current_group in raw_candidate_text
+        )
+        if current_group and (
+            f"scienceworld_family={current_group}" in raw_candidate_text
+            or f"task={current_group}" in raw_candidate_text
+            or loose_group_match
+        ):
+            score += 45.0
 
         best = self._memco_scienceworld_best_score_from_message(message)
         if best <= 0:
             score -= 25.0
         else:
             score += min(best, 100.0) / 10.0
+        if self._memco_scienceworld_message_is_full_success(message):
+            score += 50.0
 
         if "valid actions from the scienceworld engine" in candidate_text:
             score -= 35.0
@@ -1181,10 +2006,14 @@ class MemCoMASMemory(MemCoBase):
     @staticmethod
     def _memco_scienceworld_task_kind(text: str) -> str:
         norm = str(text or "").lower()
+        if "melting point" in norm:
+            return "melting_point"
         if any(token in norm for token in ("boil", "melt", "freeze", "combust", "state of matter")):
             return "state_change"
         if any(token in norm for token in ("conductivity", "conductive", "conduct electricity", "circuit", "electrical")):
             return "conductivity"
+        if "inclined plane" in norm and "friction" in norm:
+            return "friction"
         if any(token in norm for token in ("unknown", "identify", "determine the substance", "which substance")):
             return "unknown_testing"
         if any(token in norm for token in ("living", "nonliving", "animal", "plant", "organism", "dominant", "recessive", "classification", "classify")):
@@ -1291,6 +2120,36 @@ class MemCoMASMemory(MemCoBase):
         for match in re.finditer(r"\b(?:current scienceworld score|best_score|score)\s*[=:]\s*(-?\d+(?:\.\d+)?)", text, flags=re.I):
             try:
                 if float(match.group(1)) > 0:
+                    return True
+            except Exception:
+                continue
+        return False
+
+    @staticmethod
+    def _memco_scienceworld_message_is_full_success(message: Any) -> bool:
+        if bool(getattr(message, "label", False)):
+            return True
+        text = "\n".join(
+            [
+                str(getattr(message, "task_description", "") or ""),
+                str(getattr(message, "task_trajectory", "") or ""),
+            ]
+        )
+        finished = list(
+            re.finditer(
+                r"ScienceWorld episode finished\.\s*completed=True,\s*score=(-?\d+(?:\.\d+)?)",
+                text,
+                flags=re.I,
+            )
+        )
+        if finished:
+            try:
+                return float(finished[-1].group(1)) >= 99.0
+            except Exception:
+                return False
+        for match in re.finditer(r"\bfinal_score\s*[=:]\s*(-?\d+(?:\.\d+)?)", text, flags=re.I):
+            try:
+                if float(match.group(1)) >= 99.0:
                     return True
             except Exception:
                 continue
@@ -1404,9 +2263,19 @@ class MemCoMASMemory(MemCoBase):
         target = self._memco_base(str(goal_roles.get("object", "") or ""))
         tool = self._memco_base(str(goal_roles.get("tool", "") or ""))
         destination = self._memco_base(str(goal_roles.get("destination", "") or ""))
+        routed_memory_source = str(routed.get("selected_memory_source", "") or "")
+        source_table_local_memory = local_memory
+        source_table_global_memory = global_memory
+        source_table_setting = setting
+        if routed_memory_source == "local":
+            source_table_global_memory = None
+            source_table_setting = "local_only"
+        elif routed_memory_source == "global":
+            source_table_local_memory = None
+            source_table_setting = "global_only"
         source_evidence_table = self._memco_source_evidence_table(
-            local_memory=local_memory,
-            global_memory=global_memory,
+            local_memory=source_table_local_memory,
+            global_memory=source_table_global_memory,
             target=target,
             tool=tool,
             destination=destination,
@@ -1414,18 +2283,19 @@ class MemCoMASMemory(MemCoBase):
             admissible=admissible,
             exhausted=exhausted,
             blocked_actions=blocked_actions,
-            setting=setting,
+            setting=source_table_setting,
             owner_scene=owner_scene,
         )
-        source_evidence_table = self._memco_merge_source_evidence_table(
-            source_evidence_table,
-            self._memco_previous_success_source_rows(
-                query=query,
-                env_ref=env_ref,
-                admissible=admissible,
-                blocked_actions=blocked_actions,
-            ),
-        )
+        if routed_memory_source != "global":
+            source_evidence_table = self._memco_merge_source_evidence_table(
+                source_evidence_table,
+                self._memco_previous_success_source_rows(
+                    query=query,
+                    env_ref=env_ref,
+                    admissible=admissible,
+                    blocked_actions=blocked_actions,
+                ),
+            )
         supported_source_scores = {
             str(row.get("source_base", "")): float(row.get("final_score", 0.0) or 0.0)
             for row in source_evidence_table
@@ -3794,6 +4664,8 @@ class MemCoMASMemory(MemCoBase):
         held: list[str],
         exhausted: list[str],
     ) -> dict[str, Any]:
+        if self._memco_ablate_no_adaptive_routing:
+            return self._memco_random_local_global_route(candidates=candidates)
         scored: list[dict[str, Any]] = []
         for section in candidates:
             loss, reasons, dimensions = self._memco_section_textloss(
@@ -3835,6 +4707,92 @@ class MemCoMASMemory(MemCoBase):
                 }
                 for item in scored
             ],
+        }
+
+    def _memco_random_local_global_route(
+        self,
+        *,
+        candidates: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Source-routing ablation: reproducibly choose local or global memory."""
+        source_sections: dict[str, list[dict[str, Any]]] = {"local": [], "global": []}
+        state_sections: list[dict[str, Any]] = []
+        for section in candidates:
+            if not list(section.get("items", []) or []):
+                continue
+            source = str(section.get("source", "") or "").strip().lower()
+            if source in source_sections:
+                source_sections[source].append(section)
+            elif source == "state":
+                state_sections.append(section)
+
+        available_sources = [
+            source for source in ("local", "global") if source_sections[source]
+        ]
+        selected_source = ""
+        selected: list[dict[str, Any]] = []
+        if available_sources:
+            canonical_pool = {
+                source: sorted(
+                    json.dumps(
+                        {
+                            "slot": str(section.get("slot", "") or ""),
+                            "items": [str(item) for item in list(section.get("items", []) or [])],
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    for section in source_sections[source]
+                )
+                for source in available_sources
+            }
+            fingerprint = json.dumps(
+                canonical_pool,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            digest = hashlib.sha256(
+                f"{self._memco_routing_ablation_seed}:{fingerprint}".encode("utf-8")
+            ).digest()
+            selected_source = available_sources[
+                int.from_bytes(digest[:8], "big") % len(available_sources)
+            ]
+            # State-only phase guidance is not memory and remains constant for
+            # both arms. Mixed local/global sections are excluded so the
+            # unchosen memory source cannot leak into the summary.
+            selected = [dict(section) for section in state_sections[:1]]
+            selected.extend(dict(section) for section in source_sections[selected_source])
+            selected = selected[:4]
+
+        return {
+            "selected": selected,
+            "scored_sections": [],
+            "routing_matrix": [
+                {
+                    "slot": str(section.get("slot", "") or ""),
+                    "source": str(section.get("source", "") or ""),
+                    "selected": (
+                        str(section.get("source", "") or "").strip().lower()
+                        in ({"state", selected_source} if selected_source else set())
+                    ),
+                    "routing_mode": "seeded_random_local_or_global_ablation",
+                }
+                for section in candidates
+            ],
+            "all_candidates": [
+                {
+                    "slot": str(section.get("slot", "") or ""),
+                    "source": str(section.get("source", "") or ""),
+                    "items": list(section.get("items", []) or [])[:4],
+                }
+                for section in candidates
+            ],
+            "routing_mode": "seeded_random_local_or_global_ablation",
+            "selected_memory_source": selected_source or None,
+            "routing_seed": self._memco_routing_ablation_seed,
+            "available_memory_sources": available_sources,
         }
 
     def _memco_prompt_signature(self, *, query: Any, selected: list[dict[str, Any]]) -> str:

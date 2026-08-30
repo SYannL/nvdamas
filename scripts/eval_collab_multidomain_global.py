@@ -275,6 +275,8 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
         "memco_use_textgrad": bool(args.memco_use_textgrad),
         "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
         "memco_dataset_policy": memco_policy,
+        "memco_ablate_no_adaptive_routing": bool(args.memco_ablate_no_adaptive_routing),
+        "memco_routing_ablation_seed": int(args.memco_routing_ablation_seed),
     }
     if memco_policy == "fever":
         config["memco_fever_policy"] = "adaptive_cache"
@@ -778,6 +780,7 @@ def _weighted_global_avg_score(rows: list[dict[str, Any]]) -> float | None:
 def _print_multidomain_run_summary(
     *,
     dataset_title: str,
+    domains: list[str],
     eval_results: list[dict[str, Any]],
     train_results: list[dict[str, Any]],
 ) -> None:
@@ -849,6 +852,48 @@ def _print_multidomain_run_summary(
                     f"wall_s={float(row.get('wall_time_sec', 0.0)):.2f}",
                     flush=True,
                 )
+
+    # Report an unweighted macro average over domain-level eval rows only. Keep
+    # splits separate (for example, ALFWorld valid_seen vs. valid_unseen) and do
+    # not mix training metrics into this reviewer-facing summary.
+    domain_set = {str(domain) for domain in domains}
+    eval_by_split_domain: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for row in eval_results:
+        scope = str(row.get("memory_scope", "") or "")
+        domain = scope.rsplit(":", 1)[-1] if ":" in scope else ""
+        if domain not in domain_set:
+            continue
+        split = str(row.get("split", "") or "unknown")
+        eval_by_split_domain[split][domain].append(row)
+
+    if eval_by_split_domain:
+        print("-- Eval macro average (across domains) --", flush=True)
+        for split, rows_by_domain in eval_by_split_domain.items():
+            per_domain_accuracy: list[float] = []
+            per_domain_steps: list[float] = []
+            included_domains: list[str] = []
+            for domain in domains:
+                rows = rows_by_domain.get(str(domain), [])
+                if not rows:
+                    continue
+                per_domain_accuracy.append(
+                    sum(float(row.get("accuracy", 0.0) or 0.0) for row in rows) / len(rows)
+                )
+                per_domain_steps.append(
+                    sum(float(row.get("avg_trajectory_steps", 0.0) or 0.0) for row in rows) / len(rows)
+                )
+                included_domains.append(str(domain))
+            if not included_domains:
+                continue
+            print(
+                f"  split={split} | "
+                f"macro_accuracy={sum(per_domain_accuracy) / len(per_domain_accuracy):.4f} "
+                f"macro_avg_steps={sum(per_domain_steps) / len(per_domain_steps):.2f} | "
+                f"domains={len(included_domains)} [{','.join(included_domains)}]",
+                flush=True,
+            )
 
 
 _ALFWORLD_MEMRL_EXAMPLE = r"""
@@ -1175,6 +1220,45 @@ def main() -> None:
     )
     parser.add_argument("--memco_enable_overlay", action="store_true")
     parser.add_argument("--memco_promotion_threshold", type=float, default=None)
+    parser.add_argument(
+        "--memco_ablate_no_abstraction",
+        action="store_true",
+        help="Ablation: keep raw instance-specific fields when building global memory.",
+    )
+    parser.add_argument(
+        "--memco_ablate_no_promotion",
+        action="store_true",
+        help=(
+            "Ablation: disable local-to-global promotion and global-memory construction; "
+            "evaluate with local memory only."
+        ),
+    )
+    parser.add_argument(
+        "--memco_ablate_no_routing",
+        "--memco_ablate_no_adaptive_routing",
+        dest="memco_ablate_no_adaptive_routing",
+        action="store_true",
+        help=(
+            "Ablation: bypass state-conditioned routing and pseudo-randomly choose "
+            "either local or global memory from the same candidate pool. The old "
+            "--memco_ablate_no_adaptive_routing name remains an alias."
+        ),
+    )
+    parser.add_argument(
+        "--memco_routing_ablation_seed",
+        type=int,
+        default=42,
+        help="Deterministic seed for random local-vs-global routing ablation.",
+    )
+    parser.add_argument(
+        "--memco_ablation_source_run_id",
+        type=str,
+        default="",
+        help=(
+            "With --eval_only, reuse local memories from this run_id while writing the rebuilt "
+            "ablation global memory, logs, and report under the new --run_id."
+        ),
+    )
     parser.add_argument("--memco_use_textgrad", action="store_true")
     parser.add_argument("--memco_textgrad_engine", type=str, default="")
     parser.add_argument("--memskill_finalize_local", action="store_true")
@@ -1386,11 +1470,37 @@ def main() -> None:
 
     model_type = get_model_type(args.model)
     run_id = args.run_id or time.strftime("%Y%m%d_%H%M%S")
+    empty_memory_fast_path = str(args.mas_memory or "").strip().lower() == "empty"
+    no_global_promotion_ablation = bool(
+        args.mas_memory == "memco" and args.memco_ablate_no_promotion
+    )
+    if no_global_promotion_ablation and args.eval_global_only_once:
+        raise ValueError(
+            "--memco_ablate_no_promotion disables global memory and cannot be combined "
+            "with --eval_global_only_once."
+        )
     # Keep output layout aligned with existing collab script.
     eval_namespace = f"{args.dataset_family}_collab_eval"
     base_dir = os.path.join(".db", model_type, eval_namespace, run_id, args.mas_type, "memory", args.mas_memory)
     local_root = os.path.join(base_dir, "local")
     global_dir = os.path.join(base_dir, "global")
+    local_memory_root = local_root
+    source_run_id = str(args.memco_ablation_source_run_id or "").strip()
+    if source_run_id:
+        if args.mas_memory != "memco" or not args.eval_only:
+            raise ValueError("--memco_ablation_source_run_id 仅支持 memco + --eval_only。")
+        source_base_dir = os.path.join(
+            ".db",
+            model_type,
+            eval_namespace,
+            source_run_id,
+            args.mas_type,
+            "memory",
+            args.mas_memory,
+        )
+        local_memory_root = os.path.join(source_base_dir, "local")
+        if not os.path.isdir(local_memory_root):
+            raise FileNotFoundError(f"Ablation source local memory 不存在: {local_memory_root}")
     log_base = os.path.join("./logs", eval_namespace, run_id, args.mas_type, "memory", args.mas_memory, model_type)
     report_ts = time.strftime("%Y%m%d_%H%M%S")
     report_base = collab_report_run_dir(
@@ -1402,6 +1512,11 @@ def main() -> None:
     ensure_dir(global_dir)
     ensure_dir(log_base)
     ensure_dir(report_base)
+    if empty_memory_fast_path:
+        print(
+            "[empty] No-memory fast path: skip all training/global construction and evaluate each split once.",
+            flush=True,
+        )
 
     if args.eval_only and args.mas_memory == "memrl":
         if not memrl_collab_global_ready(global_dir):
@@ -1412,7 +1527,7 @@ def main() -> None:
             )
 
     train_tasks_by_domain: dict[str, list[dict]] = {}
-    for domain in domains:
+    for domain in ([] if empty_memory_fast_path else domains):
         if args.dataset_family == "alfworld":
             rows = load_subset_file(subset_dir, domain, "train")
         elif args.dataset_family == "amabench":
@@ -1437,7 +1552,7 @@ def main() -> None:
         for dom, trows in train_tasks_by_domain.items():
             _raise_if_legacy_alfworld_gamefiles(trows, where=f"train {dom}")
 
-    if args.dataset_family == "fever":
+    if args.dataset_family == "fever" and not empty_memory_fast_path:
         fever_train_rows: list[dict] = []
         fever_train_paths = [(repo_root / item).resolve() for item in parse_csv(args.fever_train_jsonl)]
         missing_paths = [str(path) for path in fever_train_paths if not path.exists()]
@@ -1452,7 +1567,7 @@ def main() -> None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows
 
-    if args.dataset_family in {"pddl", "pddl_2"}:
+    if args.dataset_family in {"pddl", "pddl_2"} and not empty_memory_fast_path:
         override_paths: list[Path | None] = []
         if str(args.pddl_train_jsonl or "").strip():
             override_paths = [(repo_root / item).resolve() for item in parse_csv(args.pddl_train_jsonl)]
@@ -1478,7 +1593,7 @@ def main() -> None:
                 rows = rows[: int(args.max_train)]
             train_tasks_by_domain[domain] = rows
 
-    if args.dataset_family == "bfcl_mt":
+    if args.dataset_family == "bfcl_mt" and not empty_memory_fast_path:
         answers_by_id = bfcl_runtime["answers_by_id"]
         lim = int(getattr(args, "bfcl_train_limit_per_domain", 0) or 0)
         if bfcl_runtime.get("family_collab"):
@@ -1665,9 +1780,14 @@ def main() -> None:
     with open(merge_manifest_path, "w", encoding="utf-8") as writer:
         json.dump(merge_manifest, writer, ensure_ascii=False, indent=2)
 
-    graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
-    memskill_common = _resolve_memskill_common(args)
     graph_memory_prefix = "memco"
+    graph_memory_common = _resolve_graph_memory_common(args, shared_global_dir=global_dir)
+    if no_global_promotion_ablation:
+        # A true no-promotion ablation has no global-memory consumer.  Force the
+        # runtime setting here as well as at evaluation injection time so stale
+        # artifacts from a reused run_id cannot influence retrieval.
+        graph_memory_common[f"{graph_memory_prefix}_settings"] = "local_only"
+    memskill_common = _resolve_memskill_common(args)
     graph_dynamic_graph = bool(graph_memory_common.get(f"{graph_memory_prefix}_dynamic_graph", False))
     graph_settings_value = str(
         graph_memory_common.get(f"{graph_memory_prefix}_settings", "local_plus_global") or "local_plus_global"
@@ -1712,7 +1832,10 @@ def main() -> None:
 
     train_results: list[dict[str, Any]] = []
     saved_messages_by_domain: dict[str, list[Any]] = {}
-    if not args.eval_only:
+    # ``empty`` has no cross-trial state: add/update are no-ops and retrieval is
+    # always empty. Running the local training splits therefore cannot affect
+    # evaluation and only wastes policy-model calls.
+    if not args.eval_only and not empty_memory_fast_path:
         for domain_idx, domain in enumerate(domains):
             if args.dataset_family in {"pddl", "pddl_2"}:
                 prefix = "pddl_2_domain" if args.dataset_family == "pddl_2" else "pddl_domain"
@@ -1797,17 +1920,26 @@ def main() -> None:
                 }
             )
     else:
-        local_dirs = [os.path.join(local_root, d) for d in domains]
+        local_dirs = [os.path.join(local_memory_root, d) for d in domains]
 
     if args.mas_memory in _GM_GRAPH_MEMORY:
         if not graph_dynamic_graph:
             raise ValueError("多 domain global 构建目前要求启用对应 memory 的 dynamic_graph 开关。")
-        rebuild_memco_global_from_locals(
-            local_dirs=local_dirs,
-            global_dir=global_dir,
-            promotion_threshold=graph_promotion_threshold,
-            memory_namespace=args.mas_memory,
-        )
+        if no_global_promotion_ablation:
+            print(
+                "[memco ablation] No promotion: skip global-memory construction "
+                "and evaluate with local memory only.",
+                flush=True,
+            )
+        else:
+            rebuild_memco_global_from_locals(
+                local_dirs=local_dirs,
+                global_dir=global_dir,
+                promotion_threshold=graph_promotion_threshold,
+                memory_namespace=args.mas_memory,
+                enable_abstraction=not bool(args.memco_ablate_no_abstraction),
+                enable_promotion=True,
+            )
     elif args.mas_memory == "selectivemem":
         rebuild_selectivemem_global_from_locals(
             local_dirs=local_dirs,
@@ -1890,7 +2022,7 @@ def main() -> None:
                 freeze=True,
             )
         eval_mem = build_mas(manager, args.reasoning, args.mas_memory, args.model)
-        if args.mas_memory not in _GM_GRAPH_MEMORY:
+        if args.mas_memory not in _GM_GRAPH_MEMORY and not empty_memory_fast_path:
             # Non-MemCo memories use local memory as base and explicitly attach global retriever.
             _reasoning_cls, global_mem_cls = module_map(args.reasoning, args.mas_memory)
             global_retriever = global_mem_cls(
@@ -1913,7 +2045,7 @@ def main() -> None:
             max_trials=args.max_trials,
             alfworld_game_root=getattr(args, "alfworld_game_root", "") or "",
         )
-        if isolated_sp is not None and args.mas_memory not in _GM_GRAPH_MEMORY:
+        if isolated_sp is not None and args.mas_memory not in _GM_GRAPH_MEMORY and not empty_memory_fast_path:
             isolated_sp["use_global_retriever"] = True
             isolated_sp["global_dir"] = global_dir
         t0 = time.perf_counter()
@@ -1955,27 +2087,35 @@ def main() -> None:
             "wall_time_sec": wall,
         }
 
-    if args.eval_global_only_once:
+    single_eval_once = bool(args.eval_global_only_once or empty_memory_fast_path)
+    if single_eval_once:
         for split_name in eval_splits:
             eval_results.append(
                 eval_one(
                     split_name=split_name,
-                    memory_scope="global_only",
+                    memory_scope="empty_once" if empty_memory_fast_path else "global_only",
                     memory_dir=global_dir,
                     owner_scene="global",
-                    graph_settings_override="global_only",
+                    graph_settings_override=None if empty_memory_fast_path else "global_only",
                 )
             )
     else:
         for split_name in eval_splits:
             for domain in domains:
-                local_dir = os.path.join(local_root, domain)
+                local_dir = os.path.join(local_memory_root, domain)
                 eval_results.append(
                     eval_one(
                         split_name=split_name,
-                        memory_scope=f"local+global:{domain}",
+                        memory_scope=(
+                            f"local_only:{domain}"
+                            if no_global_promotion_ablation
+                            else f"local+global:{domain}"
+                        ),
                         memory_dir=local_dir,
                         owner_scene=domain,
+                        graph_settings_override=(
+                            "local_only" if no_global_promotion_ablation else None
+                        ),
                     )
                 )
 
@@ -1985,10 +2125,41 @@ def main() -> None:
         "run_id": run_id,
         "batch_size": int(args.batch_size),
         "domains": domains,
-        "global_only_eval": bool(args.eval_global_only_once),
-        "eval_injection_mode": "global_only_once" if args.eval_global_only_once else "local_plus_global_per_domain",
-        "expected_eval_result_count": len(eval_splits) if args.eval_global_only_once else len(eval_splits) * len(domains),
+        "global_only_eval": bool(args.eval_global_only_once and not empty_memory_fast_path),
+        "empty_memory_fast_path": empty_memory_fast_path,
+        "eval_injection_mode": (
+            "empty_once"
+            if empty_memory_fast_path
+            else "global_only_once"
+            if args.eval_global_only_once
+            else "local_only_per_domain"
+            if no_global_promotion_ablation
+            else "local_plus_global_per_domain"
+        ),
+        "expected_eval_result_count": len(eval_splits) if single_eval_once else len(eval_splits) * len(domains),
         "memory_type": args.mas_memory,
+        "memco_ablation_source_run_id": source_run_id or None,
+        "memco_ablation": {
+            "no_abstraction": bool(args.memco_ablate_no_abstraction),
+            "no_promotion": bool(args.memco_ablate_no_promotion),
+            "no_promotion_mode": (
+                "local_only_no_global_construction"
+                if no_global_promotion_ablation
+                else None
+            ),
+            "no_routing": bool(args.memco_ablate_no_adaptive_routing),
+            "no_routing_mode": (
+                "seeded_random_local_or_global"
+                if args.memco_ablate_no_adaptive_routing
+                else None
+            ),
+            "routing_ablation_seed": (
+                int(args.memco_routing_ablation_seed)
+                if args.memco_ablate_no_adaptive_routing
+                else None
+            ),
+            "no_adaptive_routing": bool(args.memco_ablate_no_adaptive_routing),
+        } if args.mas_memory == "memco" else None,
         "merged_eval_manifest_path": merge_manifest_path,
         "train_results": train_results,
         "eval_results": eval_results,
@@ -2094,6 +2265,7 @@ def main() -> None:
     print(json.dumps({"report_json": json_path, "report_md": md_path}, ensure_ascii=False, indent=2))
     _print_multidomain_run_summary(
         dataset_title=dataset_title,
+        domains=domains,
         eval_results=eval_results,
         train_results=train_results,
     )

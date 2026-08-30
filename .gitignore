@@ -42,6 +42,8 @@ data
 
 Qwen3-4B 错误调试.docx
 pids/
+model/
+.venv-qwen4b/
 # Reviewer package: keep only the root README visible to Git.
 *.md
 !README.md

@@ -1725,6 +1725,8 @@ def rebuild_memco_global_from_locals(
     global_dir: str,
     promotion_threshold: float,
     memory_namespace: str = "memco",
+    enable_abstraction: bool = True,
+    enable_promotion: bool = True,
 ) -> None:
     """Rebuild shared graph-memory global memory from dynamic local graph artifacts."""
     try:
@@ -1744,7 +1746,11 @@ def rebuild_memco_global_from_locals(
             locals_loaded.append(load_local_memory(str(path)))
     out_dir = Path(global_dir) / memory_namespace
     out_dir.mkdir(parents=True, exist_ok=True)
-    promoter = GlobalPromoter(score_threshold=float(promotion_threshold))
+    promoter = GlobalPromoter(
+        score_threshold=float(promotion_threshold),
+        enable_abstraction=bool(enable_abstraction),
+        enable_promotion=bool(enable_promotion),
+    )
     global_memory = promoter.promote(
         GlobalGraphMemory(),
         locals_loaded,
@@ -1756,6 +1762,10 @@ def rebuild_memco_global_from_locals(
         "mode": "collab_dynamic_global",
         "source_local_dirs": local_dirs,
         "source_local_count": len(locals_loaded),
+        "ablation": {
+            "enable_abstraction": bool(enable_abstraction),
+            "enable_promotion": bool(enable_promotion),
+        },
         "global": {
             "candidate_count": len(global_memory.candidates),
             "rule_count": len(global_memory.rules_by_id),
