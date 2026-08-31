@@ -51,3 +51,12 @@ scripts/stop_qwen4b_api.sh
 requirements-memrl.txt
 template.env
 qwen3-32b-fixed.yaml
+*.log
+
+
+# LaTeX build files
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.pdf

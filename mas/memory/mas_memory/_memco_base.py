@@ -4,6 +4,7 @@ import json
 import hashlib
 import os
 import re
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
@@ -46,6 +47,7 @@ class MemCoBase(MASMemoryBase):
     _external_promoter: Any = field(default=None, init=False, repr=False)
     _external_local_to_dict: Any = field(default=None, init=False, repr=False)
     _external_global_to_dict: Any = field(default=None, init=False, repr=False)
+    _external_load_local_memory: Any = field(default=None, init=False, repr=False)
     _external_load_global_memory: Any = field(default=None, init=False, repr=False)
     _external_artifact_dir: Path | None = field(default=None, init=False, repr=False)
     _external_shared_global_dir: Path | None = field(default=None, init=False, repr=False)
@@ -79,6 +81,13 @@ class MemCoBase(MASMemoryBase):
         self.reset_memory: bool = bool(self._graph_config_value("reset_memory", False))
         self.promotion_threshold: float = float(
             self._graph_config_value("promotion_threshold", 0.35)
+        )
+        self.promotion_policy: str = str(
+            self._graph_config_value("promotion_policy", "legacy") or "legacy"
+        ).strip().lower()
+        self.wilson_alpha: float = float(self._graph_config_value("wilson_alpha", 0.05))
+        self.wilson_threshold: float = float(
+            self._graph_config_value("wilson_threshold", 0.5)
         )
         if self.reset_memory:
             self._overwrite_lightweight_memory_files()
@@ -228,10 +237,18 @@ class MemCoBase(MASMemoryBase):
         self._external_memory_query_type = MemoryQuery
         self._external_candidate_type = CandidateType
         self._external_builder = EpisodeGraphBuilder()
-        self._external_maintainer = LocalGraphMaintainer()
-        self._external_promoter = GlobalPromoter(score_threshold=self.promotion_threshold)
+        self._external_maintainer = LocalGraphMaintainer(
+            record_wilson_evidence=self.promotion_policy in {"shadow", "wilson"}
+        )
+        self._external_promoter = GlobalPromoter(
+            score_threshold=self.promotion_threshold,
+            policy=self.promotion_policy,
+            wilson_alpha=self.wilson_alpha,
+            wilson_threshold=self.wilson_threshold,
+        )
         self._external_local_to_dict = _local_to_dict
         self._external_global_to_dict = _global_to_dict
+        self._external_load_local_memory = load_local_memory
         self._external_load_global_memory = load_global_memory
         self._external_artifact_dir = Path(self.persist_dir)
         self._memco_core_debug_trace_path = Path(self.persist_dir) / "memco_debug_trace.jsonl"
@@ -363,6 +380,36 @@ class MemCoBase(MASMemoryBase):
         except Exception:
             self._external_global_memory = self._external_empty_global()
 
+    def _wilson_promotion_locals(self, scene: str, current_memory: Any) -> list[Any]:
+        """Return one completed local snapshot per available source scope.
+
+        Wilson promotion is recomputed from local evidence, rather than
+        incrementally scoring only the worker that happened to finish last.
+        This is intentionally isolated from legacy and shadow execution.
+        """
+
+        memories: dict[str, Any] = dict(self._external_local_memories)
+        if (
+            self._external_shared_global_dir is not None
+            and callable(self._external_load_local_memory)
+        ):
+            memory_root = self._external_shared_global_dir.parent.parent
+            pattern = f"local/*/{self.namespace}/local_*.json"
+            for local_file in sorted(memory_root.glob(pattern)):
+                source_scene = local_file.stem[len("local_") :]
+                if not source_scene or source_scene == scene:
+                    continue
+                try:
+                    memories[source_scene] = self._external_load_local_memory(
+                        str(local_file)
+                    )
+                except Exception:
+                    # A concurrently published local file can be temporarily
+                    # unavailable; the next episode and the final rebuild retry.
+                    continue
+        memories[scene] = current_memory
+        return [memories[key] for key in sorted(memories)]
+
     def _persist_shared_global_memory(self) -> None:
         if self._external_shared_global_dir is None:
             return
@@ -375,8 +422,11 @@ class MemCoBase(MASMemoryBase):
         except Exception:
             pass
         global_path = self._external_shared_global_dir / "global_memory.json"
-        with global_path.open("w", encoding="utf-8") as writer:
-            json.dump(self._external_global_to_dict(self._external_global_memory), writer, ensure_ascii=False, indent=2)
+        self._write_committed_json(
+            global_path,
+            self._external_global_to_dict(self._external_global_memory),
+        )
+        self._persist_wilson_promotion_outputs(self._external_shared_global_dir)
         summary = {
             "mode": "strict_online_shared_global",
             "global": {
@@ -388,6 +438,50 @@ class MemCoBase(MASMemoryBase):
         }
         with (self._external_shared_global_dir / "summary.json").open("w", encoding="utf-8") as writer:
             json.dump(summary, writer, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _write_committed_json(path: Path, payload: Any) -> None:
+        """Publish a complete JSON snapshot without exposing a partial write."""
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=path.parent,
+                prefix=f".{path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as writer:
+                temporary_path = Path(writer.name)
+                json.dump(payload, writer, ensure_ascii=False, indent=2)
+                writer.flush()
+                os.fsync(writer.fileno())
+            os.replace(temporary_path, path)
+        finally:
+            if temporary_path is not None and temporary_path.exists():
+                temporary_path.unlink()
+
+    def _persist_wilson_promotion_outputs(self, output_dir: Path) -> None:
+        promoter = self._external_promoter
+        report = getattr(promoter, "last_promotion_report", None)
+        if not report:
+            return
+        with (output_dir / "promotion_wilson.json").open("w", encoding="utf-8") as writer:
+            json.dump(report, writer, ensure_ascii=False, indent=2)
+        if self.promotion_policy != "shadow":
+            return
+        shadow_memory = getattr(promoter, "last_wilson_memory", None)
+        if shadow_memory is None:
+            return
+        with (output_dir / "global_memory_wilson.json").open("w", encoding="utf-8") as writer:
+            json.dump(
+                self._external_global_to_dict(shadow_memory),
+                writer,
+                ensure_ascii=False,
+                indent=2,
+            )
 
     @staticmethod
     def _dedupe_promoted_batches(batches: list[str]) -> list[str]:
@@ -5439,16 +5533,23 @@ class MemCoBase(MASMemoryBase):
             self._external_maintainer.update(local_memory, episode_graph, episode)
             self._external_maintainer.refine_memory(local_memory)
             self._refresh_shared_global_memory()
-            promotion_base = (
-                self._external_global_memory or self._external_empty_global()
-                if self._external_shared_global_dir is not None
-                else self._external_empty_global()
-            )
-            promotion_locals = (
-                [local_memory]
-                if self._external_shared_global_dir is not None
-                else list(self._external_local_memories.values())
-            )
+            if self.promotion_policy == "wilson":
+                # A Wilson snapshot is a pure function of all local evidence
+                # currently available.  Starting empty also removes records
+                # that cease to satisfy the lower-bound criterion.
+                promotion_base = self._external_empty_global()
+                promotion_locals = self._wilson_promotion_locals(scene, local_memory)
+            else:
+                promotion_base = (
+                    self._external_global_memory or self._external_empty_global()
+                    if self._external_shared_global_dir is not None
+                    else self._external_empty_global()
+                )
+                promotion_locals = (
+                    [local_memory]
+                    if self._external_shared_global_dir is not None
+                    else list(self._external_local_memories.values())
+                )
             self._external_global_memory = self._external_promoter.promote(
                 promotion_base,
                 promotion_locals,
@@ -5482,6 +5583,7 @@ class MemCoBase(MASMemoryBase):
             pass
         with global_path.open("w", encoding="utf-8") as writer:
             json.dump(self._external_global_to_dict(self._external_global_memory), writer, ensure_ascii=False, indent=2)
+        self._persist_wilson_promotion_outputs(self._external_artifact_dir)
         summary = {
             "mode": "dynamic_graph",
             "locals": {

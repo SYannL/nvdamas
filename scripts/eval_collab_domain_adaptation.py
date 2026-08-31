@@ -33,6 +33,7 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
     memco_router = str(args.memco_router or "").strip().lower() or "textloss"
     memco_settings = str(args.memco_settings or "").strip() or "local_plus_global"
     memco_promotion_threshold = float(args.memco_promotion_threshold) if args.memco_promotion_threshold is not None else 0.35
+    memco_promotion_policy = str(args.memco_promotion_policy or "legacy").strip().lower()
 
     config: dict[str, Any] = {
         "memco_dynamic_graph": bool(args.memco_dynamic_graph),
@@ -40,6 +41,9 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
         "memco_router": memco_router,
         "memco_settings": memco_settings,
         "memco_promotion_threshold": memco_promotion_threshold,
+        "memco_promotion_policy": memco_promotion_policy,
+        "memco_wilson_alpha": float(args.memco_wilson_alpha),
+        "memco_wilson_threshold": float(args.memco_wilson_threshold),
         "memco_shared_global_dir": shared_global_dir,
         "memco_use_textgrad": bool(args.memco_use_textgrad),
         "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
@@ -1725,6 +1729,10 @@ def rebuild_memco_global_from_locals(
     global_dir: str,
     promotion_threshold: float,
     memory_namespace: str = "memco",
+    promotion_policy: str = "legacy",
+    wilson_alpha: float = 0.05,
+    wilson_threshold: float = 0.5,
+    wilson_min_coverage: int | None = None,
 ) -> None:
     """Rebuild shared graph-memory global memory from dynamic local graph artifacts."""
     try:
@@ -1744,7 +1752,12 @@ def rebuild_memco_global_from_locals(
             locals_loaded.append(load_local_memory(str(path)))
     out_dir = Path(global_dir) / memory_namespace
     out_dir.mkdir(parents=True, exist_ok=True)
-    promoter = GlobalPromoter(score_threshold=float(promotion_threshold))
+    promoter = GlobalPromoter(
+        score_threshold=float(promotion_threshold),
+        policy=promotion_policy,
+        wilson_alpha=wilson_alpha,
+        wilson_threshold=wilson_threshold,
+    )
     global_memory = promoter.promote(
         GlobalGraphMemory(),
         locals_loaded,
@@ -1752,6 +1765,17 @@ def rebuild_memco_global_from_locals(
     )
     with (out_dir / "global_memory.json").open("w", encoding="utf-8") as writer:
         json.dump(_global_to_dict(global_memory), writer, ensure_ascii=False, indent=2)
+    if promoter.last_promotion_report:
+        with (out_dir / "promotion_wilson.json").open("w", encoding="utf-8") as writer:
+            json.dump(promoter.last_promotion_report, writer, ensure_ascii=False, indent=2)
+    if promotion_policy == "shadow" and promoter.last_wilson_memory is not None:
+        with (out_dir / "global_memory_wilson.json").open("w", encoding="utf-8") as writer:
+            json.dump(
+                _global_to_dict(promoter.last_wilson_memory),
+                writer,
+                ensure_ascii=False,
+                indent=2,
+            )
     summary = {
         "mode": "collab_dynamic_global",
         "source_local_dirs": local_dirs,
@@ -1763,6 +1787,13 @@ def rebuild_memco_global_from_locals(
             "promoted_batches": list(global_memory.promoted_batches),
         },
     }
+    if promotion_policy != "legacy":
+        summary["promotion_policy"] = promotion_policy
+        summary["wilson"] = {
+            "alpha": wilson_alpha,
+            "threshold": wilson_threshold,
+            "source_coverage": "diagnostic_only",
+        }
     with (out_dir / "summary.json").open("w", encoding="utf-8") as writer:
         json.dump(summary, writer, ensure_ascii=False, indent=2)
 
@@ -2013,6 +2044,20 @@ def main() -> None:
     )
     parser.add_argument("--memco_enable_overlay", action="store_true", help="MemCo: include per-episode overlay notes.")
     parser.add_argument("--memco_promotion_threshold", type=float, default=None, help="MemCo global promotion threshold.")
+    parser.add_argument(
+        "--memco_promotion_policy",
+        choices=("legacy", "shadow", "wilson"),
+        default="legacy",
+        help="MemCo promotion policy; shadow keeps legacy active and writes Wilson diagnostics.",
+    )
+    parser.add_argument("--memco_wilson_alpha", type=float, default=0.05)
+    parser.add_argument("--memco_wilson_threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--memco_wilson_min_coverage",
+        type=int,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--memco_use_textgrad", action="store_true", help="MemCo: optimize the injected memory prompt with a TextGrad/TextLoss judge-rewrite loop.")
     parser.add_argument("--memco_textgrad_engine", type=str, default="", help="MemCo: TextGrad engine name, e.g. experimental:openai/qwen32b-api.")
     parser.add_argument(
@@ -2199,6 +2244,15 @@ def main() -> None:
     )
     graph_promotion_threshold = float(
         graph_memory_common.get(f"{graph_memory_prefix}_promotion_threshold", 0.35) or 0.35
+    )
+    graph_promotion_policy = str(
+        graph_memory_common.get(f"{graph_memory_prefix}_promotion_policy", "legacy") or "legacy"
+    )
+    graph_wilson_alpha = float(
+        graph_memory_common.get(f"{graph_memory_prefix}_wilson_alpha", 0.05)
+    )
+    graph_wilson_threshold = float(
+        graph_memory_common.get(f"{graph_memory_prefix}_wilson_threshold", 0.5)
     )
     if args.reset_memory and args.mas_memory in gm_graph_memory_names and graph_dynamic_graph:
         reset_memco_artifacts_once(
@@ -3064,6 +3118,9 @@ def main() -> None:
             global_dir=global_dir,
             promotion_threshold=graph_promotion_threshold,
             memory_namespace=args.mas_memory,
+            promotion_policy=graph_promotion_policy,
+            wilson_alpha=graph_wilson_alpha,
+            wilson_threshold=graph_wilson_threshold,
         )
     elif args.mas_memory == "empty":
         # Empty is the no-memory baseline. There is no global memory to build

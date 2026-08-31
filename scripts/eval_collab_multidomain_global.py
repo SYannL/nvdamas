@@ -264,6 +264,7 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
     memco_router = str(args.memco_router or "").strip().lower() or "textloss"
     memco_settings = str(args.memco_settings or "").strip() or "local_plus_global"
     memco_promotion_threshold = float(args.memco_promotion_threshold) if args.memco_promotion_threshold is not None else 0.35
+    memco_promotion_policy = str(args.memco_promotion_policy or "legacy").strip().lower()
 
     config: dict[str, Any] = {
         "memco_dynamic_graph": bool(args.memco_dynamic_graph),
@@ -271,6 +272,9 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
         "memco_router": memco_router,
         "memco_settings": memco_settings,
         "memco_promotion_threshold": memco_promotion_threshold,
+        "memco_promotion_policy": memco_promotion_policy,
+        "memco_wilson_alpha": float(args.memco_wilson_alpha),
+        "memco_wilson_threshold": float(args.memco_wilson_threshold),
         "memco_shared_global_dir": shared_global_dir,
         "memco_use_textgrad": bool(args.memco_use_textgrad),
         "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
@@ -1175,6 +1179,19 @@ def main() -> None:
     )
     parser.add_argument("--memco_enable_overlay", action="store_true")
     parser.add_argument("--memco_promotion_threshold", type=float, default=None)
+    parser.add_argument(
+        "--memco_promotion_policy",
+        choices=("legacy", "shadow", "wilson"),
+        default="legacy",
+    )
+    parser.add_argument("--memco_wilson_alpha", type=float, default=0.05)
+    parser.add_argument("--memco_wilson_threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--memco_wilson_min_coverage",
+        type=int,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--memco_use_textgrad", action="store_true")
     parser.add_argument("--memco_textgrad_engine", type=str, default="")
     parser.add_argument("--memskill_finalize_local", action="store_true")
@@ -1675,6 +1692,15 @@ def main() -> None:
     graph_promotion_threshold = float(
         graph_memory_common.get(f"{graph_memory_prefix}_promotion_threshold", 0.35) or 0.35
     )
+    graph_promotion_policy = str(
+        graph_memory_common.get(f"{graph_memory_prefix}_promotion_policy", "legacy") or "legacy"
+    )
+    graph_wilson_alpha = float(
+        graph_memory_common.get(f"{graph_memory_prefix}_wilson_alpha", 0.05)
+    )
+    graph_wilson_threshold = float(
+        graph_memory_common.get(f"{graph_memory_prefix}_wilson_threshold", 0.5)
+    )
 
     def apply_gm_graph_scene_config(
         manager,
@@ -1807,6 +1833,9 @@ def main() -> None:
             global_dir=global_dir,
             promotion_threshold=graph_promotion_threshold,
             memory_namespace=args.mas_memory,
+            promotion_policy=graph_promotion_policy,
+            wilson_alpha=graph_wilson_alpha,
+            wilson_threshold=graph_wilson_threshold,
         )
     elif args.mas_memory == "selectivemem":
         rebuild_selectivemem_global_from_locals(

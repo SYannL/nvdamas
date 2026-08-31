@@ -7,6 +7,7 @@ from pathlib import Path
 from .alfworld_adapter import ALFWorldAdapter
 from .construction_graph import EpisodeGraphBuilder, GlobalPromoter, LocalGraphMaintainer
 from .graph_types import ArtifactKind, GlobalGraphMemory, GraphEdge, GraphNode, LocalGraphMemory, MemoryArtifact, MemoryRule, PromotionCandidate
+from .promotion import PROMOTION_POLICIES
 
 
 def _candidate_to_dict(candidate: PromotionCandidate) -> dict:
@@ -21,6 +22,11 @@ def _candidate_to_dict(candidate: PromotionCandidate) -> dict:
         "negative": candidate.negative,
         "stalled": candidate.stalled,
         "utility": candidate.utility,
+        **(
+            {"wilson_episode_evidence": candidate.wilson_episode_evidence}
+            if candidate.wilson_episode_evidence
+            else {}
+        ),
         "confidence": candidate.confidence,
         "coverage": candidate.coverage,
         "prior_score": candidate.prior_score,
@@ -58,6 +64,11 @@ def _rule_to_dict(rule: MemoryRule) -> dict:
         "source_scenes": sorted(rule.source_scenes),
         "specificity": rule.specificity,
         "conflict": rule.conflict,
+        **(
+            {"wilson_episode_evidence": rule.wilson_episode_evidence}
+            if rule.wilson_episode_evidence
+            else {}
+        ),
         "stats": {
             "support": rule.stats.support,
             "success": rule.stats.success,
@@ -86,6 +97,11 @@ def _artifact_to_dict(artifact: MemoryArtifact) -> dict:
         "source_scenes": sorted(artifact.source_scenes),
         "specificity": artifact.specificity,
         "conflict": artifact.conflict,
+        **(
+            {"wilson_episode_evidence": artifact.wilson_episode_evidence}
+            if artifact.wilson_episode_evidence
+            else {}
+        ),
         "stats": {
             "support": artifact.stats.support,
             "success": artifact.stats.success,
@@ -152,13 +168,20 @@ def _load_protocol(path: str) -> dict:
         return json.load(handle)
 
 
-def build_from_protocol(protocol: dict, promotion_threshold: float) -> tuple[dict[str, LocalGraphMemory], GlobalGraphMemory]:
+def build_from_protocol(
+    protocol: dict,
+    promotion_threshold: float,
+    *,
+    promoter: GlobalPromoter | None = None,
+) -> tuple[dict[str, LocalGraphMemory], GlobalGraphMemory]:
     scenes = protocol["scenes"]
     agents = protocol["agents"]
 
     builder = EpisodeGraphBuilder()
-    maintainer = LocalGraphMaintainer()
-    promoter = GlobalPromoter(score_threshold=promotion_threshold)
+    promoter = promoter or GlobalPromoter(score_threshold=promotion_threshold)
+    maintainer = LocalGraphMaintainer(
+        record_wilson_evidence=promoter.policy in {"shadow", "wilson"}
+    )
 
     local_memories: dict[str, LocalGraphMemory] = {}
     promotion_memories: list[LocalGraphMemory] = []
@@ -200,6 +223,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build local/global graph memory from train histories and save artifacts.")
     parser.add_argument("--protocol", required=True, help="Protocol manifest from graph_memory.eval build-protocol")
     parser.add_argument("--promotion-threshold", type=float, default=0.35)
+    parser.add_argument("--promotion-policy", choices=PROMOTION_POLICIES, default="legacy")
+    parser.add_argument("--wilson-alpha", type=float, default=0.05)
+    parser.add_argument("--wilson-threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--wilson-min-coverage",
+        type=int,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--output-dir", required=True)
     parser.add_argument(
         "--include-topology",
@@ -212,7 +244,17 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    local_memories, global_memory = build_from_protocol(protocol, args.promotion_threshold)
+    promoter = GlobalPromoter(
+        score_threshold=args.promotion_threshold,
+        policy=args.promotion_policy,
+        wilson_alpha=args.wilson_alpha,
+        wilson_threshold=args.wilson_threshold,
+    )
+    local_memories, global_memory = build_from_protocol(
+        protocol,
+        args.promotion_threshold,
+        promoter=promoter,
+    )
     agents = protocol.get("agents", {})
     global_promotion_source_by_scene = {
         scene: len(agent.get("train_histories", []))
@@ -226,6 +268,13 @@ def main() -> None:
 
     with open(output_dir / "global_memory.json", "w", encoding="utf-8") as handle:
         json.dump(_global_to_dict(global_memory), handle, indent=2)
+
+    if promoter.last_promotion_report:
+        with open(output_dir / "promotion_wilson.json", "w", encoding="utf-8") as handle:
+            json.dump(promoter.last_promotion_report, handle, indent=2)
+    if args.promotion_policy == "shadow" and promoter.last_wilson_memory is not None:
+        with open(output_dir / "global_memory_wilson.json", "w", encoding="utf-8") as handle:
+            json.dump(_global_to_dict(promoter.last_wilson_memory), handle, indent=2)
 
     summary = {
         "protocol": args.protocol,
@@ -250,6 +299,13 @@ def main() -> None:
             "promotion_source_by_scene": global_promotion_source_by_scene,
         },
     }
+    if args.promotion_policy != "legacy":
+        summary["promotion_policy"] = args.promotion_policy
+        summary["wilson"] = {
+            "alpha": args.wilson_alpha,
+            "threshold": args.wilson_threshold,
+            "source_coverage": "diagnostic_only",
+        }
     with open(output_dir / "summary.json", "w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2)
 

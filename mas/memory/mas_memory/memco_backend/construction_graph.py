@@ -25,6 +25,30 @@ from .graph_types import (
     RuleType,
     Stats,
 )
+from .promotion import (
+    artifact_is_structurally_valid,
+    artifact_wilson_evidence,
+    candidate_is_structurally_valid,
+    candidate_wilson_evidence,
+    normalize_promotion_policy,
+    rule_is_structurally_valid,
+    rule_wilson_evidence,
+)
+
+
+def _merge_wilson_episode_evidence(
+    target: dict[str, dict[str, int]],
+    source: dict[str, dict[str, int]],
+) -> None:
+    """Merge the side-car episode ledger without changing legacy statistics."""
+
+    for episode_id, verdict in source.items():
+        merged = target.setdefault(
+            episode_id,
+            {"supporting": 0, "contradicting": 0, "stalled": 0},
+        )
+        for key in ("supporting", "contradicting", "stalled"):
+            merged[key] += int((verdict or {}).get(key, 0))
 
 
 @dataclass(slots=True)
@@ -1050,6 +1074,9 @@ class EpisodeGraphBuilder:
 
 
 class LocalGraphMaintainer:
+    def __init__(self, *, record_wilson_evidence: bool = False) -> None:
+        self.record_wilson_evidence = bool(record_wilson_evidence)
+
     def update(self, memory: LocalGraphMemory, episode_graph: EpisodeGraph, episode: EpisodeRecord) -> LocalGraphMemory:
         if episode_graph.episode_id not in memory.episode_ids:
             memory.episode_ids.append(episode_graph.episode_id)
@@ -1089,6 +1116,9 @@ class LocalGraphMaintainer:
             _record_graph_stats(local_edge.stats, positive=positive, stalled=stalled)
 
         candidates = self._induce_candidates(episode_graph, episode, episode_success=episode_success)
+        if not self.record_wilson_evidence:
+            for candidate in candidates:
+                candidate.wilson_episode_evidence.clear()
         for candidate in candidates:
             existing = memory.candidates.get(candidate.candidate_id)
             if existing is None:
@@ -1100,8 +1130,15 @@ class LocalGraphMaintainer:
                 existing.negative += candidate.negative
                 existing.stalled += candidate.stalled
                 existing.utility += candidate.utility
+                _merge_wilson_episode_evidence(
+                    existing.wilson_episode_evidence,
+                    candidate.wilson_episode_evidence,
+                )
 
         rules = self._induce_rules(episode_graph, episode, episode_success=episode_success)
+        if not self.record_wilson_evidence:
+            for rule in rules:
+                rule.wilson_episode_evidence.clear()
         for rule in rules:
             existing_rule = memory.rules_by_id.get(rule.rule_id)
             if existing_rule is None:
@@ -1117,6 +1154,10 @@ class LocalGraphMaintainer:
                 existing_rule.stats.utility += rule.stats.utility
                 existing_rule.stats.transfer_success += rule.stats.transfer_success
                 existing_rule.stats.transfer_trials += rule.stats.transfer_trials
+                _merge_wilson_episode_evidence(
+                    existing_rule.wilson_episode_evidence,
+                    rule.wilson_episode_evidence,
+                )
                 existing_rule.specificity = max(existing_rule.specificity, _rule_specificity(existing_rule))
         artifacts = self._induce_artifacts(
             episode_graph,
@@ -1125,6 +1166,9 @@ class LocalGraphMaintainer:
             rules=rules,
             episode_success=episode_success,
         )
+        if not self.record_wilson_evidence:
+            for artifact in artifacts:
+                artifact.wilson_episode_evidence.clear()
         for artifact in artifacts:
             existing_artifact = memory.artifacts_by_id.get(artifact.artifact_id)
             if existing_artifact is None:
@@ -1140,6 +1184,10 @@ class LocalGraphMaintainer:
             existing_artifact.stats.utility += artifact.stats.utility
             existing_artifact.stats.transfer_success += artifact.stats.transfer_success
             existing_artifact.stats.transfer_trials += artifact.stats.transfer_trials
+            _merge_wilson_episode_evidence(
+                existing_artifact.wilson_episode_evidence,
+                artifact.wilson_episode_evidence,
+            )
             existing_artifact.specificity = max(existing_artifact.specificity, _artifact_specificity(existing_artifact))
         return memory
 
@@ -3006,8 +3054,28 @@ class LocalGraphMaintainer:
 
 
 class GlobalPromoter:
-    def __init__(self, score_threshold: float = 0.35) -> None:
+    def __init__(
+        self,
+        score_threshold: float = 0.35,
+        *,
+        policy: str = "legacy",
+        wilson_alpha: float = 0.05,
+        wilson_threshold: float = 0.5,
+        wilson_min_coverage: int | None = None,
+    ) -> None:
         self.score_threshold = score_threshold
+        self.policy = normalize_promotion_policy(policy)
+        if not 0.0 < wilson_alpha < 0.5:
+            raise ValueError("wilson_alpha must lie strictly between 0 and 0.5")
+        if not 0.0 <= wilson_threshold <= 1.0:
+            raise ValueError("wilson_threshold must lie between 0 and 1")
+        self.wilson_alpha = float(wilson_alpha)
+        self.wilson_threshold = float(wilson_threshold)
+        # Retain the keyword for compatibility with older launchers, but source
+        # coverage is now descriptive evidence rather than a promotion gate.
+        self.wilson_min_coverage = None
+        self.last_wilson_memory: GlobalGraphMemory | None = None
+        self.last_promotion_report: dict[str, Any] = {}
 
     def _specificity_penalty(self, candidate: PromotionCandidate) -> float:
         lowered = candidate.summary.lower()
@@ -3192,7 +3260,12 @@ class GlobalPromoter:
             level="global",
         )
 
-    def promote(self, global_memory: GlobalGraphMemory, local_memories: list[LocalGraphMemory], batch_name: str) -> GlobalGraphMemory:
+    def _promote_legacy(
+        self,
+        global_memory: GlobalGraphMemory,
+        local_memories: list[LocalGraphMemory],
+        batch_name: str,
+    ) -> GlobalGraphMemory:
         aggregated: dict[str, PromotionCandidate] = {}
         for local in local_memories:
             for candidate in local.candidates.values():
@@ -3211,6 +3284,10 @@ class GlobalPromoter:
                 merged.negative += candidate.negative
                 merged.stalled += candidate.stalled
                 merged.utility += candidate.utility
+                _merge_wilson_episode_evidence(
+                    merged.wilson_episode_evidence,
+                    candidate.wilson_episode_evidence,
+                )
 
         for candidate in aggregated.values():
             pattern_kind = str(candidate.structure.get("pattern_kind", ""))
@@ -3256,6 +3333,10 @@ class GlobalPromoter:
                 merged.stats.utility += rule.stats.utility
                 merged.stats.transfer_success += rule.stats.transfer_success
                 merged.stats.transfer_trials += rule.stats.transfer_trials
+                _merge_wilson_episode_evidence(
+                    merged.wilson_episode_evidence,
+                    rule.wilson_episode_evidence,
+                )
                 merged.specificity = max(merged.specificity, _rule_specificity(merged))
                 merged.conflict = max(merged.conflict, rule.conflict)
 
@@ -3291,6 +3372,10 @@ class GlobalPromoter:
                 merged.stats.utility += artifact.stats.utility
                 merged.stats.transfer_success += artifact.stats.transfer_success
                 merged.stats.transfer_trials += artifact.stats.transfer_trials
+                _merge_wilson_episode_evidence(
+                    merged.wilson_episode_evidence,
+                    artifact.wilson_episode_evidence,
+                )
                 merged.specificity = max(merged.specificity, _artifact_specificity(merged))
                 merged.conflict = max(merged.conflict, artifact.conflict)
 
@@ -3319,3 +3404,237 @@ class GlobalPromoter:
         if batch_name and batch_name not in global_memory.promoted_batches:
             global_memory.promoted_batches.append(batch_name)
         return global_memory
+
+    def _aggregate_wilson_candidates(
+        self,
+        local_memories: list[LocalGraphMemory],
+    ) -> dict[str, PromotionCandidate]:
+        aggregated: dict[str, PromotionCandidate] = {}
+        for local in local_memories:
+            for candidate in local.candidates.values():
+                merged = aggregated.get(candidate.candidate_id)
+                if merged is None:
+                    merged = PromotionCandidate(
+                        candidate_id=candidate.candidate_id,
+                        candidate_type=candidate.candidate_type,
+                        summary=candidate.summary,
+                        structure=dict(candidate.structure),
+                    )
+                    aggregated[candidate.candidate_id] = merged
+                merged.source_episode_ids |= candidate.source_episode_ids
+                merged.source_scenes |= candidate.source_scenes
+                merged.positive += candidate.positive
+                merged.negative += candidate.negative
+                merged.stalled += candidate.stalled
+                merged.utility += candidate.utility
+                _merge_wilson_episode_evidence(
+                    merged.wilson_episode_evidence,
+                    candidate.wilson_episode_evidence,
+                )
+        return aggregated
+
+    def _aggregate_wilson_rules(
+        self,
+        local_memories: list[LocalGraphMemory],
+    ) -> dict[str, MemoryRule]:
+        aggregated: dict[str, MemoryRule] = {}
+        for local in local_memories:
+            for rule in local.rules_by_id.values():
+                abstract_rule = self._global_rule_copy(rule)
+                merged = aggregated.get(abstract_rule.rule_id)
+                if merged is None:
+                    merged = abstract_rule
+                    aggregated[abstract_rule.rule_id] = merged
+                merged.source_episode_ids |= rule.source_episode_ids
+                merged.source_scenes |= rule.source_scenes
+                merged.stats.support += rule.stats.support
+                merged.stats.success += rule.stats.success
+                merged.stats.failure += rule.stats.failure
+                merged.stats.stalled += rule.stats.stalled
+                merged.stats.utility += rule.stats.utility
+                merged.stats.transfer_success += rule.stats.transfer_success
+                merged.stats.transfer_trials += rule.stats.transfer_trials
+                _merge_wilson_episode_evidence(
+                    merged.wilson_episode_evidence,
+                    rule.wilson_episode_evidence,
+                )
+                merged.specificity = max(merged.specificity, _rule_specificity(merged))
+                merged.conflict = max(merged.conflict, rule.conflict)
+        return aggregated
+
+    def _aggregate_wilson_artifacts(
+        self,
+        local_memories: list[LocalGraphMemory],
+    ) -> dict[str, MemoryArtifact]:
+        aggregated: dict[str, MemoryArtifact] = {}
+        for local in local_memories:
+            for artifact in local.artifacts_by_id.values():
+                abstract_artifact = self._global_artifact_copy(artifact)
+                if abstract_artifact is None:
+                    continue
+                merged = aggregated.get(abstract_artifact.artifact_id)
+                if merged is None:
+                    merged = abstract_artifact
+                    aggregated[abstract_artifact.artifact_id] = merged
+                merged.source_episode_ids |= artifact.source_episode_ids
+                merged.source_scenes |= artifact.source_scenes
+                merged.stats.support += artifact.stats.support
+                merged.stats.success += artifact.stats.success
+                merged.stats.failure += artifact.stats.failure
+                merged.stats.stalled += artifact.stats.stalled
+                merged.stats.utility += artifact.stats.utility
+                merged.stats.transfer_success += artifact.stats.transfer_success
+                merged.stats.transfer_trials += artifact.stats.transfer_trials
+                _merge_wilson_episode_evidence(
+                    merged.wilson_episode_evidence,
+                    artifact.wilson_episode_evidence,
+                )
+                merged.specificity = max(merged.specificity, _artifact_specificity(merged))
+                merged.conflict = max(merged.conflict, artifact.conflict)
+        return aggregated
+
+    def _wilson_decision(
+        self,
+        *,
+        record_kind: str,
+        record_id: str,
+        evidence,
+        structurally_valid: bool,
+        low_information: bool = False,
+    ) -> tuple[bool, dict[str, Any]]:
+        score = evidence.score(alpha=self.wilson_alpha)
+        reasons: list[str] = []
+        if not structurally_valid:
+            reasons.append("invalid_structure")
+        if low_information:
+            reasons.append("low_information")
+        if score < self.wilson_threshold:
+            reasons.append("wilson_below_threshold")
+        accepted = not reasons
+        decision: dict[str, Any] = {
+            "record_kind": record_kind,
+            "record_id": record_id,
+            **evidence.to_dict(alpha=self.wilson_alpha),
+            "structurally_valid": structurally_valid,
+            "low_information": low_information,
+            "accepted": accepted,
+            "reasons": reasons,
+        }
+        return accepted, decision
+
+    def _promote_wilson(
+        self,
+        global_memory: GlobalGraphMemory,
+        local_memories: list[LocalGraphMemory],
+        batch_name: str,
+    ) -> GlobalGraphMemory:
+        # Wilson promotion defines a committed snapshot from the supplied local
+        # evidence.  Rebuild it instead of retaining records accepted by an
+        # earlier, weaker evidence state.
+        global_memory = GlobalGraphMemory()
+        decisions: dict[str, list[dict[str, Any]]] = {
+            "candidates": [],
+            "rules": [],
+            "artifacts": [],
+        }
+
+        for candidate in self._aggregate_wilson_candidates(local_memories).values():
+            accepted, decision = self._wilson_decision(
+                record_kind="candidate",
+                record_id=candidate.candidate_id,
+                evidence=candidate_wilson_evidence(candidate),
+                structurally_valid=candidate_is_structurally_valid(candidate),
+            )
+            decisions["candidates"].append(decision)
+            if accepted:
+                global_memory.candidates[candidate.candidate_id] = candidate
+
+        for rule in self._aggregate_wilson_rules(local_memories).values():
+            accepted, decision = self._wilson_decision(
+                record_kind="rule",
+                record_id=rule.rule_id,
+                evidence=rule_wilson_evidence(rule),
+                structurally_valid=rule_is_structurally_valid(rule),
+                low_information=_is_low_information_global_rule(rule),
+            )
+            decisions["rules"].append(decision)
+            if accepted:
+                global_memory.rules_by_id[rule.rule_id] = rule
+
+        for artifact in self._aggregate_wilson_artifacts(local_memories).values():
+            accepted, decision = self._wilson_decision(
+                record_kind="artifact",
+                record_id=artifact.artifact_id,
+                evidence=artifact_wilson_evidence(artifact),
+                structurally_valid=artifact_is_structurally_valid(artifact),
+                low_information=_is_low_information_global_artifact(artifact),
+            )
+            decisions["artifacts"].append(decision)
+            if accepted:
+                global_memory.artifacts_by_id[artifact.artifact_id] = artifact
+
+        if batch_name and batch_name not in global_memory.promoted_batches:
+            global_memory.promoted_batches.append(batch_name)
+        self.last_wilson_memory = global_memory
+        self.last_promotion_report = {
+            "policy": self.policy,
+            "active_policy": "wilson" if self.policy == "wilson" else "legacy",
+            "evidence_source": "candidate_relative_episode_verdicts",
+            "limitations": [
+                "Repeated matches of the same record within one source episode are collapsed to one verdict; old snapshots without an episode ledger use their occurrence counts as a compatibility fallback.",
+                "The verdicts describe record-relative observed outcomes and do not by themselves establish a causal transfer effect.",
+            ],
+            "wilson": {
+                "alpha": self.wilson_alpha,
+                "threshold": self.wilson_threshold,
+                "interval": "one_sided_lower_bound",
+                "source_coverage": "diagnostic_only",
+            },
+            "selected": {
+                "candidate_ids": sorted(global_memory.candidates),
+                "rule_ids": sorted(global_memory.rules_by_id),
+                "artifact_ids": sorted(global_memory.artifacts_by_id),
+            },
+            "decisions": decisions,
+        }
+        return global_memory
+
+    def promote(
+        self,
+        global_memory: GlobalGraphMemory,
+        local_memories: list[LocalGraphMemory],
+        batch_name: str,
+    ) -> GlobalGraphMemory:
+        if self.policy == "legacy":
+            self.last_wilson_memory = None
+            self.last_promotion_report = {}
+            return self._promote_legacy(global_memory, local_memories, batch_name)
+
+        if self.policy == "wilson":
+            return self._promote_wilson(global_memory, local_memories, batch_name)
+
+        # Shadow mode computes Wilson decisions from an empty output memory so
+        # legacy records cannot leak into the comparison.  The returned object
+        # is still produced exclusively by the unchanged legacy path.
+        shadow_memory = self._promote_wilson(
+            GlobalGraphMemory(),
+            local_memories,
+            batch_name,
+        )
+        report = dict(self.last_promotion_report)
+        legacy_memory = self._promote_legacy(global_memory, local_memories, batch_name)
+        report["comparison"] = {
+            "legacy": {
+                "candidate_ids": sorted(legacy_memory.candidates),
+                "rule_ids": sorted(legacy_memory.rules_by_id),
+                "artifact_ids": sorted(legacy_memory.artifacts_by_id),
+            },
+            "wilson": {
+                "candidate_ids": sorted(shadow_memory.candidates),
+                "rule_ids": sorted(shadow_memory.rules_by_id),
+                "artifact_ids": sorted(shadow_memory.artifacts_by_id),
+            },
+        }
+        self.last_wilson_memory = shadow_memory
+        self.last_promotion_report = report
+        return legacy_memory
