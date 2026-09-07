@@ -60,3 +60,4 @@ qwen3-32b-fixed.yaml
 *.fls
 *.synctex.gz
 *.pdf
+*.tex
