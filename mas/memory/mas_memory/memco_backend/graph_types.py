@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -245,10 +246,24 @@ class PromotionCandidate:
         support = self.positive + self.negative
         if support == 0:
             return 0.0
-        support_term = min(support / 4.0, 1.0)
-        coverage_term = min(self.coverage / 2.0, 1.0)
+        all_ones = str(os.getenv("NV_MEMCO_PAPER_EQ22_27_ALL_ONES", "")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        support_term = min(support / (1.0 if all_ones else 4.0), 1.0)
+        coverage_term = min(self.coverage / (1.0 if all_ones else 2.0), 1.0)
         utility_term = self.utility / support
         stall_penalty = self.stalled / support
+        if all_ones:
+            return (
+                1.0 * self.confidence
+                + 1.0 * support_term
+                + 1.0 * coverage_term
+                + 1.0 * utility_term
+                - 1.0 * stall_penalty
+            )
         return 1.2 * self.confidence + 0.6 * support_term + 0.4 * coverage_term + 0.4 * utility_term - 0.5 * stall_penalty
 
 

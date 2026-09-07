@@ -4583,6 +4583,12 @@ class MemCoMASMemory(MemCoBase):
 
         progress = str(getattr(query, "progress_state", "") or "")
         selected: list[dict[str, Any]] = []
+        activation_all_ones = str(
+            os.getenv("NV_MEMCO_PAPER_A3_2_ACTIVATION_ALL_ONES", "")
+        ).strip().lower() in {"1", "true", "yes", "on"}
+
+        def activation_bound(default: float) -> float:
+            return 1.0 if activation_all_ones else default
 
         def add(slot: str, max_loss: float) -> None:
             item = by_slot.get(slot)
@@ -4592,21 +4598,27 @@ class MemCoMASMemory(MemCoBase):
                 selected.append(item)
 
         # Phase is the anchor. Without it, source priors become noisy.
-        add("phase_policy", 1.15)
+        add("phase_policy", activation_bound(1.15))
 
         # Local grounding is the current-state/action bridge.
-        add("local_grounding", 1.05 if progress.startswith("search") else 1.20)
+        add(
+            "local_grounding",
+            activation_bound(1.05 if progress.startswith("search") else 1.20),
+        )
 
         if progress.startswith("search") and not held:
             # Source roles become useful only when grounded into the current
             # admissible frontier. This is the main MemCo search control signal.
-            add("source_roles", 0.90)
+            add("source_roles", activation_bound(0.90))
 
         # Global is useful as macro workflow, but it should not crowd out the
         # current-state priority during search.
-        add("global_workflow", 1.00 if progress.startswith("search") else 1.10)
+        add(
+            "global_workflow",
+            activation_bound(1.00 if progress.startswith("search") else 1.10),
+        )
 
-        add("failure_avoidance", 1.20)
+        add("failure_avoidance", activation_bound(1.20))
         return selected[:4]
 
     def _memco_debug_append(self, event: str, *, step_index: int = 0, payload: dict[str, Any] | None = None) -> None:

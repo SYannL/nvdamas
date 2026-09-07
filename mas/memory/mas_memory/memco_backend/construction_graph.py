@@ -488,6 +488,18 @@ def _global_artifact_id(artifact: MemoryArtifact, anchor: dict, payload: dict) -
 
 
 def _rule_specificity(rule: MemoryRule) -> float:
+    if str(os.getenv("NV_MEMCO_PAPER_EQ22_27_ALL_ONES", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        condition_blob = " ".join(str(value) for value in rule.condition.values())
+        instance_count = len(re.findall(r"\b[a-z]+_[0-9]+\b", condition_blob.lower()))
+        object_destination = int(
+            bool(rule.goal_roles.get("object") and rule.goal_roles.get("destination"))
+        )
+        return min(1.0, 1.0 * instance_count + 1.0 * object_destination)
     score = 0.0
     condition_blob = " ".join(str(value) for value in rule.condition.values())
     specific_tokens = re.findall(r"\b[a-z]+_[0-9]+\b", condition_blob.lower())
@@ -3589,6 +3601,20 @@ class GlobalPromoter:
                 "threshold": self.wilson_threshold,
                 "interval": "one_sided_lower_bound",
                 "source_coverage": "diagnostic_only",
+            },
+            "retrieval_experiment": {
+                "paper_eq22_27_all_ones": str(
+                    os.getenv("NV_MEMCO_PAPER_EQ22_27_ALL_ONES", "")
+                ).strip().lower() in {"1", "true", "yes", "on"},
+                "paper_a3_2_activation_all_ones": str(
+                    os.getenv("NV_MEMCO_PAPER_A3_2_ACTIVATION_ALL_ONES", "")
+                ).strip().lower() in {"1", "true", "yes", "on"},
+                "manifest": (
+                    "configs/wilson_qwen32b_alfworld_eq22_27_a3_2_activation_allones.json"
+                    if str(os.getenv("NV_MEMCO_PAPER_A3_2_ACTIVATION_ALL_ONES", "")).strip().lower()
+                    in {"1", "true", "yes", "on"}
+                    else "configs/wilson_qwen32b_alfworld_eq22_27_allones.json"
+                ),
             },
             "selected": {
                 "candidate_ids": sorted(global_memory.candidates),

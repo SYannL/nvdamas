@@ -1,0 +1,27 @@
+{
+  "experiment": "Qwen3-32B ALFWorld Wilson with equations 22, 24-27 and A.3.2 activation bounds set to one",
+  "base_manifest": "configs/wilson_qwen32b_alfworld_eq22_27_allones.json",
+  "activation_env": {
+    "NV_MEMCO_PAPER_EQ22_27_ALL_ONES": "1",
+    "NV_MEMCO_PAPER_A3_2_ACTIVATION_ALL_ONES": "1"
+  },
+  "wilson_unchanged": {
+    "alpha": 0.05,
+    "threshold": 0.5,
+    "source_coverage": "diagnostic_only"
+  },
+  "a3_2_section_activation_bounds": {
+    "phase_policy": {"original": 1.15, "experiment": 1.0},
+    "local_grounding_search": {"original": 1.05, "experiment": 1.0},
+    "local_grounding_other": {"original": 1.20, "experiment": 1.0},
+    "source_roles": {"original": 0.90, "experiment": 1.0},
+    "global_workflow_search": {"original": 1.00, "experiment": 1.0},
+    "global_workflow_other": {"original": 1.10, "experiment": 1.0},
+    "failure_avoidance": {"original": 1.20, "experiment": 1.0}
+  },
+  "not_modified": {
+    "section_loss_increments": "paper defaults",
+    "maximum_retained_sections": 4,
+    "top_k": 5
+  }
+}
