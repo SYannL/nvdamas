@@ -1,0 +1,1286 @@
+{
+  "subset_version": "v4_id_grouped",
+  "selection_policy": "id_major_grouped_v4_runtime",
+  "source": "original_scienceworld_runtime",
+  "scienceworld_root": "data/ScienceWorld",
+  "domains": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10"
+  ],
+  "train_split": "train",
+  "test_split": "test",
+  "train_per_task": 10,
+  "test_per_task": 2,
+  "simplification_str": "",
+  "files": {
+    "1__train.json": {
+      "domain": "1",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "1-1",
+          "task_name": "boil"
+        },
+        {
+          "task_id": "1-2",
+          "task_name": "melt"
+        },
+        {
+          "task_id": "1-3",
+          "task_name": "freeze"
+        },
+        {
+          "task_id": "1-4",
+          "task_name": "change-the-state-of-matter-of"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "1-1",
+          "task_name": "boil",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "1-2",
+          "task_name": "melt",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "1-3",
+          "task_name": "freeze",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "1-4",
+          "task_name": "change-the-state-of-matter-of",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 40,
+      "num_test": 8,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "bathroom",
+        "living room"
+      ]
+    },
+    "1__test.json": {
+      "domain": "1",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "1-1",
+          "task_name": "boil"
+        },
+        {
+          "task_id": "1-2",
+          "task_name": "melt"
+        },
+        {
+          "task_id": "1-3",
+          "task_name": "freeze"
+        },
+        {
+          "task_id": "1-4",
+          "task_name": "change-the-state-of-matter-of"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "1-1",
+          "task_name": "boil",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "1-2",
+          "task_name": "melt",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "1-3",
+          "task_name": "freeze",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "1-4",
+          "task_name": "change-the-state-of-matter-of",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 40,
+      "num_test": 8,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "bathroom",
+        "living room"
+      ]
+    },
+    "2__train.json": {
+      "domain": "2",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "2-1",
+          "task_name": "use-thermometer"
+        },
+        {
+          "task_id": "2-2",
+          "task_name": "measure-melting-point-known-substance"
+        },
+        {
+          "task_id": "2-3",
+          "task_name": "measure-melting-point-unknown-substance"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "2-1",
+          "task_name": "use-thermometer",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "2-2",
+          "task_name": "measure-melting-point-known-substance",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "2-3",
+          "task_name": "measure-melting-point-unknown-substance",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "",
+        "art studio",
+        "foundry",
+        "greenhouse",
+        "hallway",
+        "living room"
+      ]
+    },
+    "2__test.json": {
+      "domain": "2",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "2-1",
+          "task_name": "use-thermometer"
+        },
+        {
+          "task_id": "2-2",
+          "task_name": "measure-melting-point-known-substance"
+        },
+        {
+          "task_id": "2-3",
+          "task_name": "measure-melting-point-unknown-substance"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "2-1",
+          "task_name": "use-thermometer",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "2-2",
+          "task_name": "measure-melting-point-known-substance",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "2-3",
+          "task_name": "measure-melting-point-unknown-substance",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "",
+        "art studio",
+        "foundry",
+        "greenhouse",
+        "hallway",
+        "living room"
+      ]
+    },
+    "3__train.json": {
+      "domain": "3",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "3-1",
+          "task_name": "power-component"
+        },
+        {
+          "task_id": "3-2",
+          "task_name": "power-component-renewable-vs-nonrenewable-energy"
+        },
+        {
+          "task_id": "3-3",
+          "task_name": "test-conductivity"
+        },
+        {
+          "task_id": "3-4",
+          "task_name": "test-conductivity-of-unknown-substances"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "3-1",
+          "task_name": "power-component",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "3-2",
+          "task_name": "power-component-renewable-vs-nonrenewable-energy",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "3-3",
+          "task_name": "test-conductivity",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "3-4",
+          "task_name": "test-conductivity-of-unknown-substances",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 40,
+      "num_test": 8,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "",
+        "bathroom",
+        "kitchen",
+        "living room",
+        "workshop"
+      ]
+    },
+    "3__test.json": {
+      "domain": "3",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "3-1",
+          "task_name": "power-component"
+        },
+        {
+          "task_id": "3-2",
+          "task_name": "power-component-renewable-vs-nonrenewable-energy"
+        },
+        {
+          "task_id": "3-3",
+          "task_name": "test-conductivity"
+        },
+        {
+          "task_id": "3-4",
+          "task_name": "test-conductivity-of-unknown-substances"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "3-1",
+          "task_name": "power-component",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "3-2",
+          "task_name": "power-component-renewable-vs-nonrenewable-energy",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "3-3",
+          "task_name": "test-conductivity",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "3-4",
+          "task_name": "test-conductivity-of-unknown-substances",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 40,
+      "num_test": 8,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "",
+        "bathroom",
+        "kitchen",
+        "living room",
+        "workshop"
+      ]
+    },
+    "4__train.json": {
+      "domain": "4",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "4-1",
+          "task_name": "find-living-thing"
+        },
+        {
+          "task_id": "4-2",
+          "task_name": "find-non-living-thing"
+        },
+        {
+          "task_id": "4-3",
+          "task_name": "find-plant"
+        },
+        {
+          "task_id": "4-4",
+          "task_name": "find-animal"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "4-1",
+          "task_name": "find-living-thing",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "4-2",
+          "task_name": "find-non-living-thing",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "4-3",
+          "task_name": "find-plant",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "4-4",
+          "task_name": "find-animal",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 40,
+      "num_test": 8,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "foundry"
+      ]
+    },
+    "4__test.json": {
+      "domain": "4",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "4-1",
+          "task_name": "find-living-thing"
+        },
+        {
+          "task_id": "4-2",
+          "task_name": "find-non-living-thing"
+        },
+        {
+          "task_id": "4-3",
+          "task_name": "find-plant"
+        },
+        {
+          "task_id": "4-4",
+          "task_name": "find-animal"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "4-1",
+          "task_name": "find-living-thing",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "4-2",
+          "task_name": "find-non-living-thing",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "4-3",
+          "task_name": "find-plant",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "4-4",
+          "task_name": "find-animal",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 40,
+      "num_test": 8,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "foundry"
+      ]
+    },
+    "5__train.json": {
+      "domain": "5",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "5-1",
+          "task_name": "grow-plant"
+        },
+        {
+          "task_id": "5-2",
+          "task_name": "grow-fruit"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "5-1",
+          "task_name": "grow-plant",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "5-2",
+          "task_name": "grow-fruit",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 20,
+      "num_test": 4,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "greenhouse"
+      ]
+    },
+    "5__test.json": {
+      "domain": "5",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "5-1",
+          "task_name": "grow-plant"
+        },
+        {
+          "task_id": "5-2",
+          "task_name": "grow-fruit"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "5-1",
+          "task_name": "grow-plant",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "5-2",
+          "task_name": "grow-fruit",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 20,
+      "num_test": 4,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "greenhouse"
+      ]
+    },
+    "6__train.json": {
+      "domain": "6",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "6-1",
+          "task_name": "chemistry-mix"
+        },
+        {
+          "task_id": "6-2",
+          "task_name": "chemistry-mix-paint-secondary-color"
+        },
+        {
+          "task_id": "6-3",
+          "task_name": "chemistry-mix-paint-tertiary-color"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "6-1",
+          "task_name": "chemistry-mix",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "6-2",
+          "task_name": "chemistry-mix-paint-secondary-color",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "6-3",
+          "task_name": "chemistry-mix-paint-tertiary-color",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "greenhouse"
+      ]
+    },
+    "6__test.json": {
+      "domain": "6",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "6-1",
+          "task_name": "chemistry-mix"
+        },
+        {
+          "task_id": "6-2",
+          "task_name": "chemistry-mix-paint-secondary-color"
+        },
+        {
+          "task_id": "6-3",
+          "task_name": "chemistry-mix-paint-tertiary-color"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "6-1",
+          "task_name": "chemistry-mix",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "6-2",
+          "task_name": "chemistry-mix-paint-secondary-color",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "6-3",
+          "task_name": "chemistry-mix-paint-tertiary-color",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "greenhouse"
+      ]
+    },
+    "7__train.json": {
+      "domain": "7",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "7-1",
+          "task_name": "lifespan-longest-lived"
+        },
+        {
+          "task_id": "7-2",
+          "task_name": "lifespan-shortest-lived"
+        },
+        {
+          "task_id": "7-3",
+          "task_name": "lifespan-longest-lived-then-shortest-lived"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "7-1",
+          "task_name": "lifespan-longest-lived",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "7-2",
+          "task_name": "lifespan-shortest-lived",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "7-3",
+          "task_name": "lifespan-longest-lived-then-shortest-lived",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "greenhouse"
+      ]
+    },
+    "7__test.json": {
+      "domain": "7",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "7-1",
+          "task_name": "lifespan-longest-lived"
+        },
+        {
+          "task_id": "7-2",
+          "task_name": "lifespan-shortest-lived"
+        },
+        {
+          "task_id": "7-3",
+          "task_name": "lifespan-longest-lived-then-shortest-lived"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "7-1",
+          "task_name": "lifespan-longest-lived",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "7-2",
+          "task_name": "lifespan-shortest-lived",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "7-3",
+          "task_name": "lifespan-longest-lived-then-shortest-lived",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "greenhouse"
+      ]
+    },
+    "8__train.json": {
+      "domain": "8",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "8-1",
+          "task_name": "identify-life-stages-1"
+        },
+        {
+          "task_id": "8-2",
+          "task_name": "identify-life-stages-2"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "8-1",
+          "task_name": "identify-life-stages-1",
+          "num_train": 6,
+          "num_test": 2
+        },
+        {
+          "task_id": "8-2",
+          "task_name": "identify-life-stages-2",
+          "num_train": 4,
+          "num_test": 2
+        }
+      ],
+      "num_train": 10,
+      "num_test": 4,
+      "train_rooms": [
+        "",
+        "art studio",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "bedroom",
+        "greenhouse",
+        "hallway"
+      ]
+    },
+    "8__test.json": {
+      "domain": "8",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "8-1",
+          "task_name": "identify-life-stages-1"
+        },
+        {
+          "task_id": "8-2",
+          "task_name": "identify-life-stages-2"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "8-1",
+          "task_name": "identify-life-stages-1",
+          "num_train": 6,
+          "num_test": 2
+        },
+        {
+          "task_id": "8-2",
+          "task_name": "identify-life-stages-2",
+          "num_train": 4,
+          "num_test": 2
+        }
+      ],
+      "num_train": 10,
+      "num_test": 4,
+      "train_rooms": [
+        "",
+        "art studio",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "bedroom",
+        "greenhouse",
+        "hallway"
+      ]
+    },
+    "9__train.json": {
+      "domain": "9",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "9-1",
+          "task_name": "inclined-plane-determine-angle"
+        },
+        {
+          "task_id": "9-2",
+          "task_name": "inclined-plane-friction-named-surfaces"
+        },
+        {
+          "task_id": "9-3",
+          "task_name": "inclined-plane-friction-unnamed-surfaces"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "9-1",
+          "task_name": "inclined-plane-determine-angle",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "9-2",
+          "task_name": "inclined-plane-friction-named-surfaces",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "9-3",
+          "task_name": "inclined-plane-friction-unnamed-surfaces",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "bathroom",
+        "greenhouse",
+        "kitchen",
+        "living room",
+        "workshop"
+      ]
+    },
+    "9__test.json": {
+      "domain": "9",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "9-1",
+          "task_name": "inclined-plane-determine-angle"
+        },
+        {
+          "task_id": "9-2",
+          "task_name": "inclined-plane-friction-named-surfaces"
+        },
+        {
+          "task_id": "9-3",
+          "task_name": "inclined-plane-friction-unnamed-surfaces"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "9-1",
+          "task_name": "inclined-plane-determine-angle",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "9-2",
+          "task_name": "inclined-plane-friction-named-surfaces",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "9-3",
+          "task_name": "inclined-plane-friction-unnamed-surfaces",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 30,
+      "num_test": 6,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "bathroom",
+        "greenhouse",
+        "kitchen",
+        "living room",
+        "workshop"
+      ]
+    },
+    "10__train.json": {
+      "domain": "10",
+      "split": "train",
+      "task_templates": [
+        {
+          "task_id": "10-1",
+          "task_name": "mendelian-genetics-known-plant"
+        },
+        {
+          "task_id": "10-2",
+          "task_name": "mendelian-genetics-unknown-plant"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "10-1",
+          "task_name": "mendelian-genetics-known-plant",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "10-2",
+          "task_name": "mendelian-genetics-unknown-plant",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 20,
+      "num_test": 4,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "bedroom",
+        "living room"
+      ]
+    },
+    "10__test.json": {
+      "domain": "10",
+      "split": "test",
+      "task_templates": [
+        {
+          "task_id": "10-1",
+          "task_name": "mendelian-genetics-known-plant"
+        },
+        {
+          "task_id": "10-2",
+          "task_name": "mendelian-genetics-unknown-plant"
+        }
+      ],
+      "per_template_counts": [
+        {
+          "task_id": "10-1",
+          "task_name": "mendelian-genetics-known-plant",
+          "num_train": 10,
+          "num_test": 2
+        },
+        {
+          "task_id": "10-2",
+          "task_name": "mendelian-genetics-unknown-plant",
+          "num_train": 10,
+          "num_test": 2
+        }
+      ],
+      "num_train": 20,
+      "num_test": 4,
+      "train_rooms": [
+        "",
+        "art studio",
+        "bathroom",
+        "bedroom",
+        "greenhouse",
+        "hallway",
+        "kitchen",
+        "workshop"
+      ],
+      "test_rooms": [
+        "art studio",
+        "bedroom",
+        "living room"
+      ]
+    },
+    "merged__test.json": {
+      "split": "test",
+      "num_tasks": 60,
+      "source_domain_files": [
+        "1__test.json",
+        "2__test.json",
+        "3__test.json",
+        "4__test.json",
+        "5__test.json",
+        "6__test.json",
+        "7__test.json",
+        "8__test.json",
+        "9__test.json",
+        "10__test.json"
+      ],
+      "mixed_held_out": true
+    }
+  },
+  "domain_specs": {
+    "1": [
+      {
+        "task_id": "1-1",
+        "task_name": "boil"
+      },
+      {
+        "task_id": "1-2",
+        "task_name": "melt"
+      },
+      {
+        "task_id": "1-3",
+        "task_name": "freeze"
+      },
+      {
+        "task_id": "1-4",
+        "task_name": "change-the-state-of-matter-of"
+      }
+    ],
+    "2": [
+      {
+        "task_id": "2-1",
+        "task_name": "use-thermometer"
+      },
+      {
+        "task_id": "2-2",
+        "task_name": "measure-melting-point-known-substance"
+      },
+      {
+        "task_id": "2-3",
+        "task_name": "measure-melting-point-unknown-substance"
+      }
+    ],
+    "3": [
+      {
+        "task_id": "3-1",
+        "task_name": "power-component"
+      },
+      {
+        "task_id": "3-2",
+        "task_name": "power-component-renewable-vs-nonrenewable-energy"
+      },
+      {
+        "task_id": "3-3",
+        "task_name": "test-conductivity"
+      },
+      {
+        "task_id": "3-4",
+        "task_name": "test-conductivity-of-unknown-substances"
+      }
+    ],
+    "4": [
+      {
+        "task_id": "4-1",
+        "task_name": "find-living-thing"
+      },
+      {
+        "task_id": "4-2",
+        "task_name": "find-non-living-thing"
+      },
+      {
+        "task_id": "4-3",
+        "task_name": "find-plant"
+      },
+      {
+        "task_id": "4-4",
+        "task_name": "find-animal"
+      }
+    ],
+    "5": [
+      {
+        "task_id": "5-1",
+        "task_name": "grow-plant"
+      },
+      {
+        "task_id": "5-2",
+        "task_name": "grow-fruit"
+      }
+    ],
+    "6": [
+      {
+        "task_id": "6-1",
+        "task_name": "chemistry-mix"
+      },
+      {
+        "task_id": "6-2",
+        "task_name": "chemistry-mix-paint-secondary-color"
+      },
+      {
+        "task_id": "6-3",
+        "task_name": "chemistry-mix-paint-tertiary-color"
+      }
+    ],
+    "7": [
+      {
+        "task_id": "7-1",
+        "task_name": "lifespan-longest-lived"
+      },
+      {
+        "task_id": "7-2",
+        "task_name": "lifespan-shortest-lived"
+      },
+      {
+        "task_id": "7-3",
+        "task_name": "lifespan-longest-lived-then-shortest-lived"
+      }
+    ],
+    "8": [
+      {
+        "task_id": "8-1",
+        "task_name": "identify-life-stages-1"
+      },
+      {
+        "task_id": "8-2",
+        "task_name": "identify-life-stages-2"
+      }
+    ],
+    "9": [
+      {
+        "task_id": "9-1",
+        "task_name": "inclined-plane-determine-angle"
+      },
+      {
+        "task_id": "9-2",
+        "task_name": "inclined-plane-friction-named-surfaces"
+      },
+      {
+        "task_id": "9-3",
+        "task_name": "inclined-plane-friction-unnamed-surfaces"
+      }
+    ],
+    "10": [
+      {
+        "task_id": "10-1",
+        "task_name": "mendelian-genetics-known-plant"
+      },
+      {
+        "task_id": "10-2",
+        "task_name": "mendelian-genetics-unknown-plant"
+      }
+    ]
+  }
+}

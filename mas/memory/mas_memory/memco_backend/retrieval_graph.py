@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import os
 import re
 
 from .graph_types import (
@@ -22,6 +23,15 @@ from .graph_types import (
 from .routing_graph import HeuristicSupportRouter, StudentSupportRouter, route_bundle
 
 
+def _paper_eq22_27_all_ones() -> bool:
+    return str(os.getenv("NV_MEMCO_PAPER_EQ22_27_ALL_ONES", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _tokenize(text: str) -> set[str]:
     return {tok for tok in re.findall(r"[a-z0-9_]+", text.lower()) if tok}
 
@@ -41,26 +51,29 @@ def _action_bonus(candidate: PromotionCandidate, actions: tuple[CanonicalAction,
     if not actions:
         return 0.0
     if candidate.candidate_type == CandidateType.WORKFLOW:
-        return 0.05
+        return 1.0 if _paper_eq22_27_all_ones() else 0.05
     action_strings = {action.canonical_str for action in actions}
     action_verbs = {action.verb for action in actions}
     structure = candidate.structure
     bonus = 0.0
+    exact_action_bonus = 1.0 if _paper_eq22_27_all_ones() else 0.2
+    structured_value_bonus = 1.0 if _paper_eq22_27_all_ones() else 0.15
+    verb_bonus = 1.0 if _paper_eq22_27_all_ones() else 0.08
     if structure.get("action") in action_strings:
-        bonus += 0.2
+        bonus += exact_action_bonus
     if structure.get("repair_action") in action_strings:
-        bonus += 0.2
+        bonus += exact_action_bonus
     for value in structure.values():
         if isinstance(value, str):
             if value in action_strings:
-                bonus += 0.15
+                bonus += structured_value_bonus
             if any(verb in value for verb in action_verbs):
-                bonus += 0.08
+                bonus += verb_bonus
     return bonus
 
 
 def _graph_evidence_bonus(candidate: PromotionCandidate) -> float:
-    return 0.45 * candidate.prior_score
+    return (1.0 if _paper_eq22_27_all_ones() else 0.45) * candidate.prior_score
 
 
 def _candidate_penalty(candidate: PromotionCandidate) -> float:
@@ -69,6 +82,8 @@ def _candidate_penalty(candidate: PromotionCandidate) -> float:
         return 0.0
     negative_rate = candidate.negative / support
     stall_rate = candidate.stalled / support
+    if _paper_eq22_27_all_ones():
+        return 1.0 * negative_rate + 1.0 * stall_rate
     return 0.25 * negative_rate + 0.35 * stall_rate
 
 
@@ -306,6 +321,8 @@ def _task_relevance_score(
 
 
 def _relevance_weights(query: MemoryQuery) -> tuple[float, float, float]:
+    if _paper_eq22_27_all_ones():
+        return 1.0, 1.0, 1.0
     if query.progress_state in {"carry_target", "finalize"}:
         return 0.26, 0.24, 0.5
     return 0.34, 0.26, 0.4
@@ -551,6 +568,7 @@ def _rule_branch_tag(rule_type: RuleType) -> str:
 def _rule_specific_action_bonus(query: MemoryQuery, rule: MemoryRule) -> float:
     effect = rule.effect
     bonus = 0.0
+    all_ones = _paper_eq22_27_all_ones()
     for key in ("action", "prefer_action", "block_action"):
         action_text = str(effect.get(key, "")).strip()
         if not action_text:
@@ -558,13 +576,13 @@ def _rule_specific_action_bonus(query: MemoryQuery, rule: MemoryRule) -> float:
         projected = _project_rule_actions(query, action_text)
         if projected:
             if len(projected) <= 2:
-                bonus += 0.28 if key != "block_action" else 0.15
+                bonus += 1.0 if all_ones else (0.28 if key != "block_action" else 0.15)
             elif len(projected) <= 4:
-                bonus += 0.08 if key != "block_action" else 0.04
+                bonus += 1.0 if all_ones else (0.08 if key != "block_action" else 0.04)
             else:
-                bonus -= 0.14
+                bonus -= 1.0 if all_ones else 0.14
         elif key == "prefer_action":
-            bonus -= 0.08
+            bonus -= 1.0 if all_ones else 0.08
     return bonus
 
 
@@ -962,18 +980,24 @@ def _rule_relevance(
         goal_relevance += 0.16
 
     score = _combine_relevance(query, state_relevance, task_relevance, goal_relevance)
-    score += 0.38 * rule.stats.confidence + 0.18 * min(rule.support / 4.0, 1.0) + 0.12 * min(rule.coverage / 2.0, 1.0)
+    if _paper_eq22_27_all_ones():
+        score += 1.0 * rule.stats.confidence + 1.0 * min(rule.support / 1.0, 1.0) + 1.0 * min(rule.coverage / 1.0, 1.0)
+    else:
+        score += 0.38 * rule.stats.confidence + 0.18 * min(rule.support / 4.0, 1.0) + 0.12 * min(rule.coverage / 2.0, 1.0)
     score += _rule_specific_action_bonus(query, rule)
-    score -= 0.28 * rule.specificity + 0.24 * rule.conflict
+    if _paper_eq22_27_all_ones():
+        score -= 1.0 * rule.specificity + 1.0 * rule.conflict
+    else:
+        score -= 0.28 * rule.specificity + 0.24 * rule.conflict
     if rule.rule_type == RuleType.CLOSURE and query.remaining_relevant_count > 0:
-        score -= 0.75
+        score -= 1.0 if _paper_eq22_27_all_ones() else 0.75
     if rule.rule_type == RuleType.BLOCKED and not query.failure_label and query.progress_state.startswith("search"):
         score += 0.08
     action_patterns = _rule_action_patterns(rule)
     if action_patterns:
         projected_count = sum(len(_project_rule_actions(query, pattern)) for pattern in action_patterns)
         if projected_count == 0 and rule.rule_type != RuleType.BLOCKED:
-            score -= 0.2
+            score -= 1.0 if _paper_eq22_27_all_ones() else 0.2
         elif projected_count > 4:
             score -= 0.18
     if rule.effect.get("action_role") == "target_object" and not str(query.goal_roles.get("object", "")):
@@ -1566,11 +1590,11 @@ def _candidate_rank(
         score = action_bonus + _graph_evidence_bonus(candidate) - _candidate_penalty(candidate)
         score += _combine_relevance(query, state_relevance, task_relevance, goal_relevance)
         if candidate.candidate_type == CandidateType.REPAIR and not query.failure_label:
-            score -= 1.1
+            score -= 1.0 if _paper_eq22_27_all_ones() else 1.1
         if candidate.candidate_type == CandidateType.FAILURE and not query.failure_label:
-            score -= 0.65
+            score -= 1.0 if _paper_eq22_27_all_ones() else 0.65
         if pattern_kind == "closure" and query.remaining_relevant_count > 0:
-            score -= 0.9
+            score -= 1.0 if _paper_eq22_27_all_ones() else 0.9
         ranked.append(
             SupportItem(
                 source=source,

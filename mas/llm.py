@@ -351,7 +351,17 @@ class GPTChat(LLM):
         import time
         global prompt_tokens, completion_tokens
 
+        raw_stop_strs = stop_strs
         stop_strs = self._sanitize_stop_strs(stop_strs)
+        # The local Qwen32B PDDL agent uses a newline as the action delimiter.
+        # Keep that delimiter for this model even though generic OpenAI-style
+        # endpoints may reject whitespace-only stop strings.  Dropping it makes
+        # the model continue generating trajectories after the first action and
+        # can push a 30-step task past the subprocess timeout.
+        if self._is_qwen32b and raw_stop_strs:
+            qwen32_stop_strs = [str(item) for item in raw_stop_strs if str(item or "")]
+            if qwen32_stop_strs:
+                stop_strs = qwen32_stop_strs
         request_kwargs = {}
         if self._is_qwen:
             request_kwargs["extra_body"] = {
@@ -378,6 +388,12 @@ class GPTChat(LLM):
                     n=num_comps,
                     **request_kwargs,
                 )
+                # A run-level seed makes repeated local-Qwen experiments
+                # auditable. Keep it opt-in so external APIs retain their
+                # existing behavior.
+                llm_seed = str(os.environ.get("NV_DAMAS_LLM_SEED", "") or "").strip()
+                if self._is_qwen and llm_seed:
+                    create_kwargs["seed"] = int(llm_seed)
                 if stop_strs is not None:
                     create_kwargs["stop"] = stop_strs
                 response = self.client.chat.completions.create(**create_kwargs)

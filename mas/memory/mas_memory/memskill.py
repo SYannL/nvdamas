@@ -506,15 +506,13 @@ class _MemSkillPPOAdapter:
             owner._cfg("memskill_ppo_controller_source", "controller_source", default="original") or "original"
         ).strip().lower()
         repo_path = str(
-            owner._cfg("memskill_ppo_repo_path", "memskill_repo_path", default="/workspace/MemSkill-main")
-            or "/workspace/MemSkill-main"
+            owner._cfg("memskill_ppo_repo_path", "memskill_repo_path", default="")
+            or ""
         ).strip()
         if requested_source in {"internal", "internal_fallback", "fallback", "nvdamas"}:
             PPOController, StateEncoder, OpEncoder = _build_internal_ppo_classes(torch)
             controller_source = "internal_fallback"
         else:
-            if repo_path and not os.path.isdir(repo_path) and os.path.isdir("/bigdata/xenial/MemSkill-main"):
-                repo_path = "/bigdata/xenial/MemSkill-main"
             if repo_path and os.path.isdir(repo_path) and repo_path not in sys.path:
                 sys.path.insert(0, repo_path)
             controller_source = "original_repo"

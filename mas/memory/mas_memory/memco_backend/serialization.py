@@ -33,6 +33,14 @@ def candidate_from_dict(payload: dict) -> PromotionCandidate:
     candidate.negative = int(payload.get("negative", 0))
     candidate.stalled = int(payload.get("stalled", 0))
     candidate.utility = float(payload.get("utility", 0.0))
+    candidate.wilson_episode_evidence = {
+        str(episode_id): {
+            "supporting": int((verdict or {}).get("supporting", 0)),
+            "contradicting": int((verdict or {}).get("contradicting", 0)),
+            "stalled": int((verdict or {}).get("stalled", 0)),
+        }
+        for episode_id, verdict in (payload.get("wilson_episode_evidence", {}) or {}).items()
+    }
     return candidate
 
 
@@ -52,6 +60,14 @@ def rule_from_dict(payload: dict) -> MemoryRule:
     rule.source_scenes = set(payload.get("source_scenes", []))
     rule.specificity = float(payload.get("specificity", 0.0))
     rule.conflict = float(payload.get("conflict", 0.0))
+    rule.wilson_episode_evidence = {
+        str(episode_id): {
+            "supporting": int((verdict or {}).get("supporting", 0)),
+            "contradicting": int((verdict or {}).get("contradicting", 0)),
+            "stalled": int((verdict or {}).get("stalled", 0)),
+        }
+        for episode_id, verdict in (payload.get("wilson_episode_evidence", {}) or {}).items()
+    }
     stats_blob = payload.get("stats", {})
     rule.stats = RuleStats(
         support=int(stats_blob.get("support", 0)),
@@ -78,6 +94,14 @@ def artifact_from_dict(payload: dict) -> MemoryArtifact:
     artifact.source_scenes = set(payload.get("source_scenes", []))
     artifact.specificity = float(payload.get("specificity", 0.0))
     artifact.conflict = float(payload.get("conflict", 0.0))
+    artifact.wilson_episode_evidence = {
+        str(episode_id): {
+            "supporting": int((verdict or {}).get("supporting", 0)),
+            "contradicting": int((verdict or {}).get("contradicting", 0)),
+            "stalled": int((verdict or {}).get("stalled", 0)),
+        }
+        for episode_id, verdict in (payload.get("wilson_episode_evidence", {}) or {}).items()
+    }
     stats_blob = payload.get("stats", {})
     artifact.stats = ArtifactStats(
         support=int(stats_blob.get("support", 0)),

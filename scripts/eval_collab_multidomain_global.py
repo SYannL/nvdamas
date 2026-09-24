@@ -4,6 +4,7 @@ import argparse
 import copy
 import json
 import os
+import random
 import re
 import shutil
 import sys
@@ -264,6 +265,7 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
     memco_router = str(args.memco_router or "").strip().lower() or "textloss"
     memco_settings = str(args.memco_settings or "").strip() or "local_plus_global"
     memco_promotion_threshold = float(args.memco_promotion_threshold) if args.memco_promotion_threshold is not None else 0.35
+    memco_promotion_policy = str(args.memco_promotion_policy or "wilson").strip().lower()
 
     config: dict[str, Any] = {
         "memco_dynamic_graph": bool(args.memco_dynamic_graph),
@@ -271,6 +273,9 @@ def _resolve_graph_memory_common(args: argparse.Namespace, *, shared_global_dir:
         "memco_router": memco_router,
         "memco_settings": memco_settings,
         "memco_promotion_threshold": memco_promotion_threshold,
+        "memco_promotion_policy": memco_promotion_policy,
+        "memco_wilson_alpha": float(args.memco_wilson_alpha),
+        "memco_wilson_threshold": float(args.memco_wilson_threshold),
         "memco_shared_global_dir": shared_global_dir,
         "memco_use_textgrad": bool(args.memco_use_textgrad),
         "memco_textgrad_engine": str(args.memco_textgrad_engine or "").strip(),
@@ -1152,6 +1157,12 @@ def main() -> None:
     parser.add_argument("--batch_size", type=int, default=10)
     parser.add_argument("--tool_mode", choices=["search"], default="search")
     parser.add_argument("--run_id", type=str, default=None)
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Run-level seed used by Python task logic and local Qwen sampling.",
+    )
     parser.add_argument("--eval_only", action="store_true")
     parser.add_argument(
         "--skip_eval",
@@ -1175,6 +1186,19 @@ def main() -> None:
     )
     parser.add_argument("--memco_enable_overlay", action="store_true")
     parser.add_argument("--memco_promotion_threshold", type=float, default=None)
+    parser.add_argument(
+        "--memco_promotion_policy",
+        choices=("legacy", "shadow", "wilson"),
+        default="wilson",
+    )
+    parser.add_argument("--memco_wilson_alpha", type=float, default=0.05)
+    parser.add_argument("--memco_wilson_threshold", type=float, default=0.35)
+    parser.add_argument(
+        "--memco_wilson_min_coverage",
+        type=int,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--memco_use_textgrad", action="store_true")
     parser.add_argument("--memco_textgrad_engine", type=str, default="")
     parser.add_argument("--memskill_finalize_local", action="store_true")
@@ -1197,6 +1221,10 @@ def main() -> None:
     parser.add_argument("--memskill_finalize_rebuild", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--memskill_use_flash_attn", action=argparse.BooleanOptionalAction, default=None)
     args = parser.parse_args()
+
+    random.seed(int(args.seed))
+    os.environ["NV_DAMAS_EXPERIMENT_SEED"] = str(int(args.seed))
+    os.environ["NV_DAMAS_LLM_SEED"] = str(int(args.seed))
 
     if args.reset_memory and args.eval_only:
         raise ValueError("--reset_memory 不能和 --eval_only 同时使用。")
@@ -1675,6 +1703,15 @@ def main() -> None:
     graph_promotion_threshold = float(
         graph_memory_common.get(f"{graph_memory_prefix}_promotion_threshold", 0.35) or 0.35
     )
+    graph_promotion_policy = str(
+        graph_memory_common.get(f"{graph_memory_prefix}_promotion_policy", "wilson") or "wilson"
+    )
+    graph_wilson_alpha = float(
+        graph_memory_common.get(f"{graph_memory_prefix}_wilson_alpha", 0.05)
+    )
+    graph_wilson_threshold = float(
+        graph_memory_common.get(f"{graph_memory_prefix}_wilson_threshold", 0.35)
+    )
 
     def apply_gm_graph_scene_config(
         manager,
@@ -1807,6 +1844,9 @@ def main() -> None:
             global_dir=global_dir,
             promotion_threshold=graph_promotion_threshold,
             memory_namespace=args.mas_memory,
+            promotion_policy=graph_promotion_policy,
+            wilson_alpha=graph_wilson_alpha,
+            wilson_threshold=graph_wilson_threshold,
         )
     elif args.mas_memory == "selectivemem":
         rebuild_selectivemem_global_from_locals(
@@ -1983,6 +2023,7 @@ def main() -> None:
     output = {
         "dataset_family": args.dataset_family,
         "run_id": run_id,
+        "seed": int(args.seed),
         "batch_size": int(args.batch_size),
         "domains": domains,
         "global_only_eval": bool(args.eval_global_only_once),

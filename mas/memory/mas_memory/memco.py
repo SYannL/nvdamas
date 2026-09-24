@@ -41,6 +41,9 @@ class MemCoMASMemory(MemCoBase):
     _memco_search_bias_queue: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
     _memco_runtime_blocked_actions: set[str] = field(default_factory=set, init=False, repr=False)
     _memco_last_fever_memory_render_count: int = field(default=0, init=False, repr=False)
+    _memco_fixed_topk_use_all: bool = field(default=False, init=False, repr=False)
+    _memco_fixed_local_top_k: int = field(default=5, init=False, repr=False)
+    _memco_fixed_global_top_k: int = field(default=3, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -53,6 +56,17 @@ class MemCoMASMemory(MemCoBase):
             router = "textloss"
         self._external_retrieval_mode = "memco_textloss" if router == "textloss" else f"memco_{router}"
         self._memco_debug_trace_path = Path(self.persist_dir) / "memco_debug_trace.jsonl"
+        self._memco_fixed_topk_use_all = str(
+            os.getenv("NV_MEMCO_FIXED_TOPK_USE_ALL", "")
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        self._memco_fixed_local_top_k = max(
+            1,
+            int(os.getenv("NV_MEMCO_FIXED_LOCAL_TOP_K", "5") or 5),
+        )
+        self._memco_fixed_global_top_k = max(
+            1,
+            int(os.getenv("NV_MEMCO_FIXED_GLOBAL_TOP_K", "3") or 3),
+        )
         if self._memco_config_is_alfworld_qwen4b():
             filtered_insights = [
                 item for item in self.insight_bank
@@ -1296,6 +1310,104 @@ class MemCoMASMemory(MemCoBase):
                 continue
         return False
 
+    def _render_memco_fixed_topk_all(
+        self,
+        *,
+        bundle: Any,
+        setting: str,
+    ) -> dict[str, Any]:
+        """Render a fixed Local/Global top-k baseline without section routing.
+
+        This path is experiment-only and is activated by an environment flag.
+        It consumes every selected item, rather than applying the text-loss
+        activation bounds or the four-section budget.  It is restricted by the
+        caller to local_plus_global evaluation, so local-memory construction is
+        unchanged.
+        """
+
+        def select(items: Any, limit: int) -> list[Any]:
+            ranked = sorted(
+                list(items or []),
+                key=lambda item: float(getattr(item, "score", 0.0) or 0.0),
+                reverse=True,
+            )
+            selected: list[Any] = []
+            seen: set[tuple[str, tuple[str, ...]]] = set()
+            for item in ranked:
+                summary = self._memco_clean(str(getattr(item, "summary", "") or ""))
+                if not summary:
+                    continue
+                actions = tuple(
+                    str(value or "").strip()
+                    for value in (getattr(item, "action_patterns", ()) or ())
+                    if str(value or "").strip()
+                )
+                key = (self._memco_norm(summary), actions)
+                if key in seen:
+                    continue
+                seen.add(key)
+                selected.append(item)
+                if len(selected) >= limit:
+                    break
+            return selected
+
+        local_selected = select(
+            getattr(bundle, "local_items", []),
+            self._memco_fixed_local_top_k,
+        )
+        global_selected = select(
+            getattr(bundle, "global_items", []),
+            self._memco_fixed_global_top_k,
+        )
+
+        debug = {
+            "mode": "fixed_topk_use_all",
+            "setting": setting,
+            "adaptive_section_router_bypassed": True,
+            "local_top_k": self._memco_fixed_local_top_k,
+            "global_top_k": self._memco_fixed_global_top_k,
+            "selected_local": [
+                {
+                    "candidate_id": str(getattr(item, "candidate_id", "") or ""),
+                    "score": float(getattr(item, "score", 0.0) or 0.0),
+                    "summary": str(getattr(item, "summary", "") or ""),
+                }
+                for item in local_selected
+            ],
+            "selected_global": [
+                {
+                    "candidate_id": str(getattr(item, "candidate_id", "") or ""),
+                    "score": float(getattr(item, "score", 0.0) or 0.0),
+                    "summary": str(getattr(item, "summary", "") or ""),
+                }
+                for item in global_selected
+            ],
+        }
+        if not local_selected and not global_selected:
+            return {"prompt": "", "debug": debug}
+
+        lines = [
+            "Use all ranked memory entries below as supplementary evidence.",
+            "Current observation and admissible actions override conflicting memory.",
+            f"Local memory (top-{self._memco_fixed_local_top_k}; all included):",
+        ]
+        if local_selected:
+            lines.extend(
+                f"{index}. {self._memco_clean(str(getattr(item, 'summary', '') or ''))}"
+                for index, item in enumerate(local_selected, start=1)
+            )
+        else:
+            lines.append("none")
+        lines.append(f"Global memory (top-{self._memco_fixed_global_top_k}; all included):")
+        if global_selected:
+            lines.extend(
+                f"{index}. {self._memco_clean(str(getattr(item, 'summary', '') or ''))}"
+                for index, item in enumerate(global_selected, start=1)
+            )
+        else:
+            lines.append("none")
+        return {"prompt": "\n".join(lines), "debug": debug}
+
     def _render_memco_textloss_evidence(
         self,
         *,
@@ -1319,6 +1431,13 @@ class MemCoMASMemory(MemCoBase):
         held = [str(x) for x in dynamic.get("held_objects", []) or [] if str(x).strip()]
         exhausted = [str(x) for x in dynamic.get("exhausted_locations", []) or [] if str(x).strip()]
         task_family = self._memco_norm(str(getattr(query, "task_family", "") or ""))
+
+        if (
+            self._memco_fixed_topk_use_all
+            and setting == "local_plus_global"
+            and bool(getattr(self, "freeze_memory", False))
+        ):
+            return self._render_memco_fixed_topk_all(bundle=bundle, setting=setting)
 
         is_alfworld_qwen4b = self._memco_is_alfworld_qwen4b_case(query=query)
         fever_policy_enabled = False
@@ -4583,6 +4702,12 @@ class MemCoMASMemory(MemCoBase):
 
         progress = str(getattr(query, "progress_state", "") or "")
         selected: list[dict[str, Any]] = []
+        activation_all_ones = str(
+            os.getenv("NV_MEMCO_PAPER_A3_2_ACTIVATION_ALL_ONES", "")
+        ).strip().lower() in {"1", "true", "yes", "on"}
+
+        def activation_bound(default: float) -> float:
+            return 1.0 if activation_all_ones else default
 
         def add(slot: str, max_loss: float) -> None:
             item = by_slot.get(slot)
@@ -4592,21 +4717,27 @@ class MemCoMASMemory(MemCoBase):
                 selected.append(item)
 
         # Phase is the anchor. Without it, source priors become noisy.
-        add("phase_policy", 1.15)
+        add("phase_policy", activation_bound(1.15))
 
         # Local grounding is the current-state/action bridge.
-        add("local_grounding", 1.05 if progress.startswith("search") else 1.20)
+        add(
+            "local_grounding",
+            activation_bound(1.05 if progress.startswith("search") else 1.20),
+        )
 
         if progress.startswith("search") and not held:
             # Source roles become useful only when grounded into the current
             # admissible frontier. This is the main MemCo search control signal.
-            add("source_roles", 0.90)
+            add("source_roles", activation_bound(0.90))
 
         # Global is useful as macro workflow, but it should not crowd out the
         # current-state priority during search.
-        add("global_workflow", 1.00 if progress.startswith("search") else 1.10)
+        add(
+            "global_workflow",
+            activation_bound(1.00 if progress.startswith("search") else 1.10),
+        )
 
-        add("failure_avoidance", 1.20)
+        add("failure_avoidance", activation_bound(1.20))
         return selected[:4]
 
     def _memco_debug_append(self, event: str, *, step_index: int = 0, payload: dict[str, Any] | None = None) -> None:

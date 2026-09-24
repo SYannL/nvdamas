@@ -23,7 +23,7 @@ HOST="${HOST:-0.0.0.0}"
 TP_SIZE="${TP_SIZE:-1}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.92}"
-PYTHON_BIN="${PYTHON_BIN:-/bigdata/siyan/envs/miniconda3/envs/nvdamas/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 PID_FILE="${PID_DIR}/qwen4b_api.pid"
 LOG_FILE="${LOG_DIR}/qwen4b_api.log"
@@ -31,7 +31,7 @@ LOG_FILE="${LOG_DIR}/qwen4b_api.log"
 if [[ ! -f "${MODEL_PATH}/config.json" ]] || ! compgen -G "${MODEL_PATH}/model*.safetensors" >/dev/null; then
   echo "Qwen3-4B model files not found at: ${MODEL_PATH}" >&2
   echo "Download with:" >&2
-  echo "  /bigdata/siyan/envs/miniconda3/envs/nvdamas/bin/python -m huggingface_hub.commands.huggingface_cli download Qwen/Qwen3-4B --local-dir ${MODEL_PATH} --cache-dir /bigdata/siyan/hf_cache" >&2
+  echo "  python3 -m huggingface_hub.commands.huggingface_cli download Qwen/Qwen3-4B --local-dir ${MODEL_PATH}" >&2
   exit 1
 fi
 

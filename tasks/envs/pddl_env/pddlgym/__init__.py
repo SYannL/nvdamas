@@ -1,6 +1,5 @@
 """Gym environment registration"""
 
-from . import tests
 from . import core
 from . import structs
 from . import spaces
@@ -255,4 +254,3 @@ register(
 
 # Ignore certain files for pdoc documentation generation.
 __pdoc__ = {'downward_translate': False, 'procedural_generation': False}
-

@@ -1,0 +1,5 @@
+method,budget,split,accuracy,success_rate_pct,avg_steps,num_scopes,tasks_per_scope,run_id,report
+ICL,30,Seen,0.7972,79.72,16.88,2,77,paper_final_qwen32b_alfworld_icl_budget30,final_main_table
+ICL,30,Unseen,0.7969,79.69,17.54,2,70,paper_final_qwen32b_alfworld_icl_budget30,final_main_table
+MemCo,30,Seen,0.9610,96.10,9.85,1,77,paper_final_qwen32b_alfworld_memco_budget30,final_main_table
+MemCo,30,Unseen,0.9750,97.50,11.49,1,70,paper_final_qwen32b_alfworld_memco_budget30,final_main_table

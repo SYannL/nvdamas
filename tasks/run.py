@@ -416,7 +416,7 @@ if __name__ == '__main__':
         default='',
         help=(
             'ALFWorld only: external json_2.1.1 root to remap subset gamefile paths, '
-            'for example /bigdata/.../run_alf/ALFWORLD_DATA/json_2.1.1'
+            'for example /path/to/ALFWORLD_DATA/json_2.1.1'
         ),
     )
     parser.add_argument(

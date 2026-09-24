@@ -1,0 +1,422 @@
+[
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "401|Candle|Cart|None|trial_T20190909_081908_677973",
+    "trial_id": "trial_T20190909_081908_677973",
+    "scene_id": 401,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Candle",
+    "parent_target": "None",
+    "receptacle_target": "Cart",
+    "goal_instruction": "Your task is to: put a candle in cart.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Candle-None-Cart-401/trial_T20190909_081908_677973/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 1
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "401|DishSponge|Cart|None|trial_T20190907_024634_972453",
+    "trial_id": "trial_T20190907_024634_972453",
+    "scene_id": 401,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "DishSponge",
+    "parent_target": "None",
+    "receptacle_target": "Cart",
+    "goal_instruction": "Your task is to: put a clean dishsponge in cart.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-DishSponge-None-Cart-401/trial_T20190907_024634_972453/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 2
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "401|SoapBar|Cart|None|trial_T20190907_054906_608944",
+    "trial_id": "trial_T20190907_054906_608944",
+    "scene_id": 401,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "SoapBar",
+    "parent_target": "None",
+    "receptacle_target": "Cart",
+    "goal_instruction": "Your task is to: put a soapbar in cart.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-SoapBar-None-Cart-401/trial_T20190907_054906_608944/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 3
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "402|SoapBar|Cabinet|None|trial_T20190908_055221_984342",
+    "trial_id": "trial_T20190908_055221_984342",
+    "scene_id": 402,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "SoapBar",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put a clean soapbar in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-SoapBar-None-Cabinet-402/trial_T20190908_055221_984342/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 4
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "402|SprayBottle|Toilet|None|trial_T20190910_222914_814642",
+    "trial_id": "trial_T20190910_222914_814642",
+    "scene_id": 402,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "SprayBottle",
+    "parent_target": "None",
+    "receptacle_target": "Toilet",
+    "goal_instruction": "Your task is to: find two spraybottle and put them in toilet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-SprayBottle-None-Toilet-402/trial_T20190910_222914_814642/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 5
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "403|DishSponge|CounterTop|None|trial_T20190908_144357_621068",
+    "trial_id": "trial_T20190908_144357_621068",
+    "scene_id": 403,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "DishSponge",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: clean some dishsponge and put it in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-DishSponge-None-CounterTop-403/trial_T20190908_144357_621068/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 6
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "405|Cloth|Cabinet|None|trial_T20190907_080903_889497",
+    "trial_id": "trial_T20190907_080903_889497",
+    "scene_id": 405,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Cloth",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put a clean cloth in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-Cloth-None-Cabinet-405/trial_T20190907_080903_889497/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 7
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "406|ToiletPaper|ToiletPaperHanger|None|trial_T20190908_122858_883968",
+    "trial_id": "trial_T20190908_122858_883968",
+    "scene_id": 406,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "ToiletPaper",
+    "parent_target": "None",
+    "receptacle_target": "ToiletPaperHanger",
+    "goal_instruction": "Your task is to: put a toiletpaper in toiletpaperhanger.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-406/trial_T20190908_122858_883968/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 8
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "407|Candle|Toilet|None|trial_T20190909_055248_059513",
+    "trial_id": "trial_T20190909_055248_059513",
+    "scene_id": 407,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Candle",
+    "parent_target": "None",
+    "receptacle_target": "Toilet",
+    "goal_instruction": "Your task is to: put a candle in toilet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Candle-None-Toilet-407/trial_T20190909_055248_059513/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 9
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "407|SprayBottle|Cabinet|None|trial_T20190907_144556_144188",
+    "trial_id": "trial_T20190907_144556_144188",
+    "scene_id": 407,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "SprayBottle",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put two spraybottle in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-SprayBottle-None-Cabinet-407/trial_T20190907_144556_144188/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 10
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "408|ToiletPaper|Toilet|None|trial_T20190909_080302_174780",
+    "trial_id": "trial_T20190909_080302_174780",
+    "scene_id": 408,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "ToiletPaper",
+    "parent_target": "None",
+    "receptacle_target": "Toilet",
+    "goal_instruction": "Your task is to: put two toiletpaper in toilet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-ToiletPaper-None-Toilet-408/trial_T20190909_080302_174780/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 11
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "409|SprayBottle|GarbageCan|None|trial_T20190908_054742_818364",
+    "trial_id": "trial_T20190908_054742_818364",
+    "scene_id": 409,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "SprayBottle",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: put a spraybottle in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-SprayBottle-None-GarbageCan-409/trial_T20190908_054742_818364/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 12
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "410|SoapBar|Toilet|None|trial_T20190906_201106_979461",
+    "trial_id": "trial_T20190906_201106_979461",
+    "scene_id": 410,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "SoapBar",
+    "parent_target": "None",
+    "receptacle_target": "Toilet",
+    "goal_instruction": "Your task is to: put a clean soapbar in toilet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-SoapBar-None-Toilet-410/trial_T20190906_201106_979461/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 13
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "413|SprayBottle|Cabinet|None|trial_T20190907_114931_692464",
+    "trial_id": "trial_T20190907_114931_692464",
+    "scene_id": 413,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "SprayBottle",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put a spraybottle in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-SprayBottle-None-Cabinet-413/trial_T20190907_114931_692464/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 14
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "414|SoapBottle|Cabinet|None|trial_T20190908_110131_524518",
+    "trial_id": "trial_T20190908_110131_524518",
+    "scene_id": 414,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "SoapBottle",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put some soapbottle on cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-SoapBottle-None-Cabinet-414/trial_T20190908_110131_524518/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 15
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "415|SprayBottle|Toilet|None|trial_T20190909_075955_678702",
+    "trial_id": "trial_T20190909_075955_678702",
+    "scene_id": 415,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "SprayBottle",
+    "parent_target": "None",
+    "receptacle_target": "Toilet",
+    "goal_instruction": "Your task is to: put some spraybottle on toilet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-SprayBottle-None-Toilet-415/trial_T20190909_075955_678702/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 16
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "415|ToiletPaper|ToiletPaperHanger|None|trial_T20190908_050518_595510",
+    "trial_id": "trial_T20190908_050518_595510",
+    "scene_id": 415,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "ToiletPaper",
+    "parent_target": "None",
+    "receptacle_target": "ToiletPaperHanger",
+    "goal_instruction": "Your task is to: put a toiletpaper in toiletpaperhanger.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-415/trial_T20190908_050518_595510/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 17
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "417|SoapBottle|CounterTop|None|trial_T20190910_112922_368384",
+    "trial_id": "trial_T20190910_112922_368384",
+    "scene_id": 417,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "SoapBottle",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: put a soapbottle in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-SoapBottle-None-CounterTop-417/trial_T20190910_112922_368384/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 18
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "418|SoapBar|GarbageCan|None|trial_T20190909_055538_380023",
+    "trial_id": "trial_T20190909_055538_380023",
+    "scene_id": 418,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "SoapBar",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: put two soapbar in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-SoapBar-None-GarbageCan-418/trial_T20190909_055538_380023/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 19
+  },
+  {
+    "subset_group": "bathroom",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "418|SoapBar|GarbageCan|None|trial_T20190909_055649_717880",
+    "trial_id": "trial_T20190909_055649_717880",
+    "scene_id": 418,
+    "scene_domain": "bathroom",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "SoapBar",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: find two soapbar and put them in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-SoapBar-None-GarbageCan-418/trial_T20190909_055649_717880/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 20
+  }
+]

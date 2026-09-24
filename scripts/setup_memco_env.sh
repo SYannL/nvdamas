@@ -20,9 +20,12 @@ fi
 conda activate "${ENV_NAME}"
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r "${ROOT}/requirements-full-freeze.txt"
+python -m nltk.downloader punkt punkt_tab
 
 export ALFWORLD_DATA
-alfworld-download --force-download --force
+if [[ "${DOWNLOAD_ALFWORLD:-1}" == "1" ]]; then
+  alfworld-download --force-download --force
+fi
 
 echo
 echo "MemCo environment is ready."

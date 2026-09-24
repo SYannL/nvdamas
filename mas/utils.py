@@ -52,18 +52,27 @@ def random_divide_list(lst: list[Any], k: int) -> list[list]:
         return [lst[i*chunk_size:(i+1)*chunk_size] for i in range(num_chunks)]
     
 
-_EMBEDDING_MODEL_CACHE = {} 
+_EMBEDDING_MODEL_CACHE = {}
 
 @dataclass
 class EmbeddingFunc:
 
     model_type: str = "sentence-transformers/all-MiniLM-L6-v2"
+    device: str | None = None
 
     def __post_init__(self):
-        if self.model_type not in _EMBEDDING_MODEL_CACHE:
-            _EMBEDDING_MODEL_CACHE[self.model_type] = SentenceTransformer(self.model_type)
+        requested_device = str(
+            self.device or os.environ.get("NV_DAMAS_EMBEDDING_DEVICE", "")
+        ).strip()
+        resolved_device = requested_device or None
+        cache_key = (self.model_type, resolved_device or "auto")
+        if cache_key not in _EMBEDDING_MODEL_CACHE:
+            _EMBEDDING_MODEL_CACHE[cache_key] = SentenceTransformer(
+                self.model_type,
+                device=resolved_device,
+            )
 
-        self.func: SentenceTransformer = _EMBEDDING_MODEL_CACHE[self.model_type]
+        self.func: SentenceTransformer = _EMBEDDING_MODEL_CACHE[cache_key]
 
     def embed_documents(self, texts: list[str]) -> list[list]:
         return [self.func.encode(text).tolist() for text in texts]
@@ -151,5 +160,4 @@ class OTEmbeddingFunc(EmbeddingFunc):
                     claim = json.dumps(claim, ensure_ascii=False, separators=(",", ":"))
                 claims.append(str(claim))
         return claims
-
 

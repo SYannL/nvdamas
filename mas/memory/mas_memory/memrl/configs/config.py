@@ -17,7 +17,7 @@ class LLMConfig(BaseModel):
     """Configuration for LLM provider."""
     
     provider: str = Field(default="openai", description="LLM provider name")
-    api_key: str = Field(default="sk-8", 
+    api_key: str = Field(default="dummy",
                         description="API key for authentication")
     base_url: Optional[str] = Field(default="https://api.openai.com/v1", description="Base URL for API")
     # Optional Azure/OpenAI-style API versioning. Some runners pass this through.
@@ -38,7 +38,7 @@ class EmbeddingConfig(BaseModel):
     """Configuration for embedding provider."""
     
     provider: str = Field(default="openai", description="Embedding provider name")
-    api_key: str = Field(default="sk-8",
+    api_key: str = Field(default="dummy",
                         description="API key for authentication")
     base_url: Optional[str] = Field(default="https://api.openai.com/v1", description="Base URL for API")
     api_version: Optional[str] = Field(default=None, description="Optional API version for some providers (e.g. Azure OpenAI)")

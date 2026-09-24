@@ -26,13 +26,18 @@ def _ensure_nltk_tokenizers() -> None:
         except Exception:
             pass
 
-    _download_punkt_packages(quiet=True)
     try:
         nltk.word_tokenize("ping")
         return
     except LookupError:
         pass
     _download_punkt_packages(quiet=False)
+    try:
+        nltk.word_tokenize("ping")
+    except LookupError as exc:
+        raise RuntimeError(
+            "Missing NLTK tokenizers. Run: python -m nltk.downloader punkt punkt_tab"
+        ) from exc
 
 
 def get_all_environment_configs(game_names: list[str], label_path: str):

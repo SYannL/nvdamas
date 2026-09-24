@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -200,6 +201,9 @@ class PromotionCandidate:
     negative: int = 0
     stalled: int = 0
     utility: float = 0.0
+    # Wilson uses one candidate-relative verdict per episode.  The aggregate
+    # counters above remain unchanged for the legacy scorer and reporting.
+    wilson_episode_evidence: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def observe(
         self,
@@ -219,6 +223,14 @@ class PromotionCandidate:
         if stalled:
             self.stalled += 1
         self.utility += utility_delta
+        evidence_id = f"{scene_id}\x1f{episode_id}"
+        verdict = self.wilson_episode_evidence.setdefault(
+            evidence_id,
+            {"supporting": 0, "contradicting": 0, "stalled": 0},
+        )
+        verdict["supporting" if positive else "contradicting"] += 1
+        if stalled:
+            verdict["stalled"] += 1
 
     @property
     def confidence(self) -> float:
@@ -234,10 +246,24 @@ class PromotionCandidate:
         support = self.positive + self.negative
         if support == 0:
             return 0.0
-        support_term = min(support / 4.0, 1.0)
-        coverage_term = min(self.coverage / 2.0, 1.0)
+        all_ones = str(os.getenv("NV_MEMCO_PAPER_EQ22_27_ALL_ONES", "")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        support_term = min(support / (1.0 if all_ones else 4.0), 1.0)
+        coverage_term = min(self.coverage / (1.0 if all_ones else 2.0), 1.0)
         utility_term = self.utility / support
         stall_penalty = self.stalled / support
+        if all_ones:
+            return (
+                1.0 * self.confidence
+                + 1.0 * support_term
+                + 1.0 * coverage_term
+                + 1.0 * utility_term
+                - 1.0 * stall_penalty
+            )
         return 1.2 * self.confidence + 0.6 * support_term + 0.4 * coverage_term + 0.4 * utility_term - 0.5 * stall_penalty
 
 
@@ -354,6 +380,7 @@ class MemoryRule:
     stats: RuleStats = field(default_factory=RuleStats)
     specificity: float = 0.0
     conflict: float = 0.0
+    wilson_episode_evidence: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def observe(
         self,
@@ -375,6 +402,14 @@ class MemoryRule:
             transfer_success=transfer_success,
             transfer_trial=transfer_trial,
         )
+        evidence_id = f"{scene_id}\x1f{episode_id}"
+        verdict = self.wilson_episode_evidence.setdefault(
+            evidence_id,
+            {"supporting": 0, "contradicting": 0, "stalled": 0},
+        )
+        verdict["supporting" if success else "contradicting"] += 1
+        if stalled:
+            verdict["stalled"] += 1
 
     @property
     def coverage(self) -> int:
@@ -413,6 +448,7 @@ class MemoryArtifact:
     stats: ArtifactStats = field(default_factory=ArtifactStats)
     specificity: float = 0.0
     conflict: float = 0.0
+    wilson_episode_evidence: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def observe(
         self,
@@ -434,6 +470,14 @@ class MemoryArtifact:
             transfer_success=transfer_success,
             transfer_trial=transfer_trial,
         )
+        evidence_id = f"{scene_id}\x1f{episode_id}"
+        verdict = self.wilson_episode_evidence.setdefault(
+            evidence_id,
+            {"supporting": 0, "contradicting": 0, "stalled": 0},
+        )
+        verdict["supporting" if success else "contradicting"] += 1
+        if stalled:
+            verdict["stalled"] += 1
 
     @property
     def coverage(self) -> int:
