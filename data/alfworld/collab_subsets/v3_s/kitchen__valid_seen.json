@@ -1,0 +1,422 @@
+[
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Glassbottle|Shelf|None|trial_T20190907_122204_941737",
+    "trial_id": "trial_T20190907_122204_941737",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Glassbottle",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: find two glassbottle and put them in shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-Glassbottle-None-Shelf-1/trial_T20190907_122204_941737/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 1
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Lettuce|CounterTop|None|trial_T20190908_042713_075616",
+    "trial_id": "trial_T20190908_042713_075616",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Lettuce",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: cool some lettuce and put it in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Lettuce-None-CounterTop-1/trial_T20190908_042713_075616/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 2
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Mug|CoffeeMachine|None|trial_T20190907_222640_487432",
+    "trial_id": "trial_T20190907_222640_487432",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Mug",
+    "parent_target": "None",
+    "receptacle_target": "CoffeeMachine",
+    "goal_instruction": "Your task is to: put a hot mug in coffeemachine.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-1/trial_T20190907_222640_487432/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 3
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Plate|Cabinet|None|trial_T20190908_070946_578973",
+    "trial_id": "trial_T20190908_070946_578973",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Plate",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put a hot plate in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_heat_then_place_in_recep-Plate-None-Cabinet-1/trial_T20190908_070946_578973/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 4
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "001|Plate|CounterTop|None|trial_T20190906_205324_559361",
+    "trial_id": "trial_T20190906_205324_559361",
+    "scene_id": 1,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Plate",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: cool some plate and put it in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Plate-None-CounterTop-1/trial_T20190906_205324_559361/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 5
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "002|Apple|GarbageCan|None|trial_T20190906_195943_081289",
+    "trial_id": "trial_T20190906_195943_081289",
+    "scene_id": 2,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Apple",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: put a cool apple in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Apple-None-GarbageCan-2/trial_T20190906_195943_081289/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 6
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "002|ButterKnife|Drawer|None|trial_T20190908_121728_511866",
+    "trial_id": "trial_T20190908_121728_511866",
+    "scene_id": 2,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "ButterKnife",
+    "parent_target": "None",
+    "receptacle_target": "Drawer",
+    "goal_instruction": "Your task is to: put a clean butterknife in drawer.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-ButterKnife-None-Drawer-2/trial_T20190908_121728_511866/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 7
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "002|Egg|CounterTop|None|trial_T20190908_122951_021026",
+    "trial_id": "trial_T20190908_122951_021026",
+    "scene_id": 2,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Egg",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: heat some egg and put it in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_heat_then_place_in_recep-Egg-None-CounterTop-2/trial_T20190908_122951_021026/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 8
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "003|Knife|SideTable|None|trial_T20190918_184236_557252",
+    "trial_id": "trial_T20190918_184236_557252",
+    "scene_id": 3,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Knife",
+    "parent_target": "None",
+    "receptacle_target": "SideTable",
+    "goal_instruction": "Your task is to: put a knife in sidetable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Knife-None-SideTable-3/trial_T20190918_184236_557252/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 9
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "003|Mug|Cabinet|None|trial_T20190909_014639_335717",
+    "trial_id": "trial_T20190909_014639_335717",
+    "scene_id": 3,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_heat_then_place_in_recep",
+    "object_target": "Mug",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: put a hot mug in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_heat_then_place_in_recep-Mug-None-Cabinet-3/trial_T20190909_014639_335717/game.tw-pddl"
+    },
+    "task_type": "heat",
+    "env_name": "pick_heat_then_place",
+    "selection_rank": 10
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "004|Egg|Microwave|None|trial_T20190906_234406_356490",
+    "trial_id": "trial_T20190906_234406_356490",
+    "scene_id": 4,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Egg",
+    "parent_target": "None",
+    "receptacle_target": "Microwave",
+    "goal_instruction": "Your task is to: put some egg on microwave.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Egg-None-Microwave-4/trial_T20190906_234406_356490/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 11
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "004|Ladle|DiningTable|None|trial_T20190909_164840_568811",
+    "trial_id": "trial_T20190909_164840_568811",
+    "scene_id": 4,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Ladle",
+    "parent_target": "None",
+    "receptacle_target": "DiningTable",
+    "goal_instruction": "Your task is to: clean some ladle and put it in diningtable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-Ladle-None-DiningTable-4/trial_T20190909_164840_568811/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 12
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "004|Spatula|DiningTable|None|trial_T20190909_002804_564168",
+    "trial_id": "trial_T20190909_002804_564168",
+    "scene_id": 4,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Spatula",
+    "parent_target": "None",
+    "receptacle_target": "DiningTable",
+    "goal_instruction": "Your task is to: clean some spatula and put it in diningtable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-Spatula-None-DiningTable-4/trial_T20190909_002804_564168/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 13
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "005|Apple|Microwave|None|trial_T20190908_150807_823817",
+    "trial_id": "trial_T20190908_150807_823817",
+    "scene_id": 5,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Apple",
+    "parent_target": "None",
+    "receptacle_target": "Microwave",
+    "goal_instruction": "Your task is to: put a cool apple in microwave.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Apple-None-Microwave-5/trial_T20190908_150807_823817/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 14
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "005|Plate|Fridge|None|trial_T20190909_112854_740612",
+    "trial_id": "trial_T20190909_112854_740612",
+    "scene_id": 5,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_clean_then_place_in_recep",
+    "object_target": "Plate",
+    "parent_target": "None",
+    "receptacle_target": "Fridge",
+    "goal_instruction": "Your task is to: clean some plate and put it in fridge.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_clean_then_place_in_recep-Plate-None-Fridge-5/trial_T20190909_112854_740612/game.tw-pddl"
+    },
+    "task_type": "clean",
+    "env_name": "pick_clean_then_place",
+    "selection_rank": 15
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "006|Tomato|GarbageCan|None|trial_T20190909_082934_483899",
+    "trial_id": "trial_T20190909_082934_483899",
+    "scene_id": 6,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Tomato",
+    "parent_target": "None",
+    "receptacle_target": "GarbageCan",
+    "goal_instruction": "Your task is to: cool some tomato and put it in garbagecan.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Tomato-None-GarbageCan-6/trial_T20190909_082934_483899/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 16
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "007|Bread|CounterTop|None|trial_T20190909_045605_307949",
+    "trial_id": "trial_T20190909_045605_307949",
+    "scene_id": 7,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Bread",
+    "parent_target": "None",
+    "receptacle_target": "CounterTop",
+    "goal_instruction": "Your task is to: cool some bread and put it in countertop.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Bread-None-CounterTop-7/trial_T20190909_045605_307949/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 17
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "007|Pan|DiningTable|None|trial_T20190908_232648_241836",
+    "trial_id": "trial_T20190908_232648_241836",
+    "scene_id": 7,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Pan",
+    "parent_target": "None",
+    "receptacle_target": "DiningTable",
+    "goal_instruction": "Your task is to: cool some pan and put it in diningtable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Pan-None-DiningTable-7/trial_T20190908_232648_241836/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 18
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "007|Plate|Cabinet|None|trial_T20190907_231206_512424",
+    "trial_id": "trial_T20190907_231206_512424",
+    "scene_id": 7,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_cool_then_place_in_recep",
+    "object_target": "Plate",
+    "parent_target": "None",
+    "receptacle_target": "Cabinet",
+    "goal_instruction": "Your task is to: cool some plate and put it in cabinet.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_cool_then_place_in_recep-Plate-None-Cabinet-7/trial_T20190907_231206_512424/game.tw-pddl"
+    },
+    "task_type": "cool",
+    "env_name": "pick_cool_then_place",
+    "selection_rank": 19
+  },
+  {
+    "subset_group": "kitchen",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "007|WineBottle|Shelf|None|trial_T20190907_200154_378982",
+    "trial_id": "trial_T20190907_200154_378982",
+    "scene_id": 7,
+    "scene_domain": "kitchen",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "WineBottle",
+    "parent_target": "None",
+    "receptacle_target": "Shelf",
+    "goal_instruction": "Your task is to: put some winebottle on shelf.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-WineBottle-None-Shelf-7/trial_T20190907_200154_378982/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 20
+  }
+]

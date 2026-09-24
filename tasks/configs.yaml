@@ -1,0 +1,269 @@
+# global configs
+memory_folder: ./.db
+embedding_model: sentence-transformers/all-MiniLM-L6-v2
+
+# env configs
+alfworld:
+  env_config_path: tasks/env_configs/alfworld_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+ 
+fever:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_aca_test:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_oral_test:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_ab_train_a:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_ab_train_b:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_ab_test_a:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+fever_ab_test_b:
+  env_config_path: tasks/env_configs/fever_config.yaml
+  max_steps: 12
+  few_shots_num: 3
+
+pddl:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_domain_gripper:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_domain_blockworld:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_domain_barman:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_domain_tyreworld:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_2:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_2_domain_gripper:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_2_domain_blockworld:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_2_domain_barman:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+pddl_2_domain_tyreworld:
+  env_config_path: tasks/env_configs/pddl_config.yaml
+  max_steps: 30
+  few_shots_num: 1
+
+bfcl_mt:
+  env_config_path: tasks/env_configs/bfcl_mt_config.yaml
+  max_steps: 120
+  few_shots_num: 0
+
+huskyqa:
+  env_config_path: tasks/env_configs/huskyqa_config.yaml
+  max_steps: 10
+  few_shots_num: 2
+
+huskyqa_aca_test:
+  env_config_path: tasks/env_configs/huskyqa_config.yaml
+  max_steps: 10
+  few_shots_num: 2
+
+medmcqa_test:
+  env_config_path: tasks/env_configs/medmcqa_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_30:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_30:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_3:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_3:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_150_build:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_150_build:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_physio_20_test:
+  env_config_path: tasks/env_configs/medmcqa_physio_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_pharma_20_test:
+  env_config_path: tasks/env_configs/medmcqa_pharma_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_anatomy_20:
+  env_config_path: tasks/env_configs/medmcqa_anatomy_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+medmcqa_surgery_20:
+  env_config_path: tasks/env_configs/medmcqa_surgery_config.yaml
+  max_steps: 10
+  few_shots_num: 1
+
+mtmind2web_train:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
+  few_shots_num: 1
+
+mtmind2web_test_task:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
+  few_shots_num: 1
+
+mtmind2web_test_website:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
+  few_shots_num: 1
+
+mtmind2web_test_subdomain:
+  env_config_path: tasks/env_configs/mtmind2web_config.yaml
+  max_steps: 4
+  few_shots_num: 1
+
+scienceworld:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_train:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_dev:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_test:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_art_studio:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_bathroom:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_greenhouse:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_hallway:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_kitchen:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_living_room:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_a_train:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_b_train:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_a_test:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+scienceworld_domain_b_test:
+  env_config_path: tasks/env_configs/scienceworld_config.yaml
+  max_steps: 50
+  few_shots_num: 1
+
+# MAS configs
+autogen:
+  autogen:  True
+
+graph:
+  graph_type: Random
+  node_num: 3
+  use_critic: False
+
+dylan:
+  node_num: 2
+  round_num: 2
+  learning_rate: 0.01
+  use_critic: False

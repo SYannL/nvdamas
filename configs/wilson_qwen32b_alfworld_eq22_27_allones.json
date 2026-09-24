@@ -1,0 +1,67 @@
+{
+  "experiment": "Qwen3-32B ALFWorld Wilson with paper equations 22, 24, 25, 26, and 27 set to one",
+  "activation_env": "NV_MEMCO_PAPER_EQ22_27_ALL_ONES=1",
+  "wilson_unchanged": {
+    "alpha": 0.05,
+    "threshold": 0.35,
+    "source_coverage": "diagnostic_only"
+  },
+  "equations": {
+    "22": {
+      "search_or_processing": {
+        "state_weight": {"original": 0.34, "experiment": 1.0},
+        "phase_weight": {"original": 0.26, "experiment": 1.0},
+        "goal_weight": {"original": 0.40, "experiment": 1.0}
+      },
+      "carry_or_finalization": {
+        "state_weight": {"original": 0.26, "experiment": 1.0},
+        "phase_weight": {"original": 0.24, "experiment": 1.0},
+        "goal_weight": {"original": 0.50, "experiment": 1.0}
+      }
+    },
+    "24": {
+      "specificity_cap": {"original": 0.35, "experiment": 1.0},
+      "instance_token_weight": {"original": 0.08, "experiment": 1.0},
+      "object_destination_indicator_weight": {"original": 0.04, "experiment": 1.0}
+    },
+    "25": {
+      "confidence_weight": {"original": 1.20, "experiment": 1.0},
+      "support_weight": {"original": 0.60, "experiment": 1.0},
+      "support_saturation": {"original": 4.0, "experiment": 1.0},
+      "coverage_weight": {"original": 0.40, "experiment": 1.0},
+      "coverage_saturation": {"original": 2.0, "experiment": 1.0},
+      "utility_weight": {"original": 0.40, "experiment": 1.0},
+      "stall_risk_penalty": {"original": 0.50, "experiment": 1.0}
+    },
+    "26": {
+      "evidence_preference_weight": {"original": 0.45, "experiment": 1.0},
+      "negative_penalty": {"original": 0.25, "experiment": 1.0},
+      "stall_risk_penalty": {"original": 0.35, "experiment": 1.0},
+      "exact_action_field_bonus": {"original": 0.20, "experiment": 1.0},
+      "exact_structured_value_bonus": {"original": 0.15, "experiment": 1.0},
+      "verb_match_bonus": {"original": 0.08, "experiment": 1.0},
+      "workflow_advisory_bonus": {"original": 0.05, "experiment": 1.0},
+      "repair_without_failure_penalty": {"original": 1.10, "experiment": 1.0},
+      "failure_without_failure_penalty": {"original": 0.65, "experiment": 1.0},
+      "premature_closure_penalty": {"original": 0.90, "experiment": 1.0}
+    },
+    "27": {
+      "confidence_weight": {"original": 0.38, "experiment": 1.0},
+      "support_weight": {"original": 0.18, "experiment": 1.0},
+      "support_saturation": {"original": 4.0, "experiment": 1.0},
+      "coverage_weight": {"original": 0.12, "experiment": 1.0},
+      "coverage_saturation": {"original": 2.0, "experiment": 1.0},
+      "specificity_penalty": {"original": 0.28, "experiment": 1.0},
+      "conflict_penalty": {"original": 0.24, "experiment": 1.0},
+      "premature_closure_penalty": {"original": 0.75, "experiment": 1.0},
+      "required_action_not_projectable_penalty": {"original": 0.20, "experiment": 1.0},
+      "implementation_action_bonus_components": {"original": "0.28/0.15/0.08/0.04/-0.14/-0.08", "experiment": "all magnitudes 1.0"}
+    }
+  },
+  "not_modified": [
+    "legacy promotion transferability weights",
+    "textloss section-routing constants",
+    "top-k",
+    "code-only constants not claimed by equations 22, 24, 25, 26, or 27"
+  ]
+}

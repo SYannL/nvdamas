@@ -1,0 +1,359 @@
+[
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "201|Bowl|CoffeeTable|None|trial_T20190907_171639_045329",
+    "trial_id": "trial_T20190907_171639_045329",
+    "scene_id": 201,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Bowl",
+    "parent_target": "None",
+    "receptacle_target": "CoffeeTable",
+    "goal_instruction": "Your task is to: put some bowl on coffeetable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171639_045329/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 1
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "201|CreditCard|ArmChair|None|trial_T20190908_124340_258012",
+    "trial_id": "trial_T20190908_124340_258012",
+    "scene_id": 201,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "CreditCard",
+    "parent_target": "None",
+    "receptacle_target": "ArmChair",
+    "goal_instruction": "Your task is to: put some creditcard on armchair.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-CreditCard-None-ArmChair-201/trial_T20190908_124340_258012/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 2
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "203|RemoteControl|Ottoman|None|trial_T20190906_182952_858723",
+    "trial_id": "trial_T20190906_182952_858723",
+    "scene_id": 203,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "RemoteControl",
+    "parent_target": "None",
+    "receptacle_target": "Ottoman",
+    "goal_instruction": "Your task is to: find two remotecontrol and put them in ottoman.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-RemoteControl-None-Ottoman-203/trial_T20190906_182952_858723/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 3
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "204|Vase|Desk|None|trial_T20190906_181531_703961",
+    "trial_id": "trial_T20190906_181531_703961",
+    "scene_id": 204,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Vase",
+    "parent_target": "None",
+    "receptacle_target": "Desk",
+    "goal_instruction": "Your task is to: put two vase in desk.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-Vase-None-Desk-204/trial_T20190906_181531_703961/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 4
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "205|Box|DeskLamp|None|trial_T20190907_074425_330493",
+    "trial_id": "trial_T20190907_074425_330493",
+    "scene_id": 205,
+    "scene_domain": "living",
+    "alfworld_task_type": "look_at_obj_in_light",
+    "object_target": "Box",
+    "parent_target": "None",
+    "receptacle_target": "DeskLamp",
+    "goal_instruction": "Your task is to: look at box under the desklamp.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/look_at_obj_in_light-Box-None-DeskLamp-205/trial_T20190907_074425_330493/game.tw-pddl"
+    },
+    "task_type": "examine",
+    "env_name": "look_at_obj",
+    "selection_rank": 5
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "205|Watch|Dresser|None|trial_T20190907_182211_592010",
+    "trial_id": "trial_T20190907_182211_592010",
+    "scene_id": 205,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Watch",
+    "parent_target": "None",
+    "receptacle_target": "Dresser",
+    "goal_instruction": "Your task is to: put two watch in dresser.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-Watch-None-Dresser-205/trial_T20190907_182211_592010/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 6
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "207|RemoteControl|Sofa|None|trial_T20190909_153609_373481",
+    "trial_id": "trial_T20190909_153609_373481",
+    "scene_id": 207,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "RemoteControl",
+    "parent_target": "None",
+    "receptacle_target": "Sofa",
+    "goal_instruction": "Your task is to: put some remotecontrol on sofa.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-RemoteControl-None-Sofa-207/trial_T20190909_153609_373481/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 7
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "207|Vase|CoffeeTable|None|trial_T20190909_091246_807206",
+    "trial_id": "trial_T20190909_091246_807206",
+    "scene_id": 207,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Vase",
+    "parent_target": "None",
+    "receptacle_target": "CoffeeTable",
+    "goal_instruction": "Your task is to: put a vase in coffeetable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Vase-None-CoffeeTable-207/trial_T20190909_091246_807206/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 8
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "213|Box|CoffeeTable|None|trial_T20190906_200927_069627",
+    "trial_id": "trial_T20190906_200927_069627",
+    "scene_id": 213,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Box",
+    "parent_target": "None",
+    "receptacle_target": "CoffeeTable",
+    "goal_instruction": "Your task is to: put two box in coffeetable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-Box-None-CoffeeTable-213/trial_T20190906_200927_069627/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 9
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "216|Statue|DeskLamp|None|trial_T20190909_193045_208933",
+    "trial_id": "trial_T20190909_193045_208933",
+    "scene_id": 216,
+    "scene_domain": "living",
+    "alfworld_task_type": "look_at_obj_in_light",
+    "object_target": "Statue",
+    "parent_target": "None",
+    "receptacle_target": "DeskLamp",
+    "goal_instruction": "Your task is to: examine the statue with the desklamp.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/look_at_obj_in_light-Statue-None-DeskLamp-216/trial_T20190909_193045_208933/game.tw-pddl"
+    },
+    "task_type": "examine",
+    "env_name": "look_at_obj",
+    "selection_rank": 10
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "222|Watch|SideTable|None|trial_T20190909_051813_197569",
+    "trial_id": "trial_T20190909_051813_197569",
+    "scene_id": 222,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Watch",
+    "parent_target": "None",
+    "receptacle_target": "SideTable",
+    "goal_instruction": "Your task is to: put some watch on sidetable.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Watch-None-SideTable-222/trial_T20190909_051813_197569/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 11
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "224|Box|Dresser|None|trial_T20190907_164104_229696",
+    "trial_id": "trial_T20190907_164104_229696",
+    "scene_id": 224,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Box",
+    "parent_target": "None",
+    "receptacle_target": "Dresser",
+    "goal_instruction": "Your task is to: put some box on dresser.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Box-None-Dresser-224/trial_T20190907_164104_229696/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 12
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "224|Newspaper|Drawer|None|trial_T20190911_101248_326533",
+    "trial_id": "trial_T20190911_101248_326533",
+    "scene_id": 224,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_two_obj_and_place",
+    "object_target": "Newspaper",
+    "parent_target": "None",
+    "receptacle_target": "Drawer",
+    "goal_instruction": "Your task is to: put two newspaper in drawer.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_two_obj_and_place-Newspaper-None-Drawer-224/trial_T20190911_101248_326533/game.tw-pddl"
+    },
+    "task_type": "puttwo",
+    "env_name": "pick_two_obj",
+    "selection_rank": 13
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "224|Newspaper|Sofa|None|trial_T20190909_111324_949106",
+    "trial_id": "trial_T20190909_111324_949106",
+    "scene_id": 224,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Newspaper",
+    "parent_target": "None",
+    "receptacle_target": "Sofa",
+    "goal_instruction": "Your task is to: put a newspaper in sofa.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Newspaper-None-Sofa-224/trial_T20190909_111324_949106/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 14
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "227|CreditCard|Drawer|None|trial_T20190909_010644_297017",
+    "trial_id": "trial_T20190909_010644_297017",
+    "scene_id": 227,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "CreditCard",
+    "parent_target": "None",
+    "receptacle_target": "Drawer",
+    "goal_instruction": "Your task is to: put some creditcard on drawer.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-CreditCard-None-Drawer-227/trial_T20190909_010644_297017/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 15
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "229|Book|Sofa|None|trial_T20190907_042856_259139",
+    "trial_id": "trial_T20190907_042856_259139",
+    "scene_id": 229,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "Book",
+    "parent_target": "None",
+    "receptacle_target": "Sofa",
+    "goal_instruction": "Your task is to: put a book in sofa.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-Book-None-Sofa-229/trial_T20190907_042856_259139/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 16
+  },
+  {
+    "subset_group": "living",
+    "source_split": "valid_seen",
+    "selection_policy": "all_games_per_scene_domain_v3",
+    "selection_key": "230|RemoteControl|ArmChair|None|trial_T20190909_021000_274398",
+    "trial_id": "trial_T20190909_021000_274398",
+    "scene_id": 230,
+    "scene_domain": "living",
+    "alfworld_task_type": "pick_and_place_simple",
+    "object_target": "RemoteControl",
+    "parent_target": "None",
+    "receptacle_target": "ArmChair",
+    "goal_instruction": "Your task is to: put some remotecontrol on armchair.",
+    "env_kwargs": {
+      "config": "alfworld",
+      "gamefile": "data/alfworld/alfworld_official_042/json_2.1.1/valid_seen/pick_and_place_simple-RemoteControl-None-ArmChair-230/trial_T20190909_021000_274398/game.tw-pddl"
+    },
+    "task_type": "put",
+    "env_name": "pick_and_place",
+    "selection_rank": 17
+  }
+]
